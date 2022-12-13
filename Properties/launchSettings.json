@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "UttrekkFamilia": {
+      "commandName": "Project",
+      "hotReloadEnabled": false
+    }
+  }
+}
