@@ -3187,7 +3187,7 @@ namespace UttrekkFamilia
                             undersoekelse.vedtakAktivitetId = AddBydel(saksJournal.SakAar.ToString() + "-" + saksJournal.SakJournalnr.ToString(), "VED");
                         }
                     }
-                    if (undersøkelse.DokUplannr.HasValue)
+                    if (undersøkelse.DokUplannr.HasValue && undersøkelse.UndFerdigdatoUplan.HasValue)
                     {
                         FaDokumenter dokument;
                         using (var context = new FamiliaDBContext(ConnectionStringFamilia))
@@ -3206,18 +3206,10 @@ namespace UttrekkFamilia
                                 saksbehandlerId = AddBydel(undersøkelse.SbhInitialer),
                                 tittel = "Undersøkelsesplan",
                                 utfortAvId = AddBydel(undersøkelse.SbhInitialer),
-                                notat = "Se dokument"
+                                notat = "Se dokument",
+                                hendelsesdato = undersøkelse.UndFerdigdatoUplan,
+                                utfortDato = undersøkelse.UndFerdigdatoUplan
                             };
-                            if (undersøkelse.ArkDokuplanDato.HasValue)
-                            {
-                                undersøkelsesplanAktivitet.hendelsesdato = undersøkelse.ArkDokuplanDato;
-                                undersøkelsesplanAktivitet.utfortDato = undersøkelse.ArkDokuplanDato;
-                            }
-                            else
-                            {
-                                undersøkelsesplanAktivitet.hendelsesdato = undersøkelse.UndFerdigdatoUplan;
-                                undersøkelsesplanAktivitet.utfortDato = undersøkelse.UndFerdigdatoUplan;
-                            }
                             DocumentToInclude documentToInclude = new()
                             {
                                 dokLoepenr = dokument.DokLoepenr,
@@ -3232,7 +3224,7 @@ namespace UttrekkFamilia
                             undersoekelse.aktivitetIdListe.Add(undersøkelsesplanAktivitet.aktivitetId);
                         }
                     }
-                    if (undersøkelse.DokLoepenr.HasValue)
+                    if (undersøkelse.DokLoepenr.HasValue && undersøkelse.UndFerdigdato.HasValue)
                     {
                         FaDokumenter dokument;
                         using (var context = new FamiliaDBContext(ConnectionStringFamilia))
@@ -3251,18 +3243,10 @@ namespace UttrekkFamilia
                                 saksbehandlerId = AddBydel(undersøkelse.SbhInitialer),
                                 tittel = "Sluttrapport undersøkelse",
                                 utfortAvId = AddBydel(undersøkelse.SbhInitialer),
-                                notat = "Se dokument"
+                                notat = "Se dokument",
+                                hendelsesdato = undersøkelse.UndFerdigdato,
+                                utfortDato = undersøkelse.UndFerdigdato
                             };
-                            if (undersøkelse.ArkDoksrapportDato.HasValue)
-                            {
-                                undersøkelsesrapportAktivitet.hendelsesdato = undersøkelse.ArkDoksrapportDato;
-                                undersøkelsesrapportAktivitet.utfortDato = undersøkelse.ArkDoksrapportDato;
-                            }
-                            else
-                            {
-                                undersøkelsesrapportAktivitet.hendelsesdato = undersøkelse.UndFerdigdato;
-                                undersøkelsesrapportAktivitet.utfortDato = undersøkelse.UndFerdigdato;
-                            }
                             DocumentToInclude documentToInclude = new()
                             {
                                 dokLoepenr = dokument.DokLoepenr,
@@ -3578,20 +3562,21 @@ namespace UttrekkFamilia
                     {
                         vedtak.behandlingIFylkesnemda = "FORENKLET";
                     }
-                    else if (saksJournal.SakBehFylkesnemnda == "FT")
+                    else if (saksJournal.SakBehFylkesnemnda == "FT" || saksJournal.SakBehFylkesnemnda == "SP")
                     {
                         vedtak.behandlingIFylkesnemda = "FULLTALLIG";
-                    }
-                    else if (saksJournal.SakBehFylkesnemnda == "SP")
-                    {
-                        //TODO Vedtak - behandlingIFylkesnemda - FA_SAKJOURNAL.SAK_BEH_FYLKESNEMNDA = "SP" opprette egen Aktivitet
                     }
                     string lovHovedParagraf = saksJournal.LovHovedParagraf?.Trim();
                     string lovJmfParagraf1 = saksJournal.LovJmfParagraf1?.Trim();
                     string lovJmfParagraf2 = saksJournal.LovJmfParagraf2?.Trim();
+                    string mynVedtakstype = saksJournal.MynVedtakstype;
 
+                    if (mynVedtakstype == "FN" && (lovHovedParagraf.StartsWith("4.6") || lovHovedParagraf.StartsWith("4.25")))
+                    {
+                        mynVedtakstype = "AV";
+                    }
                     if ((saksJournal.SakAvgjortetat == "FN" || saksJournal.SakAvgjortetat == "LR" || saksJournal.SakAvgjortetat == "TR")
-                        && (saksJournal.MynVedtakstype == "FN" || saksJournal.MynVedtakstype == "LA" || saksJournal.MynVedtakstype == "TI"))
+                        && (mynVedtakstype == "FN" || mynVedtakstype == "LA" || mynVedtakstype == "TI"))
                     {
                         if (lovHovedParagraf == "4-4,3." || lovHovedParagraf == "4-4,3.1" || lovHovedParagraf == "4-4,3.2" || lovHovedParagraf == "4-4,3.3"
                             || (lovHovedParagraf == "4-4,5." && (lovJmfParagraf1 == "4-24" || lovJmfParagraf2 == "4-24")))
@@ -3669,13 +3654,13 @@ namespace UttrekkFamilia
                     {
                         vedtak.godkjentAvSaksbehandlerId = AddBydel(saksJournal.SbhAvgjortavInitialer);
                     }
-                    vedtak.aktivitetsUndertype = GetVedtakAktivitetsUnderType(saksJournal.MynVedtakstype, lovHovedParagraf, lovJmfParagraf1, lovJmfParagraf2, saksJournal.SakStatus);
+                    vedtak.aktivitetsUndertype = GetVedtakAktivitetsUnderType(mynVedtakstype, lovHovedParagraf, lovJmfParagraf1, lovJmfParagraf2, saksJournal.SakStatus);
 
                     if (vedtak.aktivitetsUndertype != "ADMINISTRATIV_BESLUTNING" && vedtak.aktivitetsUndertype == "AVSLUTNING_AV_BARNEVERNSSAK")
                     {
                         vedtak.avslutningsårsakPresisering = saksJournal.SakMerknaderAvslag;
                     }
-                    if (saksJournal.SakAvgjortetat == "FN" || saksJournal.SakAvgjortetat == "LR" || saksJournal.SakAvgjortetat == "TR" || saksJournal.MynVedtakstype == "FN" || saksJournal.MynVedtakstype == "LA" || saksJournal.MynVedtakstype == "TI")
+                    if (saksJournal.SakAvgjortetat == "FN" || saksJournal.SakAvgjortetat == "LR" || saksJournal.SakAvgjortetat == "TR" || mynVedtakstype == "FN" || mynVedtakstype == "LA" || mynVedtakstype == "TI")
                     {
                         if (saksJournal.SakStatus == "AVS")
                         {
@@ -3683,7 +3668,7 @@ namespace UttrekkFamilia
                         }
                         else
                         {
-                            if (saksJournal.SakStatus == "GOD")
+                            if (saksJournal.SakStatus == "GOD" || saksJournal.SakStatus == "BOR")
                             {
                                 vedtak.beslutning = "KOMMUNEN_HAR_FÅTT_MEDHOLD";
                             }
@@ -3697,7 +3682,7 @@ namespace UttrekkFamilia
                     {
                         vedtak.status = "AKTIV";
                     }
-                    if (saksJournal.MynVedtakstype == "BV")
+                    if (mynVedtakstype == "BV")
                     {
                         vedtak.vedtakFraBarnevernsvakt = true;
                     }
@@ -3734,12 +3719,9 @@ namespace UttrekkFamilia
                     {
                         vedtak.avsluttetStatusDato = saksJournal.SakAvgjortdato;
                     }
-                    else
+                    else if (saksJournal.SakStatus == "BOR")
                     {
-                        if (saksJournal.SakStatus == "BOR")
-                        {
-                            vedtak.bortfaltStatusDato = saksJournal.SakBortfaltdato;
-                        }
+                        vedtak.bortfaltStatusDato = saksJournal.SakBortfaltdato;
                     }
                     vedtaksliste.Add(vedtak);
 
@@ -4271,14 +4253,16 @@ namespace UttrekkFamilia
         {
             try
             {
-                //TODO Aktiviteter - Legge inn Aktiviteten OPPDRAGSTAKER_AVTALE, SLETTET PostJournal, SLETTET Journal og OPPFØLGING (koble til Tiltak)
+                //TODO Aktiviteter - Legge inn Aktiviteten OPPDRAGSTAKER_AVTALE (koble til Tiltak) og OPPFØLGING (koble til Tiltak)
                 worker.ReportProgress(0, "Starter uttrekk aktiviteter...");
                 int antall = await GetTilsynsrapporterAsync(worker);
                 antall += await GetInterneSaksforberedelserAsync(worker);
                 antall += await GetVedtakAdministrativBeslutningerAktiviteterAsync(worker);
                 antall += await GetJournalAktiviteterAsync(worker);
+                antall += await GetSlettedeJournalAktiviteterAsync(worker);
                 antall += await GetIndividuellPlanAktiviteterAsync(worker);
-                antall += await GetDokumentAktiviteterAsync(worker);
+                antall += await GetPostjournalAktiviteterAsync(worker);
+                antall += await GetSlettedePostjournalAktiviteterAsync(worker);
                 return $"Antall aktiviteter: {antall}" + Environment.NewLine;
             }
             catch (Exception ex)
@@ -4374,7 +4358,7 @@ namespace UttrekkFamilia
             }
             return antall;
         }
-        private async Task<int> GetDokumentAktiviteterAsync(BackgroundWorker worker)
+        private async Task<int> GetPostjournalAktiviteterAsync(BackgroundWorker worker)
         {
             List<FaPostjournal> rawData;
             List<DocumentToInclude> documentsIncluded = new();
@@ -4394,7 +4378,7 @@ namespace UttrekkFamilia
 
                 if (antall % 10 == 0)
                 {
-                    worker.ReportProgress(0, $"Behandler uttrekk dokumentaktiviteter ({antall} av {totalAntall})...");
+                    worker.ReportProgress(0, $"Behandler uttrekk postjournalaktiviteter ({antall} av {totalAntall})...");
                 }
                 if (!mappings.IsOwner(postjournal.KliLoepenr.Value))
                 {
@@ -4456,7 +4440,7 @@ namespace UttrekkFamilia
                     documentsIncluded.Add(documentToInclude);
                 }
             }
-            await GetDocumentsAsync(worker, "Dokumentaktiviteter", documentsIncluded);
+            await GetDocumentsAsync(worker, "Postjournalaktiviteter", documentsIncluded);
             if (MaksAntall > 0 && antall > MaksAntall)
             {
                 int toSkip = 0;
@@ -4464,14 +4448,76 @@ namespace UttrekkFamilia
                 while (antall > toSkip)
                 {
                     List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaksAntall).ToList();
-                    await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"Dokumentaktiviteter{fileNumber}"));
+                    await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"Postjournalaktiviteter{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaksAntall;
                 }
             }
             else
             {
-                await WriteFileAsync(aktiviteter, GetJsonFileName("aktiviteter", "Dokumentaktiviteter"));
+                await WriteFileAsync(aktiviteter, GetJsonFileName("aktiviteter", "Postjournalaktiviteter"));
+            }
+            return antall;
+        }
+        private async Task<int> GetSlettedePostjournalAktiviteterAsync(BackgroundWorker worker)
+        {
+            List<FaPostjournal> rawData;
+
+            int totalAntall = 0;
+
+            using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+            {
+                rawData = await context.FaPostjournals.Include(x => x.KliLoepenrNavigation).Where(p => p.PosFerdigdato != null && p.PosSlettet == 1 && (p.KliLoepenrNavigation.KliFoedselsdato.HasValue && (p.KliLoepenrNavigation.KliFoedselsdato > lastDateNoMigration || !p.KliLoepenrNavigation.KliAvsluttetdato.HasValue))).ToListAsync();
+                totalAntall = rawData.Count;
+            }
+            List<Aktivitet> aktiviteter = new();
+            int antall = 0;
+            foreach (var postjournal in rawData)
+            {
+                antall += 1;
+
+                if (antall % 10 == 0)
+                {
+                    worker.ReportProgress(0, $"Behandler uttrekk slettede postjournalaktiviteter ({antall} av {totalAntall})...");
+                }
+                if (!mappings.IsOwner(postjournal.KliLoepenr.Value))
+                {
+                    continue;
+                }
+                Aktivitet aktivitet = new()
+                {
+                    aktivitetId = AddBydel(postjournal.PosAar.ToString() + postjournal.PosLoepenr.ToString(), "AKT"),
+                    sakId = GetSakId(postjournal.KliLoepenr.ToString()),
+                    aktivitetsType = "SLETTET",
+                    aktititetsUndertype = "SLETTET",
+                    hendelsesdato = postjournal.PosDato,
+                    status = "UTFØRT",
+                    tittel = postjournal.PosEmne,
+                    utfortDato = postjournal.PosFerdigdato,
+                    saksbehandlerId = AddBydel(postjournal.SbhInitialer),
+                    utfortAvId = AddBydel(postjournal.SbhInitialer)
+                };
+                if (!string.IsNullOrEmpty(postjournal.PosBegrSlettet))
+                {
+                    aktivitet.notat = $"Årsak: {postjournal.PosBegrSlettet}";
+                };
+                aktiviteter.Add(aktivitet);
+            }
+            if (MaksAntall > 0 && antall > MaksAntall)
+            {
+                int toSkip = 0;
+                int fileNumber = 1;
+                while (antall > toSkip)
+                {
+                    List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaksAntall).ToList();
+                    await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"SlettedePostjournalaktiviteter{fileNumber}"));
+                    fileNumber += 1;
+                    toSkip += MaksAntall;
+                }
+            }
+            else
+            {
+                await WriteFileAsync(aktiviteter, GetJsonFileName("aktiviteter", "SlettedePostjournalaktiviteter"));
             }
             return antall;
         }
@@ -4821,6 +4867,68 @@ namespace UttrekkFamilia
             else
             {
                 await WriteFileAsync(aktiviteter, GetJsonFileName("aktiviteter", "Journaler"));
+            }
+            return antall;
+        }
+        private async Task<int> GetSlettedeJournalAktiviteterAsync(BackgroundWorker worker)
+        {
+            List<FaJournal> rawData;
+
+            int totalAntall = 0;
+
+            using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+            {
+                rawData = await context.FaJournals.Include(x => x.KliLoepenrNavigation).Include(x => x.JotIdentNavigation)
+                    .Where(m => m.JouFerdigdato != null && m.KliLoepenrNavigation.KliFoedselsdato.HasValue && (m.KliLoepenrNavigation.KliFoedselsdato > lastDateNoMigration || !m.KliLoepenrNavigation.KliAvsluttetdato.HasValue)
+                    && m.JouSlettet == 1 && m.KliLoepenr.HasValue).ToListAsync();
+                totalAntall = rawData.Count;
+            }
+            List<Aktivitet> aktiviteter = new();
+            int antall = 0;
+            foreach (var journal in rawData)
+            {
+                antall += 1;
+
+                if (antall % 10 == 0)
+                {
+                    worker.ReportProgress(0, $"Behandler uttrekk slettede journaler ({antall} av {totalAntall})...");
+                }
+                if (!mappings.IsOwner(journal.KliLoepenr.Value))
+                {
+                    continue;
+                }
+                Aktivitet aktivitet = new()
+                {
+                    aktivitetId = AddBydel(journal.JouLoepenr.ToString(), "JOU"),
+                    sakId = GetSakId(journal.KliLoepenr.ToString()),
+                    aktivitetsType = "SLETTET",
+                    aktititetsUndertype = "SLETTET",
+                    status = "UTFØRT",
+                    hendelsesdato = journal.JouDatonotat,
+                    saksbehandlerId = AddBydel(journal.SbhInitialer),
+                    tittel = journal.JouEmne,
+                    utfortAvId = AddBydel(journal.SbhInitialer),
+                    utfortDato = journal.JouFerdigdato,
+                    notat = journal.JouNotat
+                };
+                aktiviteter.Add(aktivitet);
+            }
+
+            if (MaksAntall > 0 && antall > MaksAntall)
+            {
+                int toSkip = 0;
+                int fileNumber = 1;
+                while (antall > toSkip)
+                {
+                    List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaksAntall).ToList();
+                    await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"SlettedeJournaler{fileNumber}"));
+                    fileNumber += 1;
+                    toSkip += MaksAntall;
+                }
+            }
+            else
+            {
+                await WriteFileAsync(aktiviteter, GetJsonFileName("aktiviteter", "SlettedeJournaler"));
             }
             return antall;
         }
