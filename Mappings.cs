@@ -1,5 +1,4 @@
 ﻿#region Usings
-using Microsoft.VisualBasic;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using UttrekkFamilia.Modulus;
@@ -237,6 +236,38 @@ namespace UttrekkFamilia
             { "19a","Fvl._§_20" },
             { "fvl 2,1e","Fvl._§_2._bokstav_e" }
         };
+
+        private readonly NameValueCollection Årsakskoder = new() {
+            { "01","01_VANSKELIG_Å FÅ TAK_I_SAKKYNDIG_BISTAND" },
+            { "02","02_SAKKYNDIG_BRUKER_LENGRE_TID_ENN_FORVENTET" },
+            { "03","03_BEHOV_FOR_UTREDNING_FORELDRE_BARN" },
+            { "04","04_BEHOV_FOR_SAKKYNDIG" },
+            { "05","05_BEHOV_FOR_JURIDISK_BISTAND_I_BARNEVERNSTJENESTEN" },
+            { "06","06_BEHOV_FOR_JURIDISK_BISTAND_TIL_PARTENE_(FORELDRE_BARN)" },
+            { "07","07_SAK_TIL_FYLKESNEMNDA" },
+            { "08","08_KOMPLISERT_SAMMENSATT_SAK" },
+            { "09","09_MISTANKE_OM_SEKSUELLE_OVERGREP" },
+            { "10","10_FLERKULTURELL_PROBLEMATIKK" },
+            { "11","11_MANGLENDE_KAPASITET_I_TOLKETJENESTEN" },
+            { "12","12_ULIKE_PROBLEMER_VEDR_TVERRETATLIG_SAMARBEID" },
+            { "13","13_MANGLENDE_KAPASITET_FERIE_SYKDOM_HOS_TVERRFAGLIG_SAMARBEIDSPARTNER" },
+            { "14","14_FORELDRE_BARN_UNNDRAR_SEG_KONTAKT_MED_BARNEVERNSTJENESTEN" },
+            { "15","15_VANSKELIG_Å FÅ TAK_I_FAMILIE_BARN" },
+            { "16","16_TOK_TID_Å ETABLERE_SAMARBEID_SKAPE_TILLIT" },
+            { "17","17_FORELDRE_BARN_PÅ FERIE" },
+            { "18","18_SYKDOM_FAMILIE_BARN" },
+            { "19","19_TOK_TID_Å OPPNÅ SAMTYKKE_TIL_HJELPETILTAK" },
+            { "20","20_MANGLENDE_KAPASITET_I_BARNEVERNSTJENESTEN" },
+            { "21","21_VAKANTE_STILLINGER_I_BARNEVERNSTJENESTEN" },
+            { "22","22_SYKDOM_I_BARNEVERNSTJENESTEN" },
+            { "23","23_FERIEAVVIKLING_I_BARNEVERNSTJENESTEN" },
+            { "24","24_NYANSATTE_OPPLÆRING" },
+            { "25","25_REDUKSJON_I_STILLINGSHJEMLER" },
+            { "26","26_PROBLEMER_VEDRØRENDE_OVERFØRING_AV_SAK" },
+            { "27","27_LØPENDE_HELLIDAGER_(JUL_PÅSKE_ETC)" },
+            { "30","30_ANNET_(BRUK_GJERNE_STIKKORD)" }
+        };
+
         private readonly NameValueCollection BydelConnectionStrings = new() {
             { "BAL", "Server=*;Database=BAL_BV12P;Trusted_Connection=True;Encrypt=False;" },
             { "BBJ", "Server=*;Database=BBJ_BV09P;Trusted_Connection=True;Encrypt=False;" },
@@ -375,6 +406,32 @@ namespace UttrekkFamilia
             { "11987", "POLITI_LENSMANN" }
         };
 
+        private readonly NameValueCollection BVVJournalCategories = new() {
+            { "6048", "HJEMMEBESØK" },
+            { "6049", "TELEFONSAMTALE" },
+            { "6050", "SMS_MELDING" },
+            { "6051", "NOTAT" },
+            { "6052", "SAMTALE" },
+            { "6053", "SAMARBEIDSMØTE" },
+            { "6054", "KONTROLLBESØK" },
+            { "6575", "SAVNETSKJEMA" },
+            { "6661", "MØTE_PÅ_KONTORET" },
+            { "7189", "EPOST" },
+            { "8367", "SØK" }
+        };
+
+        private readonly NameValueCollection BVVCorrespondenceCategories = new() {
+            { "5842", "ANNEN_DOKUMENTASJON" },
+            { "6055", "EPOST" },
+            { "6056", "BEKYMRINGSMELDING" },
+            { "6057", "KONTROLLBESØK" },
+            { "6058", "KONTROLLBESØK" },
+            { "6059", "INFORMASJON_TIL_BARNEVERNTJENESTEN" },
+            { "6060", "VEDTAK_AKUTT" }
+        };
+
+        private readonly NameValueCollection BVVUsernameCache = new();
+
         private List<Sokrates> SokratesList;
         private readonly NameValueCollection Bydelskontorer = new() { { "13", "BAL" }, { "30", "BAL" }, { "82", "BAL" }, { "83", "BAL" }, { "84", "BAL" }, { "19", "BBJ" }, { "1", "BFR" }, { "6", "BGA" }, { "12", "BGA" }, { "3", "BGO" }, { "10", "BGR" }, { "9", "BNA" }, { "15", "BNS" }, { "28", "BNS" }, { "33", "BOS" }, { "31", "BSA" }, { "5", "BSH" }, { "85", "BSH" }, { "27", "BSN" }, { "106", "BSN" }, { "16", "BSR" }, { "29", "BSR" }, { "107", "BSR" }, { "23", "BUN" }, { "8", "BVA" }, { "2", "BGO" }, { "4", "BSH" }, { "7", "BFR" }, { "11", "BBJ" }, { "14", "BOS" }, { "17", "BGR" }, { "18", "BOS" }, { "20", "BAL" }, { "21", "BGA" }, { "22", "BVA" }, { "24", "BNS" }, { "25", "BSN" }, { "26", "BNS" }, { "32", "BNA" }, { "105", "BGA" } };
         #endregion
@@ -438,6 +495,13 @@ namespace UttrekkFamilia
         public string GetHovedsaksbehandlerBydel(string bydel)
         {
             return BydelHovedsaksbehandlere[bydel];
+        }
+        #endregion
+
+        #region Årsakskoder
+        public string GetÅrsakskodeUtvidelseFrist(string kode)
+        {
+            return Årsakskoder[kode];
         }
         #endregion
 
@@ -617,6 +681,26 @@ namespace UttrekkFamilia
                 return BVVMeldere[reporterTypeRegistryId.ToString()];
             }
             return melder;
+        }
+        public string GetBVVJournalCategory(int journalCategoryRegistryId)
+        {
+            return BVVJournalCategories[journalCategoryRegistryId.ToString()];
+        }
+        public string GetBVVCorrespondenceCategory(int correspondenceCategoryRegistryId)
+        {
+            return BVVCorrespondenceCategories[correspondenceCategoryRegistryId.ToString()];
+        }
+        public void ClearBVVUsernameCache()
+        {
+            BVVUsernameCache.Clear();
+        }
+        public void AddBVVUsernameCache(int employeeId, string userName)
+        {
+            BVVUsernameCache.Add(employeeId.ToString(), userName);
+        }
+        public string GetBVVUsername(int employeeId)
+        {
+            return BVVUsernameCache[employeeId.ToString()];
         }
         #endregion
     }

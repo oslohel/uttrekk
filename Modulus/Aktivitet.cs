@@ -8,7 +8,7 @@ namespace UttrekkFamilia.Modulus
         public Aktivitet()
         {
             parter = new List<string>();
-            årsakskoderUtvidelseAvFristUundersokelse = new List<string>();
+            årsakskoderUtvidelseAvFristUndersokelse = new List<string>();
         }
 
         public string aktivitetId { get; set; }
@@ -30,7 +30,7 @@ namespace UttrekkFamilia.Modulus
         public bool? fristLovpaalagt { get; set; }
         public string fristTitel { get; set; }
         public string fristBeskrivelse { get; set; }
-        public List<string> årsakskoderUtvidelseAvFristUundersokelse { get; set; }
+        public List<string> årsakskoderUtvidelseAvFristUndersokelse { get; set; }
         public string presiseringAvÅrsaksUtvidelseAvFristUndersokelse { get; set; }
         public string tilbudOmEttervern { get; set; }
         public string kravFraPrivatPartVedtakId { get; set; }

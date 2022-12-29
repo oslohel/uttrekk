@@ -1,7 +1,6 @@
 ﻿#region Usings
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.VisualBasic;
 using Oracle.ManagedDataAccess.Client;
 using Oracle.ManagedDataAccess.Types;
 using System;
@@ -27,6 +26,7 @@ namespace UttrekkFamilia
     {
         #region Members
         private readonly DateTime lastDateNoMigration = new(1997, 12, 31);
+        private readonly DateTime firstContractDateMigration = new(2023, 1, 1);
         private string ConnectionStringFamilia = "";
         private readonly string ConnectionStringSokrates = "";
         private readonly string ConnectionStringVFB = "";
@@ -450,6 +450,68 @@ namespace UttrekkFamilia
                 throw;
             }
         }
+        public async Task GetOneFileFamiliaAsync(BackgroundWorker worker, decimal dokLoepenr)
+        {
+            try
+            {
+                CreateFolderIfNotExist("filer");
+
+                FaDokumenter dokument;
+                using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                {
+                    dokument = await context.FaDokumenters.Where(p => p.DokLoepenr == dokLoepenr).FirstOrDefaultAsync();
+                    if (dokument == null)
+                    {
+                        MessageBox.Show($"Dokumentet med løpenr {dokLoepenr} ble ikke funnet i {Bydelsforkortelse}", "Dokument ikke funnet", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+                }
+                SqlConnection connection = new(ConnectionStringFamilia);
+                SqlDataReader reader = null;
+                try
+                {
+                    connection.Open();
+                    string fileExtension = ".doc";
+                    string dokMimetype = dokument.DokMimetype?.Trim();
+                    if (!string.IsNullOrEmpty(dokMimetype))
+                    {
+                        dokMimetype = dokMimetype.ToLower();
+                        if (dokMimetype == "application/pdf")
+                        {
+                            fileExtension = ".pdf";
+                        }
+                        else
+                        {
+                            if (dokMimetype == "text/html")
+                            {
+                                fileExtension = ".html";
+                            }
+                        }
+                    }
+                    SqlCommand command = new($"Select Dok_Dokument From FA_DOKUMENTER Where DOK_Loepenr={dokLoepenr}", connection)
+                    {
+                        CommandTimeout = 300
+                    };
+                    reader = command.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        await File.WriteAllBytesAsync(OutputFolderName + "filer\\" + dokLoepenr.ToString() + fileExtension, (byte[])reader["Dok_Dokument"]);
+                    }
+                    reader.Close();
+                    worker.ReportProgress(0, $"Hentet filen {dokLoepenr.ToString() + fileExtension}");
+                }
+                finally
+                {
+                    connection.Close();
+                }
+            }
+            catch (Exception ex)
+            {
+                string message = $"Exception ({ex.Source}): {ex.Message} Stack trace: {ex.StackTrace}";
+                MessageBox.Show(message, "Migrering uttrekk - exception", MessageBoxButton.OK, MessageBoxImage.Error);
+                throw;
+            }
+        }
         #endregion
 
         #region Information Visma Flyt Barnevernvakt
@@ -801,7 +863,10 @@ namespace UttrekkFamilia
             {
                 int antall = 0;
                 List<CaseCase> rawData;
+                List<Aktivitet> aktiviteter = new();
                 int totalAntall = 0;
+
+                await FillBVVUserNameCacheAsync();
 
                 using (var context = new BVVDBContext(ConnectionStringVFB))
                 {
@@ -820,6 +885,7 @@ namespace UttrekkFamilia
                     Sak sak = new()
                     {
                         sakId = AddBydel(caseCase.Number, "SAK"),
+                        aktorId = GetActorId(await GetBVVPersonFromClientAsync(caseCase.ClientId)),
                         avdelingId = "BVV01",
                         startDato = caseCase.CreatedDate,
                         sluttDato = caseCase.StatusClosedDate,
@@ -828,7 +894,6 @@ namespace UttrekkFamilia
                         saksnavn = caseCase.Title,
                         sakstype = "BARNEVERNSVAKT"
                     };
-                    sak.aktorId = GetActorId(await GetBVVPersonFromClientAsync(caseCase.ClientId));
                     if (caseCase.OwnedBy.HasValue)
                     {
                         sak.saksbehandlerId = AddBydel(caseCase.OwnedBy.ToString());
@@ -855,7 +920,6 @@ namespace UttrekkFamilia
                             sak.sekunderSaksbehandlerId.Add(AddBydel(caseWorker.CaseworkerId.ToString()));
                         }
                     }
-
                     if (string.IsNullOrEmpty(sak.saksbehandlerId))
                     {
                         sak.saksbehandlerId = AddBydel(mappings.GetHovedsaksbehandlerBydel(Bydelsforkortelse));
@@ -868,8 +932,37 @@ namespace UttrekkFamilia
                     {
                         sak.status = "LUKKET";
                     }
+                    Aktivitet aktivitet = new()
+                    {
+                        aktivitetId = AddBydel(sak.sakId, "LOG"),
+                        sakId = sak.sakId,
+                        aktivitetsType = "BARNEVERNSVAKT",
+                        aktititetsUndertype = "ANNEN_DOKUMENTASJON",
+                        status = "UTFØRT",
+                        hendelsesdato = DateTime.Now,
+                        saksbehandlerId = AddBydel(BVVLeder),
+                        tittel = "Logg",
+                        utfortAvId = AddBydel(BVVLeder),
+                        utfortDato = DateTime.Now,
+                        notat = "Se dokument"
+                    };
+                    List<HtmlDocumentToInclude> htmlDocumentsIncluded = new();
+                    HtmlDocumentToInclude htmlDocumentToInclude = new()
+                    {
+                        dokLoepenr = aktivitet.sakId + "LOGG",
+                        sakId = aktivitet.sakId,
+                        tittel = aktivitet.tittel,
+                        journalDato = aktivitet.utfortDato,
+                        opprettetAvId = aktivitet.utfortAvId,
+                        innhold = await GetBVVLoggAsync(caseCase.CaseCaseId)
+                    };
+                    htmlDocumentToInclude.aktivitetIdListe.Add(aktivitet.aktivitetId);
+                    htmlDocumentsIncluded.Add(htmlDocumentToInclude);
+                    await GetHtmlDocumentsAsync(worker, htmlDocumentsIncluded, $"Logg{Guid.NewGuid().ToString().Replace('-', '_')}", "Log", false);
+                    aktiviteter.Add(aktivitet);
                     saker.Add(sak);
                 }
+                await WriteFileAsync(aktiviteter, GetJsonFileName("aktiviteter", "BVVLogger"));
                 if (MaksAntall > 0 && antall > MaksAntall)
                 {
                     int toSkip = 0;
@@ -893,6 +986,103 @@ namespace UttrekkFamilia
                 string message = $"Exception ({ex.Source}): {ex.Message} Stack trace: {ex.StackTrace}";
                 MessageBox.Show(message, "Migrering uttrekk - exception", MessageBoxButton.OK, MessageBoxImage.Error);
                 throw;
+            }
+        }
+        private async Task<string> GetBVVLoggAsync(int caseCaseId)
+        {
+            StringBuilder logg = new();
+
+            using (var context = new BVVDBContext(ConnectionStringVFB))
+            {
+                List<ActivitylogActivitylog> activitylogs = await context.ActivitylogActivitylogs.Where(k => k.CaseId == caseCaseId).OrderByDescending(o => o.CreatedDate).Take(2000).ToListAsync();
+                foreach (var activitylog in activitylogs)
+                {
+                    logg.Append($"<p><b>Dato:&nbsp;</b>{activitylog.CreatedDate.ToLocalTime().ToString("g")}<b>&nbsp;Av:&nbsp;</b>{mappings.GetBVVUsername(activitylog.CreatedBy)}");
+                    logg.Append($"<b>&nbsp;({GetBVVOperation(activitylog.OperationType)})</b>");
+                    if (!string.IsNullOrEmpty(activitylog.OperationDetails))
+                    {
+                        logg.Append($"<b>&nbsp;Detaljer:&nbsp;</b>{activitylog.OperationDetails}");
+                    }
+                    if (!string.IsNullOrEmpty(activitylog.EntityName) && activitylog.EntityName != "-")
+                    {
+                        logg.Append($"<b>&nbsp;Entitet:&nbsp;</b>{activitylog.EntityName}");
+                    }
+                    if (!string.IsNullOrEmpty(activitylog.OldValueJson) && activitylog.OldValueJson != "null")
+                    {
+                        logg.Append($"<b>&nbsp;Før:&nbsp;</b>{activitylog.OldValueJson}");
+                    }
+                    if (!string.IsNullOrEmpty(activitylog.NewValueJson) && activitylog.NewValueJson != "null")
+                    {
+                        logg.Append($"<b>&nbsp;Etter:&nbsp;</b>{activitylog.NewValueJson}");
+                    }
+                    logg.Append("</p>");
+                }
+            }
+            return logg.ToString();
+        }
+        private static string GetBVVOperation(int operationType)
+        {
+            string operation = "";
+            switch (operationType)
+            {
+                case 0:
+                    operation = "Lest";
+                    break;
+                case 1:
+                    operation = "Opprettet";
+                    break;
+                case 2:
+                    operation = "Oppdatert";
+                    break;
+                case 3:
+                    operation = "Slettet";
+                    break;
+                case 8:
+                    operation = "Flyttet";
+                    break;
+                case 9:
+                    operation = "Vedlegg";
+                    break;
+                case 11:
+                    operation = "Nedlasting";
+                    break;
+                case 12:
+                    operation = "Utskrift";
+                    break;
+            }
+            return operation;
+        }
+        private async Task FillBVVUserNameCacheAsync()
+        {
+            string userName = "";
+            mappings.ClearBVVUsernameCache();
+            using (var context = new BVVDBContext(ConnectionStringVFB))
+            {
+                List<EmployeeEmployee> users = await context.EmployeeEmployees.ToListAsync();
+                foreach (var user in users)
+                {
+                    if (!string.IsNullOrEmpty(user.FirstName))
+                    {
+                        userName = user.FirstName?.Trim();
+                    }
+                    if (!string.IsNullOrEmpty(user.MiddleName))
+                    {
+                        if (!string.IsNullOrEmpty(userName))
+                        {
+                            userName += " ";
+                        }
+                        userName += user.MiddleName?.Trim();
+                    }
+                    if (!string.IsNullOrEmpty(user.LastName))
+                    {
+                        if (!string.IsNullOrEmpty(userName))
+                        {
+                            userName += " ";
+                        }
+                        userName += user.LastName?.Trim();
+                    }
+                    mappings.AddBVVUsernameCache(user.EmployeeEmployeeId, userName);
+                }
             }
         }
         private async Task<PersonPerson> GetBVVPersonFromClientAsync(int? clientId)
@@ -1508,6 +1698,7 @@ namespace UttrekkFamilia
             foreach (var enquiryDocument in rawEnquiryDocuments)
             {
                 antall += 1;
+                int? caseId = null;
 
                 if (antall % 10 == 0)
                 {
@@ -1516,17 +1707,39 @@ namespace UttrekkFamilia
                 EnquiryEnquiry henvendelse;
                 using (var context = new BVVDBContext(ConnectionStringVFB))
                 {
-                    henvendelse = await context.EnquiryEnquiries.Where(e => e.EnquiryEnquiryId == enquiryDocument.EnquiryId && e.CaseId.HasValue).FirstOrDefaultAsync();
-                    if (henvendelse is null)
+                    henvendelse = await context.EnquiryEnquiries.Where(e => e.EnquiryEnquiryId == enquiryDocument.EnquiryId).FirstOrDefaultAsync();
+                    if (!henvendelse.CaseId.HasValue)
                     {
-                        continue;
+                        if (!henvendelse.ClientId.HasValue)
+                        {
+                            continue;
+                        }
+                        int numberOfCases = await context.CaseCases.Where(e => e.ClientId == henvendelse.ClientId && e.Type == 1).CountAsync();
+                        if (numberOfCases != 1)
+                        {
+                            continue;
+                        }
+                        else
+                        {
+                            CaseCase singleCase = await context.CaseCases.Where(e => e.ClientId == henvendelse.ClientId && e.Type == 1).FirstOrDefaultAsync();
+                            caseId = singleCase.CaseCaseId;
+                        }
+                    }
+                    else
+                    {
+                        int numberOfCases = await context.CaseCases.Where(e => e.CaseCaseId == henvendelse.CaseId && e.Type == 1).CountAsync();
+                        if (numberOfCases != 1)
+                        {
+                            continue;
+                        }
+                        caseId = henvendelse.CaseId;
                     }
                 }
                 Aktivitet aktivitet = new()
                 {
                     aktivitetId = AddBydel(enquiryDocument.EnquiryDocumentId.ToString(), "HEN"),
-                    aktivitetsType = "ØVRIG_DOKUMENT",
-                    aktititetsUndertype = "NOTAT",
+                    aktivitetsType = "BARNEVERNSVAKT",
+                    aktititetsUndertype = "ANNEN_DOKUMENTASJON",
                     status = "UTFØRT",
                     hendelsesdato = henvendelse.ReportedDate,
                     saksbehandlerId = AddBydel(henvendelse.CreatedBy.ToString()),
@@ -1537,7 +1750,7 @@ namespace UttrekkFamilia
                 };
                 using (var context = new BVVDBContext(ConnectionStringVFB))
                 {
-                    CaseCase rawCase = await context.CaseCases.Where(e => e.CaseCaseId == henvendelse.CaseId).FirstOrDefaultAsync();
+                    CaseCase rawCase = await context.CaseCases.Where(e => e.CaseCaseId == caseId).FirstOrDefaultAsync();
                     aktivitet.sakId = AddBydel(rawCase.Number, "SAK");
                 }
                 if (enquiryDocument.FileDataBlob != null)
@@ -1618,6 +1831,7 @@ namespace UttrekkFamilia
             foreach (var journalDocument in rawJournalDocuments)
             {
                 antall += 1;
+                int? caseId = null;
 
                 if (antall % 10 == 0)
                 {
@@ -1626,17 +1840,39 @@ namespace UttrekkFamilia
                 JournalJournal journal;
                 using (var context = new BVVDBContext(ConnectionStringVFB))
                 {
-                    journal = await context.JournalJournals.Where(e => e.JournalJournalId == journalDocument.JournalId && e.CaseId.HasValue).FirstOrDefaultAsync();
-                    if (journal is null)
+                    journal = await context.JournalJournals.Where(e => e.JournalJournalId == journalDocument.JournalId).FirstOrDefaultAsync();
+                    if (!journal.CaseId.HasValue)
                     {
-                        continue;
+                        if (!journal.ClientId.HasValue)
+                        {
+                            continue;
+                        }
+                        int numberOfCases = await context.CaseCases.Where(e => e.ClientId == journal.ClientId && e.Type == 1).CountAsync();
+                        if (numberOfCases != 1)
+                        {
+                            continue;
+                        }
+                        else
+                        {
+                            CaseCase singleCase = await context.CaseCases.Where(e => e.ClientId == journal.ClientId && e.Type == 1).FirstOrDefaultAsync();
+                            caseId = singleCase.CaseCaseId;
+                        }
+                    }
+                    else
+                    {
+                        int numberOfCases = await context.CaseCases.Where(e => e.CaseCaseId == journal.CaseId && e.Type == 1).CountAsync();
+                        if (numberOfCases != 1)
+                        {
+                            continue;
+                        }
+                        caseId = journal.CaseId;
                     }
                 }
                 Aktivitet aktivitet = new()
                 {
                     aktivitetId = AddBydel(journalDocument.JournalDocumentId.ToString(), "JOU"),
-                    aktivitetsType = "ØVRIG_DOKUMENT",
-                    aktititetsUndertype = "NOTAT",
+                    aktivitetsType = "BARNEVERNSVAKT",
+                    aktititetsUndertype = mappings.GetBVVJournalCategory(journal.JournalCategoryRegistryId),
                     status = "UTFØRT",
                     hendelsesdato = journal.CreatedDate,
                     saksbehandlerId = AddBydel(journal.OwnedBy.ToString()),
@@ -1647,7 +1883,7 @@ namespace UttrekkFamilia
                 };
                 using (var context = new BVVDBContext(ConnectionStringVFB))
                 {
-                    CaseCase rawCase = await context.CaseCases.Where(e => e.CaseCaseId == journal.CaseId).FirstOrDefaultAsync();
+                    CaseCase rawCase = await context.CaseCases.Where(e => e.CaseCaseId == caseId).FirstOrDefaultAsync();
                     aktivitet.sakId = AddBydel(rawCase.Number, "SAK");
                 }
                 if (journalDocument.FileDataBlob != null)
@@ -1728,6 +1964,7 @@ namespace UttrekkFamilia
             foreach (var correspondenceDocument in rawCorrespondenceDocuments)
             {
                 antall += 1;
+                int? caseId = null;
 
                 if (antall % 10 == 0)
                 {
@@ -1736,16 +1973,39 @@ namespace UttrekkFamilia
                 CorrespondenceCorrespondence correspondence;
                 using (var context = new BVVDBContext(ConnectionStringVFB))
                 {
-                    correspondence = await context.CorrespondenceCorrespondences.Where(e => e.CorrespondenceCorrespondenceId == correspondenceDocument.CorrespondenceId && e.CaseId.HasValue).FirstOrDefaultAsync();
-                    if (correspondence is null)
+                    correspondence = await context.CorrespondenceCorrespondences.Where(e => e.CorrespondenceCorrespondenceId == correspondenceDocument.CorrespondenceId).FirstOrDefaultAsync();
+                    if (!correspondence.CaseId.HasValue)
                     {
-                        continue;
+                        if (!correspondence.ClientId.HasValue)
+                        {
+                            continue;
+                        }
+                        int numberOfCases = await context.CaseCases.Where(e => e.ClientId == correspondence.ClientId && e.Type == 1).CountAsync();
+                        if (numberOfCases != 1)
+                        {
+                            continue;
+                        }
+                        else
+                        {
+                            CaseCase singleCase = await context.CaseCases.Where(e => e.ClientId == correspondence.ClientId && e.Type == 1).FirstOrDefaultAsync();
+                            caseId = singleCase.CaseCaseId;
+                        }
+                    }
+                    else
+                    {
+                        int numberOfCases = await context.CaseCases.Where(e => e.CaseCaseId == correspondence.CaseId && e.Type == 1).CountAsync();
+                        if (numberOfCases != 1)
+                        {
+                            continue;
+                        }
+                        caseId = correspondence.CaseId;
                     }
                 }
                 Aktivitet aktivitet = new()
                 {
                     aktivitetId = AddBydel(correspondenceDocument.CorrespondenceDocumentId.ToString(), "POS"),
-                    aktivitetsType = "ØVRIG_DOKUMENT",
+                    aktivitetsType = "BARNEVERNSVAKT",
+                    aktititetsUndertype = mappings.GetBVVCorrespondenceCategory(correspondence.CorrespondenceCategoryRegistryId),
                     status = "UTFØRT",
                     hendelsesdato = correspondence.CorrespondenceDate,
                     saksbehandlerId = AddBydel(correspondence.OwnedBy.ToString()),
@@ -1754,18 +2014,9 @@ namespace UttrekkFamilia
                     utfortDato = correspondence.FinishedDate,
                     notat = "Se dokument"
                 };
-                if (correspondence.Direction == 1)
-                {
-                    aktivitet.aktititetsUndertype = "UT";
-                }
-                else
-                {
-                    aktivitet.aktititetsUndertype = "INN";
-                }
-
                 using (var context = new BVVDBContext(ConnectionStringVFB))
                 {
-                    CaseCase rawCase = await context.CaseCases.Where(e => e.CaseCaseId == correspondence.CaseId).FirstOrDefaultAsync();
+                    CaseCase rawCase = await context.CaseCases.Where(e => e.CaseCaseId == caseId).FirstOrDefaultAsync();
                     aktivitet.sakId = AddBydel(rawCase.Number, "SAK");
                 }
                 if (correspondenceDocument.FileDataBlob != null)
@@ -1955,7 +2206,8 @@ namespace UttrekkFamilia
                         startDato = klient.KliRegistrertdato,
                         sluttDato = klient.KliAvsluttetdato,
                         merknad = klient.KliMerknader?.Trim(),
-                        arbeidsbelastning = "LAV"
+                        arbeidsbelastning = "LAV",
+                        sakstype = "BARNEVERNSSAK"
                     };
                     string fodselsnummer = GetDEMValue(klient.KliLoepenr, klient.KliFoedselsdato.Value.ToString("ddMMyy") + klient.KliPersonnr);
                     sak.aktorId = GetActorId(klient, fodselsnummer);
@@ -1991,11 +2243,10 @@ namespace UttrekkFamilia
                     {
                         sak.status = "LUKKET";
                     }
-                    sak.sakstype = "BARNEVERNSSAK";
                     saker.Add(sak);
                     if (mappings.HarTidligereBydeler(klient.KliLoepenr))
                     {
-                        await GetDataTidligereBydelerAsync(klient.KliFoedselsdato.Value, klient.KliPersonnr.Value, sak.tidligereAvdelingListe);
+                        await GetDataTidligereBydelerAsync(worker, klient.KliFoedselsdato.Value, klient.KliPersonnr.Value, sak.tidligereAvdelingListe);
                     }
                 }
                 if (MaksAntall > 0 && antall > MaksAntall)
@@ -2167,7 +2418,7 @@ namespace UttrekkFamilia
                     saker.Add(sak);
                     if (mappings.HarTidligereBydeler(klient.KliLoepenr))
                     {
-                        await GetDataTidligereBydelerAsync(klient.KliFoedselsdato.Value, klient.KliPersonnr.Value, sak.tidligereAvdelingListe);
+                        await GetDataTidligereBydelerAsync(worker, klient.KliFoedselsdato.Value, klient.KliPersonnr.Value, sak.tidligereAvdelingListe);
                     }
                 }
                 if (MaksAntall > 0 && antall > MaksAntall)
@@ -2216,7 +2467,17 @@ namespace UttrekkFamilia
                     antall += 1;
                     if (antall % 10 == 0)
                     {
-                        worker.ReportProgress(0, $"Behandler uttrekk oppdragssaker ({antall} av {totalAntall})...");
+                        worker.ReportProgress(0, $"Behandler uttrekk oppdragstakersaker ({antall} av {totalAntall})...");
+                    }
+                    int numberOfActiveContracts = 0;
+                    using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                    {
+                        numberOfActiveContracts = await context.FaEngasjementsavtales.Where(e => e.EngAvgjortdato.HasValue && e.EngStatus != "BOR" && e.EngStatus != "BEH" && e.EngStatus != "KLR"
+                            && (e.EngTildato >= firstContractDateMigration || e.EngStoppetdato >= firstContractDateMigration)).CountAsync();
+                    }
+                    if (numberOfActiveContracts == 0)
+                    {
+                        continue;
                     }
                     Sak sak = new()
                     {
@@ -2245,14 +2506,14 @@ namespace UttrekkFamilia
                     while (antall > toSkip)
                     {
                         List<Sak> sakerPart = saker.Skip(toSkip).Take(MaksAntall).ToList();
-                        await WriteFileAsync(sakerPart, GetJsonFileName("saker", $"Oppdragssaker{fileNumber}"));
+                        await WriteFileAsync(sakerPart, GetJsonFileName("saker", $"Oppdragstakersaker{fileNumber}"));
                         fileNumber += 1;
                         toSkip += MaksAntall;
                     }
                 }
                 else
                 {
-                    await WriteFileAsync(saker, GetJsonFileName("saker", "Oppdragssaker"));
+                    await WriteFileAsync(saker, GetJsonFileName("saker", "Oppdragstakersaker"));
                 }
                 return antall;
             }
@@ -2935,7 +3196,9 @@ namespace UttrekkFamilia
                 }
 
                 List<Melding> meldinger = new();
-                await UttrekkMeldingerAsync(false, rawData, meldinger, worker, totalAntall, "meldinger");
+                List<DocumentToInclude> documentsIncluded = new();
+                await UttrekkMeldingerAsync(false, rawData, meldinger, documentsIncluded, worker, totalAntall, "meldinger");
+                await GetDocumentsAsync(worker, "Meldinger", documentsIncluded);
                 if (MaksAntall > 0 && rawData.Count > MaksAntall)
                 {
                     int toSkip = 0;
@@ -2959,7 +3222,7 @@ namespace UttrekkFamilia
                 throw;
             }
         }
-        private async Task UttrekkMeldingerAsync(bool utenSak, List<FaMeldinger> rawData, List<Melding> meldinger, BackgroundWorker worker, int totalAntall, string title)
+        private async Task UttrekkMeldingerAsync(bool utenSak, List<FaMeldinger> rawData, List<Melding> meldinger, List<DocumentToInclude> documentsIncluded, BackgroundWorker worker, int totalAntall, string title)
         {
             int antall = 0;
 
@@ -2991,6 +3254,96 @@ namespace UttrekkFamilia
                     melding.mottattBekymringsmelding = GetMottattBekymringsmelding(meldingFamilia, Bydelsforkortelse);
                     melding.behandlingAvBekymringsmelding = GetBehandlingAvBekymringsmelding(meldingFamilia, Bydelsforkortelse);
                     melding.tilbakemeldingTilMelder = await GetTilbakemeldingTilMelderAsync(meldingFamilia, Bydelsforkortelse);
+
+                    if (meldingFamilia.PosMottattbrevAar.HasValue && meldingFamilia.PosMottattbrevLoepenr.HasValue)
+                    {
+                        FaPostjournal postJournal = null;
+                        FaDokumenter dokument = null;
+                        using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                        {
+                            postJournal = await context.FaPostjournals.Where(p => p.PosSlettet != 1 && p.PosUnndrattinnsynIs == 0 && p.PosAar == meldingFamilia.PosMottattbrevAar.Value && p.PosLoepenr == meldingFamilia.PosMottattbrevLoepenr.Value && p.PosFerdigdato.HasValue).FirstOrDefaultAsync();
+                            if (postJournal != null)
+                            {
+                                dokument = await context.FaDokumenters.Where(d => d.DokProdusert == 1 && d.DokDokument != null && d.DokLoepenr == postJournal.DokLoepenr.Value).FirstOrDefaultAsync();
+                            }
+                        }
+                        if (dokument != null)
+                        {
+                            DocumentToInclude documentToInclude = new()
+                            {
+                                dokLoepenr = dokument.DokLoepenr,
+                                sakId = melding.sakId,
+                                tittel = "Meldingsdokument",
+                                journalDato = melding.mottattBekymringsmelding.mottattDato,
+                                opprettetAvId = melding.mottattBekymringsmelding.utfortAvId
+                            };
+                            if (postJournal.PosUnndrattinnsyn == 1)
+                            {
+                                documentToInclude.merknadInnsyn = "Undratt innsyn";
+                            }
+                            else if (postJournal.PosVurderUnndratt == 1)
+                            {
+                                documentToInclude.merknadInnsyn = "Familia: Vurder unndratt";
+                            }
+                            documentToInclude.aktivitetIdListe.Add(melding.meldingId);
+                            documentsIncluded.Add(documentToInclude);
+                        }
+                    }
+                    if (meldingFamilia.DokLoepenr.HasValue)
+                    {
+                        FaDokumenter dokument;
+                        using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                        {
+                            dokument = await context.FaDokumenters.Where(d => d.DokProdusert == 1 && d.DokDokument != null && d.DokLoepenr == meldingFamilia.DokLoepenr.Value).FirstOrDefaultAsync();
+                        }
+                        if (dokument != null)
+                        {
+                            DocumentToInclude documentToInclude = new()
+                            {
+                                dokLoepenr = dokument.DokLoepenr,
+                                sakId = melding.sakId,
+                                tittel = "Meldingsgjennomgang",
+                                journalDato = melding.behandlingAvBekymringsmelding.konklusjonsdato,
+                                opprettetAvId = melding.behandlingAvBekymringsmelding.utfortAvId
+                            };
+                            documentToInclude.aktivitetIdListe.Add(melding.behandlingAvBekymringsmelding.behandlingId);
+                            documentsIncluded.Add(documentToInclude);
+                        }
+                    }
+                    if (meldingFamilia.PosSendtkonklAar.HasValue && meldingFamilia.PosSendtkonklLoepenr.HasValue)
+                    {
+                        FaPostjournal postJournal = null;
+                        FaDokumenter dokument = null;
+                        using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                        {
+                            postJournal = await context.FaPostjournals.Where(p => p.PosSlettet != 1 && p.PosUnndrattinnsynIs == 0 && p.PosAar == meldingFamilia.PosSendtkonklAar.Value && p.PosLoepenr == meldingFamilia.PosSendtkonklLoepenr.Value && p.PosFerdigdato.HasValue).FirstOrDefaultAsync();
+                            if (postJournal != null)
+                            {
+                                dokument = await context.FaDokumenters.Where(d => d.DokProdusert == 1 && d.DokDokument != null && d.DokLoepenr == postJournal.DokLoepenr.Value).FirstOrDefaultAsync();
+                            }
+                        }
+                        if (dokument != null)
+                        {
+                            DocumentToInclude documentToInclude = new()
+                            {
+                                dokLoepenr = dokument.DokLoepenr,
+                                sakId = melding.sakId,
+                                tittel = "Tilbakemelding til melder",
+                                journalDato = melding.tilbakemeldingTilMelder.utfortDato,
+                                opprettetAvId = melding.tilbakemeldingTilMelder.utfortAvId
+                            };
+                            if (postJournal.PosUnndrattinnsyn == 1)
+                            {
+                                documentToInclude.merknadInnsyn = "Undratt innsyn";
+                            }
+                            else if (postJournal.PosVurderUnndratt == 1)
+                            {
+                                documentToInclude.merknadInnsyn = "Familia: Vurder unndratt";
+                            }
+                            documentToInclude.aktivitetIdListe.Add(melding.tilbakemeldingTilMelder.tilbakemeldingId);
+                            documentsIncluded.Add(documentToInclude);
+                        }
+                    }
                     meldinger.Add(melding);
                 }
             }
@@ -3019,7 +3372,9 @@ namespace UttrekkFamilia
                 }
 
                 List<Melding> meldinger = new();
-                await UttrekkMeldingerAsync(true, rawData, meldinger, worker, totalAntall, "meldinger uten sak");
+                List<DocumentToInclude> documentsIncluded = new();
+                await UttrekkMeldingerAsync(true, rawData, meldinger, documentsIncluded, worker, totalAntall, "meldinger uten sak");
+                await GetDocumentsAsync(worker, "MeldingerUtensak", documentsIncluded);
                 if (MaksAntall > 0 && rawData.Count > MaksAntall)
                 {
                     int toSkip = 0;
@@ -3065,6 +3420,7 @@ namespace UttrekkFamilia
                 List<Undersøkelse> undersøkelser = new();
                 List<Aktivitet> undersøkelsesAktiviteter = new();
                 List<DocumentToInclude> documentsIncluded = new();
+                List<TextDocumentToInclude> textDocumentsIncluded = new();
                 int antall = 0;
 
                 foreach (var undersøkelse in rawData)
@@ -3177,8 +3533,78 @@ namespace UttrekkFamilia
                         }
                     }
                     GetGrunnlagForTiltak(undersøkelse, undersoekelse);
-                    //TODO Undersøkelser - utvidetFrist - If FA_UNDERSOEKELSE.UND_BEHANDLINGSTID = Null eller "1" -> False, "2" -> True og opprette Aktivitet av typen UTVIDELSE_AV_FRIST (undertype UNDERSØKELSE) + legg inn FA_UNDERSOEKELSE.UND_6MNDBEGRUNNELSE i activity.Notat
-                    undersoekelse.utvidetFrist = false;
+                    if (undersøkelse.UndBehandlingstid == "2")
+                    {
+                        Aktivitet undersøkelseUtvidelseFristAktivitet = new()
+                        {
+                            aktivitetId = AddBydel(undersøkelse.MelLoepenr.ToString(), "UNDUT"),
+                            sakId = undersoekelse.sakId,
+                            aktivitetsType = "UTVIDELSE_AV_FRIST",
+                            aktititetsUndertype = "UNDERSØKELSE",
+                            status = "UTFØRT",
+                            saksbehandlerId = AddBydel(undersøkelse.SbhInitialer),
+                            tittel = "Beslutning om utvidet undersøkelsestid",
+                            utfortAvId = AddBydel(undersøkelse.SbhInitialer),
+                            notat = undersøkelse.Und6mndbegrunnelse,
+                            fristDato = undersøkelse.UndFristdato,
+                            fristLovpaalagt = true,
+                            fristTitel = "Frist for gjennomføring av undersøkelsen",
+                            fristBeskrivelse = "Utvidet frist"
+                        };
+                        bool annetBrukt = false;
+                        if (!string.IsNullOrEmpty(undersøkelse.FroKode1))
+                        {
+                            undersøkelseUtvidelseFristAktivitet.årsakskoderUtvidelseAvFristUndersokelse.Add(mappings.GetÅrsakskodeUtvidelseFrist(undersøkelse.FroKode1));
+                        }
+                        if (!string.IsNullOrEmpty(undersøkelse.FroKode2))
+                        {
+                            undersøkelseUtvidelseFristAktivitet.årsakskoderUtvidelseAvFristUndersokelse.Add(mappings.GetÅrsakskodeUtvidelseFrist(undersøkelse.FroKode2));
+                        }
+                        if (!string.IsNullOrEmpty(undersøkelse.FroKode3))
+                        {
+                            undersøkelseUtvidelseFristAktivitet.årsakskoderUtvidelseAvFristUndersokelse.Add(mappings.GetÅrsakskodeUtvidelseFrist(undersøkelse.FroKode3));
+                        }
+                        if (undersøkelse.FroKode1 == "30" || undersøkelse.FroKode2 == "30" || undersøkelse.FroKode3 == "30")
+                        {
+                            annetBrukt = true;
+                        }
+                        if (undersøkelseUtvidelseFristAktivitet.årsakskoderUtvidelseAvFristUndersokelse.Count == 0)
+                        {
+                            undersøkelseUtvidelseFristAktivitet.årsakskoderUtvidelseAvFristUndersokelse.Add("30_ANNET_(BRUK_GJERNE_STIKKORD)");
+                            annetBrukt = true;
+                        }
+                        if (annetBrukt)
+                        {
+                            undersøkelseUtvidelseFristAktivitet.presiseringAvÅrsaksUtvidelseAvFristUndersokelse = undersøkelse.Und6mndbegrunnelse;
+                        }
+                        if (undersøkelse.UndFristdato.HasValue)
+                        {
+                            undersøkelseUtvidelseFristAktivitet.hendelsesdato = undersøkelse.UndFristdato.Value.AddDays(-90);
+                            undersøkelseUtvidelseFristAktivitet.utfortDato = undersøkelse.UndFristdato.Value.AddDays(-90);
+                        }
+                        undersoekelse.aktivitetIdListe.Add(undersøkelseUtvidelseFristAktivitet.aktivitetId);
+                        TextDocumentToInclude textDocumentToInclude = new()
+                        {
+                            dokLoepenr = undersøkelse.MelLoepenr,
+                            sakId = undersøkelseUtvidelseFristAktivitet.sakId,
+                            tittel = undersøkelseUtvidelseFristAktivitet.tittel,
+                            journalDato = undersøkelseUtvidelseFristAktivitet.utfortDato,
+                            opprettetAvId = undersøkelseUtvidelseFristAktivitet.utfortAvId,
+                            innhold = undersøkelseUtvidelseFristAktivitet.notat,
+                            beskrivelse = undersøkelseUtvidelseFristAktivitet.presiseringAvÅrsaksUtvidelseAvFristUndersokelse,
+                            datonotat = undersøkelseUtvidelseFristAktivitet.hendelsesdato.Value,
+                            foedselsdato = undersøkelse.MelLoepenrNavigation.KliLoepenrNavigation?.KliFoedselsdato,
+                            forNavn = undersøkelse.MelLoepenrNavigation.KliLoepenrNavigation?.KliFornavn,
+                            etterNavn = undersøkelse.MelLoepenrNavigation.KliLoepenrNavigation?.KliEtternavn
+                        };
+                        textDocumentToInclude.aktivitetIdListe.Add(undersøkelseUtvidelseFristAktivitet.aktivitetId);
+                        textDocumentsIncluded.Add(textDocumentToInclude);
+                        undersøkelsesAktiviteter.Add(undersøkelseUtvidelseFristAktivitet);
+                    }
+                    else
+                    {
+                        undersoekelse.utvidetFrist = false;
+                    }
                     using (var context = new FamiliaDBContext(ConnectionStringFamilia))
                     {
                         FaSaksjournal saksJournal = await context.FaSaksjournals.Where(m => m.MelLoepenr == undersøkelse.MelLoepenr).FirstOrDefaultAsync();
@@ -3263,6 +3689,7 @@ namespace UttrekkFamilia
                     }
                     undersøkelser.Add(undersoekelse);
                 }
+                await GetTextDocumentsAsync(worker, textDocumentsIncluded);
                 await GetDocumentsAsync(worker, "Undersøkelser", documentsIncluded);
                 await WriteFileAsync(undersøkelsesAktiviteter, GetJsonFileName("aktiviteter", "UndersokelsesAktiviteter"));
 
@@ -3571,7 +3998,7 @@ namespace UttrekkFamilia
                     string lovJmfParagraf2 = saksJournal.LovJmfParagraf2?.Trim();
                     string mynVedtakstype = saksJournal.MynVedtakstype;
 
-                    if (mynVedtakstype == "FN" && (lovHovedParagraf.StartsWith("4.6") || lovHovedParagraf.StartsWith("4.25")))
+                    if (mynVedtakstype == "FN" && (lovHovedParagraf.StartsWith("4-6") || lovHovedParagraf.StartsWith("4-25")))
                     {
                         mynVedtakstype = "AV";
                     }
@@ -3769,7 +4196,6 @@ namespace UttrekkFamilia
                 throw;
             }
         }
-
         private static string GetVedtakAktivitetsUnderType(string mynVedtakstype, string lovHovedParagraf, string lovJmfParagraf1, string lovJmfParagraf2, string sakStatus)
         {
             string aktivitetsUnderType = null;
@@ -4024,6 +4450,8 @@ namespace UttrekkFamilia
                             tiltak.jfLovhjemmelNr1 = mappings.GetModulusLovhjemmel(tiltakFamilia.LovJmfParagraf2);
                         }
                     }
+                    //TODO Tiltak - Legge inn kobling mellom Tiltak og aktiviteter hentet i GetOppfølgingAktiviteterAsync når Tiltak.aktivitetIdListe blir lagt til
+                    //TODO Tiltak - Opprette aktivitet OPPDRAGSTAKER_AVTALE og hente dokument og knytte den til Tiltak via FA_ENGASJEMENTSAVTALE.TIL_LOEPENR, via FA_ENGASJEMENTSAVTALE.Dok_Loepenr - DOK_TYPE = 'EN' FA_ENGASJEMENTSAVTALE 'Tittel="Engasjementsavtale (fra Familia)" 'Aktivitet=OPPDRAGSTAKER_AVTALE 'JournalDato=ENG_AVGJORTDATO
                     tiltaksliste.Add(tiltak);
                 }
                 if (MaksAntall > 0 && antall > MaksAntall)
@@ -4219,6 +4647,8 @@ namespace UttrekkFamilia
                             plan.evalueringListe.Add(planEvaluering);
                         }
                     }
+                    //TODO Planer - Når knytning er avklart: Trekke ut DOK_TYPE = 'TP' FA_TILTAKSPLAN 'Tittel=Plan 'Aktivitet=Plan 'JournalDato=TTP_FERDIGDATO (inkl samme i GetPlanerTidligereBydelAsync)
+                    //TODO Planer - Når knytning er avklart: Trekke ut DOK_TYPE = 'TE' FA_TILTAKSPLANEVALUERINGER 'Tittel=Evaluering 'Aktivitet=PlanEvaluering 'JournalDato=EVA_FERDIGDATO (inkl samme i GetPlanerTidligereBydelAsync)
                     planer.Add(plan);
                 }
                 if (MaksAntall > 0 && antall > MaksAntall)
@@ -4253,7 +4683,6 @@ namespace UttrekkFamilia
         {
             try
             {
-                //TODO Aktiviteter - Legge inn Aktiviteten OPPDRAGSTAKER_AVTALE (koble til Tiltak) og OPPFØLGING (koble til Tiltak)
                 worker.ReportProgress(0, "Starter uttrekk aktiviteter...");
                 int antall = await GetTilsynsrapporterAsync(worker);
                 antall += await GetInterneSaksforberedelserAsync(worker);
@@ -4263,6 +4692,7 @@ namespace UttrekkFamilia
                 antall += await GetIndividuellPlanAktiviteterAsync(worker);
                 antall += await GetPostjournalAktiviteterAsync(worker);
                 antall += await GetSlettedePostjournalAktiviteterAsync(worker);
+                antall += await GetOppfølgingAktiviteterAsync(worker);
                 return $"Antall aktiviteter: {antall}" + Environment.NewLine;
             }
             catch (Exception ex)
@@ -4521,6 +4951,92 @@ namespace UttrekkFamilia
             }
             return antall;
         }
+        private async Task<int> GetOppfølgingAktiviteterAsync(BackgroundWorker worker)
+        {
+            List<FaPostjournal> rawData;
+            List<DocumentToInclude> documentsIncluded = new();
+
+            int totalAntall = 0;
+
+            using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+            {
+                rawData = await context.FaPostjournals.Include(x => x.KliLoepenrNavigation).Where(p => p.PosSlettet != 1 && p.PosUnndrattinnsynIs == 0 && p.PosFerdigdato.HasValue && (p.PosBrevtype == "OB") && (p.KliLoepenrNavigation.KliFoedselsdato.HasValue && (p.KliLoepenrNavigation.KliFoedselsdato > lastDateNoMigration || !p.KliLoepenrNavigation.KliAvsluttetdato.HasValue))).ToListAsync();
+                totalAntall = rawData.Count;
+            }
+            List<Aktivitet> aktiviteter = new();
+            int antall = 0;
+            foreach (var postjournal in rawData)
+            {
+                antall += 1;
+
+                if (antall % 10 == 0)
+                {
+                    worker.ReportProgress(0, $"Behandler uttrekk oppfølgingsaktiviteter ({antall} av {totalAntall})...");
+                }
+                if (!mappings.IsOwner(postjournal.KliLoepenr.Value))
+                {
+                    continue;
+                }
+                Aktivitet aktivitet = new()
+                {
+                    aktivitetId = AddBydel(postjournal.PosAar.ToString() + postjournal.PosLoepenr.ToString(), "AKT"),
+                    sakId = GetSakId(postjournal.KliLoepenr.ToString()),
+                    aktivitetsType = "OPPFØLGING",
+                    aktititetsUndertype = "FOSTERHJEMSBESØK",
+                    hendelsesdato = postjournal.PosDato,
+                    status = "UTFØRT",
+                    tittel = postjournal.PosEmne,
+                    notat = "Se dokument",
+                    utfortDato = postjournal.PosFerdigdato,
+                    lovPaalagt = true
+                };
+                if (!string.IsNullOrEmpty(postjournal.SbhInitialer))
+                {
+                    aktivitet.saksbehandlerId = AddBydel(postjournal.SbhInitialer);
+                    aktivitet.utfortAvId = AddBydel(postjournal.SbhInitialer);
+                }
+                aktiviteter.Add(aktivitet);
+                if (postjournal.DokLoepenr.HasValue)
+                {
+                    DocumentToInclude documentToInclude = new()
+                    {
+                        dokLoepenr = postjournal.DokLoepenr.Value,
+                        sakId = aktivitet.sakId,
+                        tittel = aktivitet.tittel,
+                        journalDato = aktivitet.utfortDato,
+                        opprettetAvId = aktivitet.saksbehandlerId
+                    };
+                    if (postjournal.PosUnndrattinnsyn == 1)
+                    {
+                        documentToInclude.merknadInnsyn = "Undratt innsyn";
+                    }
+                    else if (postjournal.PosVurderUnndratt == 1)
+                    {
+                        documentToInclude.merknadInnsyn = "Familia: Vurder unndratt";
+                    }
+                    documentToInclude.aktivitetIdListe.Add(aktivitet.aktivitetId);
+                    documentsIncluded.Add(documentToInclude);
+                }
+            }
+            await GetDocumentsAsync(worker, "Oppfølgingsaktiviteter", documentsIncluded);
+            if (MaksAntall > 0 && antall > MaksAntall)
+            {
+                int toSkip = 0;
+                int fileNumber = 1;
+                while (antall > toSkip)
+                {
+                    List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaksAntall).ToList();
+                    await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"Oppfølgingsaktiviteter{fileNumber}"));
+                    fileNumber += 1;
+                    toSkip += MaksAntall;
+                }
+            }
+            else
+            {
+                await WriteFileAsync(aktiviteter, GetJsonFileName("aktiviteter", "Oppfølgingsaktiviteter"));
+            }
+            return antall;
+        }
         private async Task<int> GetInterneSaksforberedelserAsync(BackgroundWorker worker)
         {
             List<FaPostjournal> rawData;
@@ -4728,7 +5244,7 @@ namespace UttrekkFamilia
                 }
                 else
                 {
-                    if (journal.JotIdent == "HJ" || journal.JotIdent == "KS" || journal.JotIdent == "NO" || journal.JotIdent == "OT" || journal.JotIdent == "SB" || journal.JotIdent == "TO" || journal.JotIdent == "ET")
+                    if (journal.JotIdent == "HJ" || journal.JotIdent == "KS" || journal.JotIdent == "NO" || journal.JotIdent == "NF" || journal.JotIdent == "OT" || journal.JotIdent == "SB" || journal.JotIdent == "TO" || journal.JotIdent == "ET")
                     {
                         aktivitet.aktivitetsType = "SAMLENOTAT";
                         switch (journal.JotIdent)
@@ -4742,6 +5258,7 @@ namespace UttrekkFamilia
                                 aktivitet.aktititetsUndertype = "ANNET";
                                 break;
                             case "NO":
+                            case "NF":
                                 aktivitet.aktititetsUndertype = "NOTAT";
                                 break;
                             case "SB":
@@ -4968,13 +5485,13 @@ namespace UttrekkFamilia
                     status = "UTFØRT",
                     aktivitetsType = "ØVRIG_DOKUMENT",
                     aktititetsUndertype = "INDIVIDUELL_PLAN",
+                    tittel = "Individuell plan",
                     hendelsesdato = plan.TtpRegistrertdato,
                     saksbehandlerId = AddBydel(plan.SbhInitialer),
                     utfortAvId = AddBydel(plan.SbhRegistrertav),
                     utfortDato = plan.TtpFerdigdato,
                     notat = "Se dokument"
                 };
-                aktivitet.tittel = "Individuell plan";
                 if (plan.TtpFradato.HasValue)
                 {
                     aktivitet.tittel += $" fra {plan.TtpFradato.Value:dd.MM.yyyy}";
@@ -5031,7 +5548,7 @@ namespace UttrekkFamilia
         #endregion
 
         #region Tidligere bydeler
-        private async Task GetDataTidligereBydelerAsync(DateTime fodselsDato, Decimal personNummer, List<TidligereAvdeling> tidligereAvdelinger)
+        private async Task GetDataTidligereBydelerAsync(BackgroundWorker worker, DateTime fodselsDato, Decimal personNummer, List<TidligereAvdeling> tidligereAvdelinger)
         {
             //TODO Tidligere bydeler - GetDataTidligereBydelerAsync - Legge inn uttrekk av data fra tidligere bydeler Tiltak, Aktiviteter, Undersøkelser, Vedtak
             try
@@ -5041,7 +5558,7 @@ namespace UttrekkFamilia
                     await GetInnbyggereTidligereBydelAsync(fodselsDato, personNummer, tidligereBydel.avdelingId);
                     await GetOrganisasjonerTidligereBydelAsync(fodselsDato, personNummer, tidligereBydel.avdelingId);
                     await GetBarnetsNettverkTidligereBydelAsync(fodselsDato, personNummer, tidligereBydel.avdelingId);
-                    await GetMeldingerTidligereBydelAsync(fodselsDato, personNummer, tidligereBydel.avdelingId);
+                    await GetMeldingerTidligereBydelAsync(worker, fodselsDato, personNummer, tidligereBydel.avdelingId);
                     await GetPlanerTidligereBydelAsync(fodselsDato, personNummer, tidligereBydel.avdelingId);
                 }
             }
@@ -5286,7 +5803,7 @@ namespace UttrekkFamilia
                 throw;
             }
         }
-        private async Task GetMeldingerTidligereBydelAsync(DateTime fodselsDato, Decimal personNummer, string bydel)
+        private async Task GetMeldingerTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, Decimal personNummer, string bydel)
         {
             try
             {
@@ -5298,19 +5815,110 @@ namespace UttrekkFamilia
                 }
 
                 List<Melding> meldinger = new();
+                List<DocumentToInclude> documentsIncluded = new();
 
                 foreach (var meldingFamilia in rawData)
                 {
                     Melding melding = new()
                     {
                         sakId = GetSakId(meldingFamilia.KliLoepenr.ToString()),
-                        meldingId = AddSpecificBydel(meldingFamilia.MelLoepenr.ToString(), "MEL", bydel)
+                        meldingId = AddSpecificBydel(meldingFamilia.MelLoepenr.ToString(), "MEL", bydel),
+                        mottattBekymringsmelding = GetMottattBekymringsmelding(meldingFamilia, bydel),
+                        behandlingAvBekymringsmelding = GetBehandlingAvBekymringsmelding(meldingFamilia, bydel),
+                        tilbakemeldingTilMelder = await GetTilbakemeldingTilMelderAsync(meldingFamilia, bydel)
                     };
-                    melding.mottattBekymringsmelding = GetMottattBekymringsmelding(meldingFamilia, bydel);
-                    melding.behandlingAvBekymringsmelding = GetBehandlingAvBekymringsmelding(meldingFamilia, bydel);
-                    melding.tilbakemeldingTilMelder = await GetTilbakemeldingTilMelderAsync(meldingFamilia, bydel);
+                    if (meldingFamilia.PosMottattbrevAar.HasValue && meldingFamilia.PosMottattbrevLoepenr.HasValue)
+                    {
+                        FaPostjournal postJournal = null;
+                        FaDokumenter dokument = null;
+                        using (var context = new FamiliaDBContext(mappings.GetConnectionstring(bydel, MainDBServer)))
+                        {
+                            postJournal = await context.FaPostjournals.Where(p => p.PosSlettet != 1 && p.PosUnndrattinnsynIs == 0 && p.PosAar == meldingFamilia.PosMottattbrevAar.Value && p.PosLoepenr == meldingFamilia.PosMottattbrevLoepenr.Value && p.PosFerdigdato.HasValue).FirstOrDefaultAsync();
+                            if (postJournal != null)
+                            {
+                                dokument = await context.FaDokumenters.Where(d => d.DokProdusert == 1 && d.DokDokument != null && d.DokLoepenr == postJournal.DokLoepenr.Value).FirstOrDefaultAsync();
+                            }
+                        }
+                        if (dokument != null)
+                        {
+                            DocumentToInclude documentToInclude = new()
+                            {
+                                dokLoepenr = dokument.DokLoepenr,
+                                sakId = melding.sakId,
+                                tittel = "Meldingsdokument",
+                                journalDato = melding.mottattBekymringsmelding.mottattDato,
+                                opprettetAvId = melding.mottattBekymringsmelding.utfortAvId
+                            };
+                            if (postJournal.PosUnndrattinnsyn == 1)
+                            {
+                                documentToInclude.merknadInnsyn = "Undratt innsyn";
+                            }
+                            else if (postJournal.PosVurderUnndratt == 1)
+                            {
+                                documentToInclude.merknadInnsyn = "Familia: Vurder unndratt";
+                            }
+                            documentToInclude.aktivitetIdListe.Add(melding.meldingId);
+                            documentsIncluded.Add(documentToInclude);
+                        }
+                    }
+                    if (meldingFamilia.DokLoepenr.HasValue)
+                    {
+                        FaDokumenter dokument;
+                        using (var context = new FamiliaDBContext(mappings.GetConnectionstring(bydel, MainDBServer)))
+                        {
+                            dokument = await context.FaDokumenters.Where(d => d.DokProdusert == 1 && d.DokDokument != null && d.DokLoepenr == meldingFamilia.DokLoepenr.Value).FirstOrDefaultAsync();
+                        }
+                        if (dokument != null)
+                        {
+                            DocumentToInclude documentToInclude = new()
+                            {
+                                dokLoepenr = dokument.DokLoepenr,
+                                sakId = melding.sakId,
+                                tittel = "Meldingsgjennomgang",
+                                journalDato = melding.behandlingAvBekymringsmelding.konklusjonsdato,
+                                opprettetAvId = melding.behandlingAvBekymringsmelding.utfortAvId
+                            };
+                            documentToInclude.aktivitetIdListe.Add(melding.behandlingAvBekymringsmelding.behandlingId);
+                            documentsIncluded.Add(documentToInclude);
+                        }
+                    }
+                    if (meldingFamilia.PosSendtkonklAar.HasValue && meldingFamilia.PosSendtkonklLoepenr.HasValue)
+                    {
+                        FaPostjournal postJournal = null;
+                        FaDokumenter dokument = null;
+                        using (var context = new FamiliaDBContext(mappings.GetConnectionstring(bydel, MainDBServer)))
+                        {
+                            postJournal = await context.FaPostjournals.Where(p => p.PosSlettet != 1 && p.PosUnndrattinnsynIs == 0 && p.PosAar == meldingFamilia.PosSendtkonklAar.Value && p.PosLoepenr == meldingFamilia.PosSendtkonklLoepenr.Value && p.PosFerdigdato.HasValue).FirstOrDefaultAsync();
+                            if (postJournal != null)
+                            {
+                                dokument = await context.FaDokumenters.Where(d => d.DokProdusert == 1 && d.DokDokument != null && d.DokLoepenr == postJournal.DokLoepenr.Value).FirstOrDefaultAsync();
+                            }
+                        }
+                        if (dokument != null)
+                        {
+                            DocumentToInclude documentToInclude = new()
+                            {
+                                dokLoepenr = dokument.DokLoepenr,
+                                sakId = melding.sakId,
+                                tittel = "Tilbakemelding til melder",
+                                journalDato = melding.tilbakemeldingTilMelder.utfortDato,
+                                opprettetAvId = melding.tilbakemeldingTilMelder.utfortAvId
+                            };
+                            if (postJournal.PosUnndrattinnsyn == 1)
+                            {
+                                documentToInclude.merknadInnsyn = "Undratt innsyn";
+                            }
+                            else if (postJournal.PosVurderUnndratt == 1)
+                            {
+                                documentToInclude.merknadInnsyn = "Familia: Vurder unndratt";
+                            }
+                            documentToInclude.aktivitetIdListe.Add(melding.tilbakemeldingTilMelder.tilbakemeldingId);
+                            documentsIncluded.Add(documentToInclude);
+                        }
+                    }
                     meldinger.Add(melding);
                 }
+                await GetDocumentsAsync(worker, $"Meldinger{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}", documentsIncluded);
                 await WriteFileAsync(meldinger, GetJsonFileName("melding", $"Meldinger{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}"));
             }
             catch (Exception ex)
@@ -5712,12 +6320,14 @@ namespace UttrekkFamilia
                 throw;
             }
         }
-        private async Task GetHtmlDocumentsAsync(BackgroundWorker worker, List<HtmlDocumentToInclude> htmlDocumentsIncluded, string category, string abbreviation)
+        private async Task GetHtmlDocumentsAsync(BackgroundWorker worker, List<HtmlDocumentToInclude> htmlDocumentsIncluded, string category, string abbreviation, bool showStatus = true)
         {
             try
             {
-                worker.ReportProgress(0, $"Starter opprettelse av Visma Flyt Barnevernvakt dokumenter og html-filer ...");
-
+                if (showStatus)
+                {
+                    worker.ReportProgress(0, $"Starter opprettelse av Visma Flyt Barnevernvakt dokumenter og html-filer ...");
+                }
                 int totalNumber = htmlDocumentsIncluded.Count;
                 int numberProcessed = 0;
                 List<Document> documents = new();
@@ -5726,7 +6336,7 @@ namespace UttrekkFamilia
                 {
                     numberProcessed += 1;
 
-                    if (numberProcessed % 10 == 0)
+                    if (showStatus && numberProcessed % 10 == 0)
                     {
                         worker.ReportProgress(0, $"Behandler opprettelse Visma Flyt Barnevernvakt dokumenter og html-filer ({numberProcessed} av {totalNumber})...");
                     }

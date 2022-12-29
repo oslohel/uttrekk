@@ -35,6 +35,7 @@ namespace UttrekkFamilia
         private bool UseSokrates;
         private bool WriteFiles;
         private int AntallFilerPerZip;
+        private string DokumentNumber;
         #endregion
 
         #region Constructors
@@ -53,6 +54,18 @@ namespace UttrekkFamilia
             {
                 workerInfoDatabase.WorkerReportsProgress = true;
                 workerInfoDatabase.DoWork += WorkerInfoFamiliaDatabase_DoWork;
+                workerInfoDatabase.ProgressChanged += Worker_ProgressChanged;
+                workerInfoDatabase.RunWorkerAsync();
+            }
+        }
+        private void OneFileFamilia_Click(object sender, RoutedEventArgs e)
+        {
+            SetParameters();
+
+            using (BackgroundWorker workerInfoDatabase = new())
+            {
+                workerInfoDatabase.WorkerReportsProgress = true;
+                workerInfoDatabase.DoWork += WorkerOneFileFamilia_DoWork;
                 workerInfoDatabase.ProgressChanged += Worker_ProgressChanged;
                 workerInfoDatabase.RunWorkerAsync();
             }
@@ -189,6 +202,21 @@ namespace UttrekkFamilia
                 Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, MaksimumAntall, UseSokrates, WriteFiles, AntallFilerPerZip);
                 var worker = sender as BackgroundWorker;
                 var task = uttrekk.GetInformationFamiliaAsync(worker);
+                task.Wait();
+            }
+            catch (AggregateException ex)
+            {
+                string message = $"Unhandled exception ({ex.Source}): {ex.Message} Stack trace: {ex.StackTrace}";
+                MessageBox.Show(message, "Migrering - Unhandled exception", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        private void WorkerOneFileFamilia_DoWork(object sender, DoWorkEventArgs e)
+        {
+            try
+            {
+                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, MaksimumAntall, UseSokrates, WriteFiles, AntallFilerPerZip);
+                var worker = sender as BackgroundWorker;
+                var task = uttrekk.GetOneFileFamiliaAsync(worker, Convert.ToDecimal(DokumentNumber));
                 task.Wait();
             }
             catch (AggregateException ex)
@@ -487,6 +515,7 @@ namespace UttrekkFamilia
             OutputFolderName = GetFullFolderName(OutputFolder.Text);
             Bydelsidentifikator = BydelsidentifikatorBox.Text;
             MaksimumAntall = int.Parse(MaksAntall.Text);
+            DokumentNumber = Doknumber.Text;
             SakerIsChecked = chkSaker.IsChecked.Value;
             InnbyggereBarnIsChecked = chkInnbyggereBarn.IsChecked.Value;
             InnbyggereIsChecked = chkInnbyggere.IsChecked.Value;
