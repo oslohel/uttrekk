@@ -1042,11 +1042,6 @@ namespace UttrekkFamilia.ModelsBVV
                 entity.Property(e => e.StopDate).HasComment("Aktiv til");
 
                 entity.Property(e => e.StoppedBy).HasComment("Deaktivert av");
-
-                entity.HasOne(d => d.StatusNavigation)
-                    .WithMany()
-                    .HasForeignKey(d => d.Status)
-                    .HasConstraintName("client_client_ibfk_6");
             });
 
             modelBuilder.Entity<ClientClientclientgroup>(entity =>
@@ -1378,7 +1373,7 @@ namespace UttrekkFamilia.ModelsBVV
                     .IsUnicode(false)
                     .HasComment("Tekstfelt for korrespondanse, benyttes under skriving av korrespondanse før den er ferdigstilt og pdf er generert");
 
-                entity.Property(e => e.FileDataBlob).HasComment("Fildata");
+                //entity.Property(e => e.FileDataBlob).HasComment("Fildata");
 
                 entity.Property(e => e.FileId)
                     .HasMaxLength(250)
@@ -2607,7 +2602,7 @@ namespace UttrekkFamilia.ModelsBVV
                     .IsUnicode(false)
                     .HasComment("Dokument tekst, basis for pdf generering");
 
-                entity.Property(e => e.FileDataBlob).HasComment("Fildata når konvertert til pdf");
+                //entity.Property(e => e.FileDataBlob).HasComment("Fildata når konvertert til pdf");
 
                 entity.Property(e => e.FileId)
                     .HasMaxLength(250)

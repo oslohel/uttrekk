@@ -30,7 +30,7 @@
         /// <summary>
         /// Fildata når konvertert til pdf
         /// </summary>
-        public byte[] FileDataBlob { get; set; }
+        //public byte[] FileDataBlob { get; set; }
         /// <summary>
         /// Liste over kommentarer til dokumenttekst
         /// </summary>

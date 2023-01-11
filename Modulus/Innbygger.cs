@@ -12,6 +12,7 @@ namespace UttrekkFamilia.Modulus
         }
 
         public string actorId { get; set; }
+        public DateTime registrertDato { get; set; }
         public string fodselsnummer { get; set; }
         public string dufNummer { get; set; }
         public string dufNavn { get; set; }

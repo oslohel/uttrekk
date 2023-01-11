@@ -320,8 +320,9 @@ namespace UttrekkFamilia
 
                 if (UseSokrates)
                 {
-                    var taskExtractSokrates = uttrekk.ExtractSokratesAsync(worker);
-                    taskExtractSokrates.Wait();
+                    var task = uttrekk.ExtractSokratesAsync(worker);
+                    task.Wait();
+                    information += task.Result;
                 }
                 if (SakerIsChecked)
                 {

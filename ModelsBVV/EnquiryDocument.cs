@@ -21,6 +21,6 @@
         /// HTML versjon av dokument
         /// </summary>
         public string DocumentText { get; set; }
-        public byte[] FileDataBlob { get; set; }
+        //public byte[] FileDataBlob { get; set; }
     }
 }

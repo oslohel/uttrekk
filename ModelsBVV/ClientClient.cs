@@ -79,9 +79,5 @@ namespace UttrekkFamilia.ModelsBVV
         /// Angir datoen for når samtykke er gitt/fjernet
         /// </summary>
         public DateTime? ConsentChangeDate { get; set; }
-        public DateTime? LastUpdateDate { get; set; }
-        public int DocumentListStartNumber { get; set; }
-
-        public virtual EnumClientstatus StatusNavigation { get; set; }
     }
 }

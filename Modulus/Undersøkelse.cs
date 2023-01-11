@@ -8,7 +8,6 @@ namespace UttrekkFamilia.Modulus
         public Undersøkelse()
         {
             aktivitetIdListe = new List<string>();
-            grunnlagForTiltak = new List<string>();
         }
         public string undersokelseId { get; set; }
         public string meldingId { get; set; }
@@ -37,5 +36,6 @@ namespace UttrekkFamilia.Modulus
         public string analysereGodAvslutning { get; set; }
         public string vurdere { get; set; }
         public string beslutte { get; set; }
+        public string undersøkelsesrapport { get; set; }
     }
 }

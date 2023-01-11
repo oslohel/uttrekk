@@ -40,7 +40,7 @@
         /// <summary>
         /// Fildata
         /// </summary>
-        public byte[] FileDataBlob { get; set; }
+        //public byte[] FileDataBlob { get; set; }
         /// <summary>
         /// Liste over kommentarer på en korrespondanse, benyttes av saksbehandlere for å samarbeide ved utarbeiding av en korrespondanse.
         /// </summary>
