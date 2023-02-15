@@ -14,7 +14,7 @@ namespace UttrekkFamilia.Modulus
         public string aktivitetId { get; set; }
         public string sakId { get; set; }
         public string aktivitetsType { get; set; }
-        public string aktititetsUndertype { get; set; }
+        public string aktivitetsUnderType { get; set; }
         public List<string> parter { get; set; }
         public DateTime? hendelsesdato { get; set; }
         public string saksbehandlerId { get; set; }
@@ -37,5 +37,6 @@ namespace UttrekkFamilia.Modulus
         public bool? kravFraPrivatPartOverføresNemnd { get; set; }
         public DateTime? kravFraPrivatPartOverføresNemndEllerBortfaltDato { get; set; }
         public string tilsynAnsvarligKommunenummer { get; set; }
+        public string tiltaksId { get; set; }
     }
 }

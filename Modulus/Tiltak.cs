@@ -32,5 +32,6 @@ namespace UttrekkFamilia.Modulus
         public string jfLovhjemmelNr1 { get; set; }
         public string jfLovhjemmelNr2 { get; set; }
         public string jfLovhjemmelNr3 { get; set; }
+        public string tilsynskommunenummer { get; set; }
     }
 }
