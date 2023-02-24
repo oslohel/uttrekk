@@ -13,7 +13,7 @@
             <TextBox x:Name="OutputFolder" Canvas.Left="136" TextWrapping="NoWrap" Text="E:\Uttrekk\Data\" Canvas.Top="96" Width="313" Height="22" TabIndex="3" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             <Label Content="Bydel:" Height="26" Canvas.Left="18" Canvas.Top="67" Width="112" HorizontalAlignment="Left" VerticalAlignment="Top"/>
             <TextBox x:Name="BydelsidentifikatorBox" Canvas.Left="136" TextWrapping="NoWrap" MaxLength="3" Text="DEM" CharacterCasing="Upper" Canvas.Top="69" Width="113" Height="22" HorizontalAlignment="Left" VerticalAlignment="Center" TabIndex="1"/>
-            <Label Content="Maks antall pr.fil:" Height="26" Canvas.Left="259" Canvas.Top="67" Width="112" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+            <Label Content="Maks antall saker:" Height="26" Canvas.Left="259" Canvas.Top="67" Width="112" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             <TextBox x:Name="MaksAntall" Canvas.Left="369" TextWrapping="NoWrap" TextAlignment="Right" Text="0" Canvas.Top="69" Width="80" Height="22" TabIndex="2" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             <Label Content="Sokrates conn:" Height="26" Canvas.Left="18" Canvas.Top="213" Width="112" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <PasswordBox x:Name="ConnSokratesBox" Canvas.Left="136" Canvas.Top="215" Width="317" Height="22" TabIndex="11" HorizontalAlignment="Left" VerticalAlignment="Center"/>
