@@ -819,7 +819,7 @@ namespace UttrekkFamilia
              {"§ 15-10","Bvl.§_15-10" },
              {"§ 15-11","Bvl.§_15-11" },
              {"§ 15-12","Bvl.§_15-12" }
-                    };
+        };
 
         private readonly NameValueCollection Årsakskoder = new() {
             { "01","01_VANSKELIG_Å FÅ TAK_I_SAKKYNDIG_BISTAND" },

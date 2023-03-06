@@ -27,7 +27,7 @@ namespace UttrekkFamilia
     {
         #region Members
         private readonly DateTime LastDateNoMigration = new(1997, 12, 31);
-        private readonly DateTime FirstContractDateMigration = new(2023, 1, 1);
+        private readonly DateTime FirstInYearOfMigration = new(2023, 1, 1);
         private string ConnectionStringFamilia = "";
         private readonly string ConnectionStringSokrates = "";
         private readonly string ConnectionStringVFB = "";
@@ -37,14 +37,14 @@ namespace UttrekkFamilia
         private readonly string OutputFolderName = "";
         private string Bydelsforkortelse = "";
         private readonly int MaksAntall;
-        private readonly bool WriteFiles;
+        private readonly bool OnlyWriteDocumentFiles;
         private readonly int AntallFilerPerZip;
         private readonly Mappings mappings;
         private readonly string BVVLeder = "18";
         #endregion
 
         #region Contructors
-        public Uttrekk(string connSokrates, string mainDBServer, string extraDBServer, string outputFolderName, string bydelsidentifikator, int maksAntall, bool useSokrates, bool writeFiles, int antallFilerPerZip)
+        public Uttrekk(string connSokrates, string mainDBServer, string extraDBServer, string outputFolderName, string bydelsidentifikator, int maksAntall, bool useSokrates, bool onlyWriteDocumentFiles, int antallFilerPerZip)
         {
             mappings = new Mappings(useSokrates);
             ConnectionStringFamilia = mappings.GetConnectionstring(bydelsidentifikator, mainDBServer);
@@ -62,28 +62,35 @@ namespace UttrekkFamilia
             {
                 MaksAntall = maksAntall;
             }
-            WriteFiles = writeFiles;
+            OnlyWriteDocumentFiles = onlyWriteDocumentFiles;
             AntallFilerPerZip = antallFilerPerZip;
         }
         #endregion
 
         #region Folders
-        public void CreateAllfolders()
+        public void CreateAllfolders(bool onlyWriteDocumentFiles = false)
         {
-            CreateFolderIfNotExist("saker");
-            CreateFolderIfNotExist("innbygger");
-            CreateFolderIfNotExist("organisasjon");
-            CreateFolderIfNotExist("barnetsNettverk");
-            CreateFolderIfNotExist("melding");
-            CreateFolderIfNotExist("undersokelser");
-            CreateFolderIfNotExist("avdelingsmapping");
-            CreateFolderIfNotExist("brukere");
-            CreateFolderIfNotExist("vedtak");
-            CreateFolderIfNotExist("tiltak");
-            CreateFolderIfNotExist("plan");
-            CreateFolderIfNotExist("aktiviteter");
-            CreateFolderIfNotExist("dokumenter");
-            CreateFolderIfNotExist("filer");
+            if (onlyWriteDocumentFiles)
+            {
+                CreateFolderIfNotExist("filer");
+            }
+            else
+            {
+                CreateFolderIfNotExist("saker");
+                CreateFolderIfNotExist("innbygger");
+                CreateFolderIfNotExist("organisasjon");
+                CreateFolderIfNotExist("barnetsNettverk");
+                CreateFolderIfNotExist("melding");
+                CreateFolderIfNotExist("undersokelser");
+                CreateFolderIfNotExist("avdelingsmapping");
+                CreateFolderIfNotExist("brukere");
+                CreateFolderIfNotExist("vedtak");
+                CreateFolderIfNotExist("tiltak");
+                CreateFolderIfNotExist("plan");
+                CreateFolderIfNotExist("aktiviteter");
+                CreateFolderIfNotExist("dokumenter");
+                CreateFolderIfNotExist("filer");
+            }
         }
         #endregion
 
@@ -719,8 +726,8 @@ namespace UttrekkFamilia
 
                 Avdelingsmapping avdelingsmapping = new()
                 {
-                    avdelingId = "BVV01",
-                    enhetskodeModulusBarn = "BVV01"
+                    avdelingId = "BVV1",
+                    enhetskodeModulusBarn = "BVV1"
                 };
                 avdelingsmappinger.Add(avdelingsmapping);
                 await WriteFileAsync(avdelingsmappinger, GetJsonFileName("avdelingsmapping", "BVVAvdelingsmapping"));
@@ -842,7 +849,7 @@ namespace UttrekkFamilia
                         }
                         bruker.fulltNavn += saksbehandler.LastName?.Trim();
                     }
-                    bruker.enhetskodeModulusBarnListe.Add("BVV01");
+                    bruker.enhetskodeModulusBarnListe.Add("BVV1");
                     brukere.Add(bruker);
                 }
                 await WriteFileAsync(brukere, GetJsonFileName("brukere", "BVVBrukere"));
@@ -884,7 +891,7 @@ namespace UttrekkFamilia
                     {
                         sakId = AddBydel(caseCase.Number, "SAK"),
                         aktorId = GetActorId(await GetBVVPersonFromClientAsync(caseCase.ClientId)),
-                        avdelingId = "BVV01",
+                        avdelingId = "BVV1",
                         startDato = caseCase.CreatedDate,
                         sluttDato = caseCase.StatusClosedDate,
                         merknad = caseCase.Description?.Trim(),
@@ -1690,12 +1697,9 @@ namespace UttrekkFamilia
                         };
                         document.aktivitetIdListe.Add(aktivitet.aktivitetId);
                         documents.Add(document);
-                        if (WriteFiles)
+                        while (reader.Read())
                         {
-                            while (reader.Read())
-                            {
-                                await File.WriteAllBytesAsync(OutputFolderName + "filer\\" + document.filId + ".pdf", (byte[])reader["FileDataBlob"]);
-                            }
+                            await File.WriteAllBytesAsync(OutputFolderName + "filer\\" + document.filId + ".pdf", (byte[])reader["FileDataBlob"]);
                         }
                     }
                     else
@@ -1827,12 +1831,9 @@ namespace UttrekkFamilia
                         };
                         document.aktivitetIdListe.Add(aktivitet.aktivitetId);
                         documents.Add(document);
-                        if (WriteFiles)
+                        while (reader.Read())
                         {
-                            while (reader.Read())
-                            {
-                                await File.WriteAllBytesAsync(OutputFolderName + "filer\\" + document.filId + ".pdf", (byte[])reader["FileDataBlob"]);
-                            }
+                            await File.WriteAllBytesAsync(OutputFolderName + "filer\\" + document.filId + ".pdf", (byte[])reader["FileDataBlob"]);
                         }
                     }
                     else
@@ -1964,12 +1965,9 @@ namespace UttrekkFamilia
                         };
                         document.aktivitetIdListe.Add(aktivitet.aktivitetId);
                         documents.Add(document);
-                        if (WriteFiles)
+                        while (reader.Read())
                         {
-                            while (reader.Read())
-                            {
-                                await File.WriteAllBytesAsync(OutputFolderName + "filer\\" + document.filId + ".pdf", (byte[])reader["FileDataBlob"]);
-                            }
+                            await File.WriteAllBytesAsync(OutputFolderName + "filer\\" + document.filId + ".pdf", (byte[])reader["FileDataBlob"]);
                         }
                     }
                     else
@@ -2015,10 +2013,7 @@ namespace UttrekkFamilia
                             };
                             attachmentDocument.aktivitetIdListe.Add(aktivitet.aktivitetId);
                             documents.Add(attachmentDocument);
-                            if (WriteFiles)
-                            {
-                                await File.WriteAllBytesAsync(OutputFolderName + "filer\\" + attachmentDocument.filId + ".pdf", attachment.FileDataBlob);
-                            }
+                            await File.WriteAllBytesAsync(OutputFolderName + "filer\\" + attachmentDocument.filId + ".pdf", attachment.FileDataBlob);
                         }
                         else
                         {
@@ -2366,7 +2361,7 @@ namespace UttrekkFamilia
                     using (var context = new FamiliaDBContext(ConnectionStringFamilia))
                     {
                         numberOfActiveContracts = await context.FaEngasjementsavtales.Where(e => e.EngAvgjortdato.HasValue && e.EngStatus != "BOR" && e.EngStatus != "BEH" && e.EngStatus != "KLR"
-                            && (e.EngTildato >= FirstContractDateMigration || e.EngStoppetdato >= FirstContractDateMigration)).CountAsync();
+                            && (e.EngTildato >= FirstInYearOfMigration || e.EngStoppetdato >= FirstInYearOfMigration)).CountAsync();
                     }
                     if (numberOfActiveContracts == 0)
                     {
@@ -3343,7 +3338,7 @@ namespace UttrekkFamilia
                                 undersoekelse.konklusjon = "BARNEVERNSTJENESTEN_GJØR_VEDTAK_OM_TILTAK";
                                 break;
                             case "1":
-                                undersoekelse.konklusjon = "BEGJÆRING_OM_TILTAK_FOR_FYLKESNEMDA";
+                                undersoekelse.konklusjon = "BEGJÆRING_OM_TILTAK_FOR_BARNEVERNS_OG_HELSENEMNDA";
                                 break;
                             case "2":
                             case "H":
@@ -4278,7 +4273,36 @@ namespace UttrekkFamilia
                             tiltak.jfLovhjemmelNr1 = mappings.GetModulusLovhjemmel(tiltakFamilia.LovJmfParagraf2);
                         }
                     }
-                    //TODO Tiltak - tilsynskommunenummer - Hvis BorHos=Fosterhjem-> 1.Hvis tilsynsansvar krysset->0301 (egen kommune) 2.Hvis ikke krysset bruke Kommune
+                    if (tiltakFamilia.TttTiltakstype == "14" || tiltakFamilia.TttTiltakstype == "15" || tiltakFamilia.TttTiltakstype == "16" || tiltakFamilia.TttTiltakstype == "17" || tiltakFamilia.TttTiltakstype == "18" || tiltakFamilia.TttTiltakstype == "103" || tiltakFamilia.TttTiltakstype == "104" || tiltakFamilia.TttTiltakstype == "105" || tiltakFamilia.TttTiltakstype == "106" || tiltakFamilia.TttTiltakstype == "107" || tiltakFamilia.TttTiltakstype == "108" || tiltakFamilia.TttTiltakstype == "109")
+                    {
+                        if (tiltakFamilia.TilIverksattdato.HasValue)
+                        {
+                            using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                            {
+                                FaKlientplassering klientplassering = await context.FaKlientplasserings
+                                    .Where(m => m.KliLoepenr == tiltakFamilia.KliLoepenr && m.KplBorhos == "6"
+                                        && (m.KplFradato >= tiltakFamilia.TilIverksattdato.Value.AddDays(-30)))
+                                    .OrderBy(b => b.KplFradato)
+                                    .FirstOrDefaultAsync();
+                                if (klientplassering != null)
+                                {
+                                    if (klientplassering.KomKommunenr < 1000)
+                                    {
+                                        tiltak.tilsynskommunenummer = $"0{klientplassering.KomKommunenr}";
+                                    }
+                                    else
+                                    {
+                                        tiltak.tilsynskommunenummer = klientplassering.KomKommunenr.ToString();
+                                    }
+                                }
+                                else
+                                {
+                                    //Tiltak - Midlertidig workaround inntil logikk for utledning blir avklart
+                                    tiltak.tilsynskommunenummer = "0301";
+                                }
+                            }
+                        }
+                    }
                     //TODO Tiltak - Opprette aktivitet OPPDRAGSTAKER_AVTALE og hente dokument og knytte den til Tiltak via FA_ENGASJEMENTSAVTALE.TIL_LOEPENR, via FA_ENGASJEMENTSAVTALE.Dok_Loepenr - DOK_TYPE = 'EN' FA_ENGASJEMENTSAVTALE 'Tittel="Engasjementsavtale (fra Familia)" 'Aktivitet=OPPDRAGSTAKER_AVTALE 'JournalDato=ENG_AVGJORTDATO
                     tiltaksliste.Add(tiltak);
                     migrertAntall += 1;
@@ -4384,6 +4408,12 @@ namespace UttrekkFamilia
                                 plan.planForFlytting = null;
                                 plan.nettverk = null;
                                 plan.tidsperspektiv = null;
+                                plan.lovhjemmel = "Bvl._§_4-5_(gammel_lov)";
+                                if (planFamilia.TtpFradato.HasValue && planFamilia.TtpFradato.Value >= FirstInYearOfMigration)
+                                {
+                                    plan.planType = "TILTAKSPLAN_ETTER_BVL_2021_8_1_TIDLIGERE_BVL_1992_4_5";
+                                    plan.lovhjemmel = "Bvl.§_8-1";
+                                }
                                 break;
                             case "2":
                             case "3":
@@ -4400,6 +4430,12 @@ namespace UttrekkFamilia
                                 plan.planForFlytting = null;
                                 plan.nettverk = null;
                                 plan.tidsperspektiv = null;
+                                plan.lovhjemmel = "Bvl._§_4-15_(gammel_lov)";
+                                if (planFamilia.TtpFradato.HasValue && planFamilia.TtpFradato.Value >= FirstInYearOfMigration)
+                                {
+                                    plan.planType = "OMSORGSPLAN_ETTER_BVL_2021_8_3_4_LEDD_TIDLIGERE_BVL_1992_4_15_3_LEDD";
+                                    plan.lovhjemmel = "Bvl.§_8-3";
+                                }
                                 break;
                             case "6":
                                 plan.planType = "PLAN_FOR_FREMTIDIG_TILTAK_-_ETTERVERN";
@@ -4463,13 +4499,14 @@ namespace UttrekkFamilia
                             {
                                 aktivitetId = AddBydel(planFamilia.TtpLoepenr.ToString(), "PLADOK"),
                                 sakId = plan.sakId,
-                                aktivitetsType = "ØVRIG_DOKUMENT",
-                                aktivitetsUnderType = "NOTAT",
+                                aktivitetsType = "PLANDOKUMENT",
+                                aktivitetsUnderType = "PLANDOKUMENT",
                                 hendelsesdato = planFamilia.TtpFerdigdato,
                                 status = "UTFØRT",
                                 tittel = "Plan",
                                 notat = "Se dokument",
-                                utfortDato = planFamilia.TtpFerdigdato
+                                utfortDato = planFamilia.TtpFerdigdato,
+                                utfortAvId = AddBydel(planFamilia.SbhInitialer)
                             };
                             aktiviteter.Add(aktivitet);
 
@@ -4506,7 +4543,7 @@ namespace UttrekkFamilia
                                 planEvaluering.status = "PLANLAGT";
                             }
                             plan.evalueringListe.Add(planEvaluering);
-                            if (tiltaksEvaluering.DokLoepenr.HasValue)
+                            if (tiltaksEvaluering.DokLoepenr.HasValue && tiltaksEvaluering.EvaFerdigdato.HasValue)
                             {
                                 FaDokumenter dokument;
                                 using (var context = new FamiliaDBContext(ConnectionStringFamilia))
@@ -4519,13 +4556,14 @@ namespace UttrekkFamilia
                                     {
                                         aktivitetId = AddBydel(tiltaksEvaluering.EvaLoepenr.ToString(), "EVADOK"),
                                         sakId = plan.sakId,
-                                        aktivitetsType = "ØVRIG_DOKUMENT",
-                                        aktivitetsUnderType = "NOTAT",
+                                        aktivitetsType = "EVALUERING",
+                                        aktivitetsUnderType = "TILTAKSPLAN",
                                         hendelsesdato = tiltaksEvaluering.EvaFerdigdato,
                                         status = "UTFØRT",
                                         tittel = "Evaluering",
                                         notat = "Se dokument",
-                                        utfortDato = tiltaksEvaluering.EvaFerdigdato
+                                        utfortDato = tiltaksEvaluering.EvaUtfoertdato,
+                                        utfortAvId = AddBydel(tiltaksEvaluering.SbhInitialer)
                                     };
                                     aktiviteter.Add(aktivitet);
 
@@ -4633,7 +4671,34 @@ namespace UttrekkFamilia
                     aktivitet.saksbehandlerId = AddBydel(postjournal.SbhInitialer);
                     aktivitet.utfortAvId = AddBydel(postjournal.SbhInitialer);
                 }
-                //TODO GetTilsynsrapporterAsync - Legge inn kobling til Tiltak i Aktivitet.tiltaksId hvis finnes i Familia
+                if (postjournal.PosAar >= FirstInYearOfMigration.Year)
+                {
+                    using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                    {
+                        FaTiltak tiltak = await context.FaTiltaks
+                            .Where(m => m.KliLoepenr == postjournal.KliLoepenr 
+                                && (
+                                m.TttTiltakstype == "14" ||
+                                m.TttTiltakstype == "15" ||
+                                m.TttTiltakstype == "16" ||
+                                m.TttTiltakstype == "17" ||
+                                m.TttTiltakstype == "18" ||
+                                m.TttTiltakstype == "103" ||
+                                m.TttTiltakstype == "104" ||
+                                m.TttTiltakstype == "105" ||
+                                m.TttTiltakstype == "106" ||
+                                m.TttTiltakstype == "107" ||
+                                m.TttTiltakstype == "108" ||
+                                m.TttTiltakstype == "109") && 
+                                (m.TilFradato <= postjournal.PosDato))
+                            .OrderByDescending(b => b.TilFradato)
+                            .FirstOrDefaultAsync();
+                        if (tiltak != null)
+                        {
+                            aktivitet.tiltaksId = AddBydel(tiltak.TilLoepenr.ToString(), "TIL");
+                        }
+                    }
+                }
                 aktiviteter.Add(aktivitet);
                 migrertAntall += 1;
                 if (postjournal.DokLoepenr.HasValue)
@@ -4848,7 +4913,7 @@ namespace UttrekkFamilia
                     aktivitetId = AddBydel(postjournal.PosAar.ToString() + postjournal.PosLoepenr.ToString(), "AKT"),
                     sakId = GetSakId(postjournal.KliLoepenr.ToString()),
                     aktivitetsType = "OPPFØLGING",
-                    aktivitetsUnderType = "OPPFØLGINSBESØK",
+                    aktivitetsUnderType = "OPPFØLGINGSBESØK",
                     hendelsesdato = postjournal.PosDato,
                     status = "UTFØRT",
                     tittel = postjournal.PosEmne,
@@ -4861,7 +4926,34 @@ namespace UttrekkFamilia
                     aktivitet.saksbehandlerId = AddBydel(postjournal.SbhInitialer);
                     aktivitet.utfortAvId = AddBydel(postjournal.SbhInitialer);
                 }
-                //TODO GetOppfølgingAktiviteterAsync - Legge inn kobling til Tiltak i Aktivitet.tiltaksId hvis finnes i Familia
+                if (postjournal.PosAar >= FirstInYearOfMigration.Year)
+                {
+                    using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                    {
+                        FaTiltak tiltak = await context.FaTiltaks
+                            .Where(m => m.KliLoepenr == postjournal.KliLoepenr
+                                && (
+                                m.TttTiltakstype == "14" ||
+                                m.TttTiltakstype == "15" ||
+                                m.TttTiltakstype == "16" ||
+                                m.TttTiltakstype == "17" ||
+                                m.TttTiltakstype == "18" ||
+                                m.TttTiltakstype == "103" ||
+                                m.TttTiltakstype == "104" ||
+                                m.TttTiltakstype == "105" ||
+                                m.TttTiltakstype == "106" ||
+                                m.TttTiltakstype == "107" ||
+                                m.TttTiltakstype == "108" ||
+                                m.TttTiltakstype == "109") &&
+                                (m.TilFradato <= postjournal.PosDato))
+                            .OrderByDescending(b => b.TilFradato)
+                            .FirstOrDefaultAsync();
+                        if (tiltak != null)
+                        {
+                            aktivitet.tiltaksId = AddBydel(tiltak.TilLoepenr.ToString(), "TIL");
+                        }
+                    }
+                }
                 aktiviteter.Add(aktivitet);
                 migrertAntall += 1;
                 if (postjournal.DokLoepenr.HasValue)
@@ -5119,7 +5211,7 @@ namespace UttrekkFamilia
                         else if (journal.JotIdent == "OP")
                         {
                             aktivitet.aktivitetsType = "OPPFØLGING";
-                            aktivitet.aktivitetsUnderType = "OPPFØLGINSBESØK";
+                            aktivitet.aktivitetsUnderType = "OPPFØLGINGSBESØK";
                         }
                         else if (journal.JotIdent == "TB")
                         {
@@ -5858,6 +5950,12 @@ namespace UttrekkFamilia
                                 plan.planForFlytting = null;
                                 plan.nettverk = null;
                                 plan.tidsperspektiv = null;
+                                plan.lovhjemmel = "Bvl._§_4-5_(gammel_lov)";
+                                if (planFamilia.TtpFradato.HasValue && planFamilia.TtpFradato.Value >= FirstInYearOfMigration)
+                                {
+                                    plan.planType = "TILTAKSPLAN_ETTER_BVL_2021_8_1_TIDLIGERE_BVL_1992_4_5";
+                                    plan.lovhjemmel = "Bvl.§_8-1";
+                                }
                                 break;
                             case "2":
                             case "3":
@@ -5874,6 +5972,12 @@ namespace UttrekkFamilia
                                 plan.planForFlytting = null;
                                 plan.nettverk = null;
                                 plan.tidsperspektiv = null;
+                                plan.lovhjemmel = "Bvl._§_4-15_(gammel_lov)";
+                                if (planFamilia.TtpFradato.HasValue && planFamilia.TtpFradato.Value >= FirstInYearOfMigration)
+                                {
+                                    plan.planType = "OMSORGSPLAN_ETTER_BVL_2021_8_3_4_LEDD_TIDLIGERE_BVL_1992_4_15_3_LEDD";
+                                    plan.lovhjemmel = "Bvl.§_8-3";
+                                }
                                 break;
                             case "6":
                                 plan.planType = "PLAN_FOR_FREMTIDIG_TILTAK_-_ETTERVERN";
@@ -5937,13 +6041,14 @@ namespace UttrekkFamilia
                             {
                                 aktivitetId = AddSpecificBydel(planFamilia.TtpLoepenr.ToString(), "PLADOK", bydel),
                                 sakId = plan.sakId,
-                                aktivitetsType = "ØVRIG_DOKUMENT",
-                                aktivitetsUnderType = "NOTAT",
+                                aktivitetsType = "PLANDOKUMENT",
+                                aktivitetsUnderType = "PLANDOKUMENT",
                                 hendelsesdato = planFamilia.TtpFerdigdato,
                                 status = "UTFØRT",
                                 tittel = "Plan",
                                 notat = "Se dokument",
-                                utfortDato = planFamilia.TtpFerdigdato
+                                utfortDato = planFamilia.TtpFerdigdato,
+                                utfortAvId = AddSpecificBydel(planFamilia.SbhInitialer, bydel)
                             };
                             aktiviteter.Add(aktivitet);
 
@@ -5980,7 +6085,7 @@ namespace UttrekkFamilia
                                 planEvaluering.status = "PLANLAGT";
                             }
                             plan.evalueringListe.Add(planEvaluering);
-                            if (tiltaksEvaluering.DokLoepenr.HasValue)
+                            if (tiltaksEvaluering.DokLoepenr.HasValue && tiltaksEvaluering.EvaFerdigdato.HasValue)
                             {
                                 FaDokumenter dokument;
                                 using (var context = new FamiliaDBContext(mappings.GetConnectionstring(bydel, MainDBServer)))
@@ -5993,13 +6098,14 @@ namespace UttrekkFamilia
                                     {
                                         aktivitetId = AddSpecificBydel(tiltaksEvaluering.EvaLoepenr.ToString(), "EVADOK", bydel),
                                         sakId = plan.sakId,
-                                        aktivitetsType = "ØVRIG_DOKUMENT",
-                                        aktivitetsUnderType = "NOTAT",
+                                        aktivitetsType = "EVALUERING",
+                                        aktivitetsUnderType = "TILTAKSPLAN",
                                         hendelsesdato = tiltaksEvaluering.EvaFerdigdato,
                                         status = "UTFØRT",
                                         tittel = "Evaluering",
                                         notat = "Se dokument",
-                                        utfortDato = tiltaksEvaluering.EvaFerdigdato
+                                        utfortDato = tiltaksEvaluering.EvaUtfoertdato,
+                                        utfortAvId = AddSpecificBydel(tiltaksEvaluering.SbhInitialer, bydel)
                                     };
                                     aktiviteter.Add(aktivitet);
 
@@ -6086,7 +6192,7 @@ namespace UttrekkFamilia
                                 undersoekelse.konklusjon = "BARNEVERNSTJENESTEN_GJØR_VEDTAK_OM_TILTAK";
                                 break;
                             case "1":
-                                undersoekelse.konklusjon = "BEGJÆRING_OM_TILTAK_FOR_FYLKESNEMDA";
+                                undersoekelse.konklusjon = "BEGJÆRING_OM_TILTAK_FOR_BARNEVERNS_OG_HELSENEMNDA";
                                 break;
                             case "2":
                             case "H":
@@ -6607,9 +6713,12 @@ namespace UttrekkFamilia
                     }
                     SqlConnection connection = new(ConnectionStringFamilia);
                     SqlDataReader reader = null;
+                    SqlConnection connectionMigrering = new(ConnectionStringMigrering);
+                    SqlDataReader readerMigrering = null;
                     try
                     {
                         connection.Open();
+                        connectionMigrering.Open();
 
                         foreach (var documentFamilia in rawData)
                         {
@@ -6652,7 +6761,23 @@ namespace UttrekkFamilia
                             }
                             document.filId += fileExtension;
                             documents.Add(document);
-                            if (WriteFiles)
+
+                            bool fileAlreadyWritten = false;
+                            SqlCommand commandMigrering = new($"Select Count(*) From Filer Where Filnavn='{document.filId}'", connectionMigrering)
+                            {
+                                CommandTimeout = 300
+                            };
+                            readerMigrering = commandMigrering.ExecuteReader();
+                            while (readerMigrering.Read())
+                            {
+                                if (readerMigrering.GetInt32(0) > 0)
+                                {
+                                    fileAlreadyWritten = true;
+                                }
+                            }
+                            readerMigrering.Close();
+
+                            if (!fileAlreadyWritten)
                             {
                                 SqlCommand command = new($"Select Dok_Dokument From FA_DOKUMENTER Where DOK_Loepenr={documentFamilia.dokLoepenr}", connection)
                                 {
@@ -6664,12 +6789,18 @@ namespace UttrekkFamilia
                                     await File.WriteAllBytesAsync(OutputFolderName + "filer\\" + document.filId, (byte[])reader["Dok_Dokument"]);
                                 }
                                 reader.Close();
+                                commandMigrering = new($"Insert Into Filer (FilNavn,Bydel,Dato) Values ('{document.filId}','{Bydelsforkortelse}',GETDATE())", connectionMigrering)
+                                {
+                                    CommandTimeout = 300
+                                };
+                                commandMigrering.ExecuteNonQuery();
                             }
                         }
                     }
                     finally
                     {
                         connection.Close();
+                        connectionMigrering.Close();
                     }
                     documentsToSkip += maxNumberOfDocumentsEachBatch;
                 }
@@ -6716,48 +6847,48 @@ namespace UttrekkFamilia
                     };
                     document.filId += ".txt";
                     documents.Add(document);
-                    if (WriteFiles)
+                    string header = "Navn: ";
+                    if (!string.IsNullOrEmpty(documentFamilia.forNavn))
                     {
-                        string header = "Navn: ";
-                        if (!string.IsNullOrEmpty(documentFamilia.forNavn))
+                        header += documentFamilia.forNavn;
+                        if (!string.IsNullOrEmpty(documentFamilia.etterNavn))
                         {
-                            header += documentFamilia.forNavn;
-                            if (!string.IsNullOrEmpty(documentFamilia.etterNavn))
-                            {
-                                header += " " + documentFamilia.etterNavn;
-                            }
+                            header += " " + documentFamilia.etterNavn;
+                        }
+                    }
+                    else
+                    {
+                        if (!string.IsNullOrEmpty(documentFamilia.etterNavn))
+                        {
+                            header += documentFamilia.etterNavn;
                         }
                         else
                         {
-                            if (!string.IsNullOrEmpty(documentFamilia.etterNavn))
-                            {
-                                header += documentFamilia.etterNavn;
-                            }
-                            else
-                            {
-                                header += "-";
-                            }
+                            header += "-";
                         }
-                        if (documentFamilia.foedselsdato.HasValue)
-                        {
-                            header += $" Fødselsdato: {documentFamilia.foedselsdato.Value:dd.MM.yyyy}";
-                        }
-                        header += Environment.NewLine;
-                        header += $"Dato: {documentFamilia.datonotat:dd.MM.yyyy}";
-                        if (documentFamilia.journalDato.HasValue)
-                        {
-                            header += $" Ferdigdato: {documentFamilia.journalDato:dd.MM.yyyy}";
-                        }
-                        header += Environment.NewLine;
-                        if (!string.IsNullOrEmpty(documentFamilia.tittel))
-                        {
-                            header += $"Emne: {documentFamilia.tittel}" + Environment.NewLine;
-                        }
-                        if (!string.IsNullOrEmpty(documentFamilia.beskrivelse))
-                        {
-                            header += $"Beskrivelse: {documentFamilia.beskrivelse}";
-                        }
-                        header += Environment.NewLine + Environment.NewLine;
+                    }
+                    if (documentFamilia.foedselsdato.HasValue)
+                    {
+                        header += $" Fødselsdato: {documentFamilia.foedselsdato.Value:dd.MM.yyyy}";
+                    }
+                    header += Environment.NewLine;
+                    header += $"Dato: {documentFamilia.datonotat:dd.MM.yyyy}";
+                    if (documentFamilia.journalDato.HasValue)
+                    {
+                        header += $" Ferdigdato: {documentFamilia.journalDato:dd.MM.yyyy}";
+                    }
+                    header += Environment.NewLine;
+                    if (!string.IsNullOrEmpty(documentFamilia.tittel))
+                    {
+                        header += $"Emne: {documentFamilia.tittel}" + Environment.NewLine;
+                    }
+                    if (!string.IsNullOrEmpty(documentFamilia.beskrivelse))
+                    {
+                        header += $"Beskrivelse: {documentFamilia.beskrivelse}";
+                    }
+                    header += Environment.NewLine + Environment.NewLine;
+                    if (!OnlyWriteDocumentFiles)
+                    {
                         await File.WriteAllTextAsync(OutputFolderName + "filer\\" + document.filId, header + documentFamilia.innhold);
                     }
                 }
@@ -6807,7 +6938,7 @@ namespace UttrekkFamilia
                     };
                     document.filId += ".html";
                     documents.Add(document);
-                    if (WriteFiles)
+                    if (!OnlyWriteDocumentFiles)
                     {
                         await File.WriteAllTextAsync(OutputFolderName + "filer\\" + document.filId, $"<html>{documentBVV.innhold}</html>");
                     }
@@ -7638,14 +7769,17 @@ namespace UttrekkFamilia
         {
             try
             {
-                var options = new JsonSerializerOptions
+                if (!OnlyWriteDocumentFiles)
                 {
-                    DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault
-                };
-                var jsonData = JsonSerializer.Serialize(list, options);
-                if (jsonData != "[]")
-                {
-                    await File.WriteAllTextAsync(OutputFolderName + fileName, jsonData);
+                    var options = new JsonSerializerOptions
+                    {
+                        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault
+                    };
+                    var jsonData = JsonSerializer.Serialize(list, options);
+                    if (jsonData != "[]")
+                    {
+                        await File.WriteAllTextAsync(OutputFolderName + fileName, jsonData);
+                    }
                 }
             }
             catch (Exception ex)

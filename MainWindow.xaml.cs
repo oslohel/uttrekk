@@ -33,7 +33,7 @@ namespace UttrekkFamilia
         private bool PlanerIsChecked;
         private bool AktiviteterIsChecked;
         private bool UseSokrates;
-        private bool WriteFiles;
+        private bool OnlyWriteDocumentFiles;
         private int AntallFilerPerZip;
         private string DokumentNumber;
         #endregion
@@ -185,7 +185,7 @@ namespace UttrekkFamilia
         {
             try
             {
-                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, MaksimumAntall, UseSokrates, WriteFiles, AntallFilerPerZip);
+                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, MaksimumAntall, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip);
                 var worker = sender as BackgroundWorker;
                 uttrekk.DoZipAsync(worker);
             }
@@ -199,7 +199,7 @@ namespace UttrekkFamilia
         {
             try
             {
-                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, MaksimumAntall, UseSokrates, WriteFiles, AntallFilerPerZip);
+                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, MaksimumAntall, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip);
                 var worker = sender as BackgroundWorker;
                 var task = uttrekk.GetInformationFamiliaAsync(worker);
                 task.Wait();
@@ -214,7 +214,7 @@ namespace UttrekkFamilia
         {
             try
             {
-                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, MaksimumAntall, UseSokrates, WriteFiles, AntallFilerPerZip);
+                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, MaksimumAntall, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip);
                 var worker = sender as BackgroundWorker;
                 var task = uttrekk.GetOneFileFamiliaAsync(worker, Convert.ToDecimal(DokumentNumber));
                 task.Wait();
@@ -229,7 +229,7 @@ namespace UttrekkFamilia
         {
             try
             {
-                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, MaksimumAntall, UseSokrates, WriteFiles, AntallFilerPerZip);
+                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, MaksimumAntall, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip);
                 uttrekk.CreateAllfolders();
                 var worker = sender as BackgroundWorker;
                 var task = uttrekk.GetAlleBrukereFamiliaAsync(worker);
@@ -246,7 +246,7 @@ namespace UttrekkFamilia
         {
             try
             {
-                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, "BVV", MaksimumAntall, UseSokrates, WriteFiles, AntallFilerPerZip);
+                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, "BVV", MaksimumAntall, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip);
                 var worker = sender as BackgroundWorker;
                 var task = uttrekk.GetInformationBVVAsync(worker);
                 task.Wait();
@@ -261,7 +261,7 @@ namespace UttrekkFamilia
         {
             try
             {
-                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, MaksimumAntall, UseSokrates, WriteFiles, AntallFilerPerZip);
+                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, MaksimumAntall, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip);
                 var worker = sender as BackgroundWorker;
                 var task = uttrekk.WriteSokratesAsync(worker);
                 task.Wait();
@@ -280,7 +280,7 @@ namespace UttrekkFamilia
 
             try
             {
-                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, MaksimumAntall, UseSokrates, WriteFiles, AntallFilerPerZip);
+                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, MaksimumAntall, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip);
                 var task = uttrekk.TidstestAsync(worker);
                 task.Wait();
             }
@@ -296,7 +296,7 @@ namespace UttrekkFamilia
         {
             try
             {
-                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, MaksimumAntall, UseSokrates, WriteFiles, AntallFilerPerZip);
+                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, MaksimumAntall, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip);
                 var worker = sender as BackgroundWorker;
                 var task = uttrekk.GetInformationSokratesAsync(worker);
                 task.Wait();
@@ -315,8 +315,8 @@ namespace UttrekkFamilia
             string information = $"UTTREKK {DateTime.Now:dd.MM.yyyy HH:mm} Bydelsid: {Bydelsidentifikator} Maks antall: {MaksimumAntall}" + Environment.NewLine + Environment.NewLine;
             try
             {
-                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, MaksimumAntall, UseSokrates, WriteFiles, AntallFilerPerZip);
-                uttrekk.CreateAllfolders();
+                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, MaksimumAntall, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip);
+                uttrekk.CreateAllfolders(OnlyWriteDocumentFiles);
 
                 if (UseSokrates)
                 {
@@ -436,7 +436,7 @@ namespace UttrekkFamilia
             string information = $"UTTREKK {DateTime.Now:dd.MM.yyyy HH:mm} Visma Flyt Barnevernvakt Maks antall: {MaksimumAntall}" + Environment.NewLine + Environment.NewLine;
             try
             {
-                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, "BVV", MaksimumAntall, UseSokrates, WriteFiles, AntallFilerPerZip);
+                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, "BVV", MaksimumAntall, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip);
                 uttrekk.CreateAllfolders();
                 var task = uttrekk.GetBVVAsync(worker);
                 task.Wait();
@@ -533,7 +533,7 @@ namespace UttrekkFamilia
             PlanerIsChecked = chkPlaner.IsChecked.Value;
             AktiviteterIsChecked = chkAktiviteter.IsChecked.Value;
             UseSokrates = chkUseSokrates.IsChecked.Value;
-            WriteFiles = chkWriteFiles.IsChecked.Value;
+            OnlyWriteDocumentFiles = chkOnlyWriteDocumentFiles.IsChecked.Value;
             AntallFilerPerZip = int.Parse(AntallPerZip.Text);
         }
         #endregion

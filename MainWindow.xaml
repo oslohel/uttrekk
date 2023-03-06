@@ -60,7 +60,7 @@
             <GroupBox Height="115" Header="Uttrekk:" Panel.ZIndex="-1" Width="223" Canvas.Left="241" Canvas.Top="288" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             <Button x:Name="WriteSokrates" Content="Saksoversikt" Height="24" Width="100" Click="WriteSokrates_Click" Canvas.Left="18" Canvas.Top="341" TabIndex="13" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <CheckBox Content="Bruk Sokrates" x:Name="chkUseSokrates" IsChecked="True" TabIndex="5" Height="20" Canvas.Left="136" Canvas.Top="128" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-            <CheckBox Content="Hent filer" x:Name="chkWriteFiles" IsChecked="True" TabIndex="6" Height="20" Canvas.Left="266" Canvas.Top="128" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+            <CheckBox Content="Kun filer (for føropplasting)" x:Name="chkOnlyWriteDocumentFiles" IsChecked="False" TabIndex="6" Height="20" Canvas.Left="263" Canvas.Top="128" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             <Button x:Name="Tidstest" Content="Tidstest" Height="24" Width="100" Click="Tidstest_Click" Canvas.Left="18" Canvas.Top="370" TabIndex="14" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <Button x:Name="OneFilFamilia" Content="Enkeltfil Familia" Height="24" Width="100" Click="OneFileFamilia_Click" Canvas.Left="123" Canvas.Top="370" TabIndex="18" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <Label Content="Antall pr. Zip-fil:" Height="26" Canvas.Left="18" Canvas.Top="151" Width="112" HorizontalAlignment="Center" VerticalAlignment="Top"/>
