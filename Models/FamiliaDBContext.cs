@@ -6379,6 +6379,31 @@ namespace UttrekkFamilia.Models
                     .IsUnicode(false)
                     .HasColumnName("SBH_ENDRETAV");
 
+                entity.Property(e => e.PahKategori)
+                    .HasMaxLength(20)
+                    .IsUnicode(false)
+                    .HasColumnName("PAH_KATEGORI");
+
+                entity.Property(e => e.PahFraAarsak)
+                    .HasMaxLength(4)
+                    .IsUnicode(false)
+                    .HasColumnName("PAH_FRA_AARSAK");
+
+                entity.Property(e => e.PahFraSpesifiser)
+                    .HasMaxLength(80)
+                    .IsUnicode(false)
+                    .HasColumnName("PAH_FRA_SPESIFISER");
+
+                entity.Property(e => e.PahTilAarsak)
+                    .HasMaxLength(4)
+                    .IsUnicode(false)
+                    .HasColumnName("PAH_TIL_AARSAK");
+
+                entity.Property(e => e.PahTilSpesifiser)
+                    .HasMaxLength(80)
+                    .IsUnicode(false)
+                    .HasColumnName("PAH_TIL_SPESIFISER");
+
                 entity.HasOne(d => d.KliLoepenrNavigation)
                     .WithMany(p => p.FaKlientadressers)
                     .HasForeignKey(d => d.KliLoepenr)

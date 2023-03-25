@@ -27,6 +27,7 @@ namespace UttrekkFamilia
     {
         #region Members
         private readonly DateTime LastDateNoMigration = new(1997, 12, 31);
+        private readonly DateTime FromDateMigrationTilsyn = new(2004, 12, 31);
         private readonly DateTime FirstInYearOfMigration = new(2023, 1, 1);
         private string ConnectionStringFamilia = "";
         private readonly string ConnectionStringSokrates = "";
@@ -937,7 +938,7 @@ namespace UttrekkFamilia
                     {
                         sak.status = "LUKKET";
                     }
-                    //TODO BVV - Avvente eventuell endring slik at "Interne saksforberedelser" også blir gyldig for barnevernvaktsaker og kan brukes til logger
+                    //TODO BVV - Avvente endring slik at "Interne saksforberedelser" også blir gyldig for barnevernvaktsaker og kan brukes til logger
                     Aktivitet aktivitet = new()
                     {
                         aktivitetId = AddBydel(sak.sakId, "LOG"),
@@ -1250,6 +1251,10 @@ namespace UttrekkFamilia
                         poststed = await GetBVVBaseregistryValueAsync(person.MunicipalityRegistryId),
                         hovedadresse = true
                     };
+                    if (string.IsNullOrEmpty(adresse.postnummer))
+                    {
+                        adresse.adresseType = "UFULDSTÆNDIG_ADRESSE";
+                    }
                     hovedAdresseBestemt = true;
                     innbygger.adresse.Add(adresse);
                 }
@@ -1263,6 +1268,10 @@ namespace UttrekkFamilia
                         postnummer = await GetBVVBaseregistryValueAsync(person.VisitingAddressPostCodeRegistryId, true),
                         poststed = await GetBVVBaseregistryValueAsync(person.VisitingAddressMunicipalityRegistryId)
                     };
+                    if (string.IsNullOrEmpty(adresse.postnummer))
+                    {
+                        adresse.adresseType = "UFULDSTÆNDIG_ADRESSE";
+                    }
                     if (!hovedAdresseBestemt)
                     {
                         adresse.hovedadresse = true;
@@ -1416,6 +1425,10 @@ namespace UttrekkFamilia
                         poststed = await GetBVVBaseregistryValueAsync(person.MunicipalityRegistryId),
                         hovedadresse = true
                     };
+                    if (string.IsNullOrEmpty(adresse.postnummer))
+                    {
+                        adresse.adresseType = "UFULDSTÆNDIG_ADRESSE";
+                    }
                     hovedAdresseBestemt = true;
                     innbygger.adresse.Add(adresse);
                 }
@@ -1429,6 +1442,10 @@ namespace UttrekkFamilia
                         postnummer = await GetBVVBaseregistryValueAsync(person.VisitingAddressPostCodeRegistryId, true),
                         poststed = await GetBVVBaseregistryValueAsync(person.VisitingAddressMunicipalityRegistryId)
                     };
+                    if (string.IsNullOrEmpty(adresse.postnummer))
+                    {
+                        adresse.adresseType = "UFULDSTÆNDIG_ADRESSE";
+                    }
                     if (!hovedAdresseBestemt)
                     {
                         adresse.hovedadresse = true;
@@ -2005,11 +2022,9 @@ namespace UttrekkFamilia
                                 ferdigstilt = true,
                                 opprettetAvId = aktivitet.utfortAvId,
                                 sakId = aktivitet.sakId,
-                                tittel = aktivitet.tittel,
+                                tittel = $"{aktivitet.tittel} (vedlegg {vedleggIndeks})",
                                 journalDato = aktivitet.utfortDato,
-                                filFormat = "PDF",
-                                hovedDokumentId = aktivitet.aktivitetId,
-                                vedleggIndeks = vedleggIndeks
+                                filFormat = "PDF"
                             };
                             attachmentDocument.aktivitetIdListe.Add(aktivitet.aktivitetId);
                             documents.Add(attachmentDocument);
@@ -2021,12 +2036,10 @@ namespace UttrekkFamilia
                             {
                                 dokLoepenr = attachment.Id.ToString() + "CORATT",
                                 sakId = aktivitet.sakId,
-                                tittel = aktivitet.tittel,
+                                tittel = $"{aktivitet.tittel} (vedlegg {vedleggIndeks})",
                                 journalDato = aktivitet.utfortDato,
                                 opprettetAvId = aktivitet.utfortAvId,
-                                innhold = $"<p>{attachment.Name}</p>",
-                                hovedDokumentId = aktivitet.aktivitetId,
-                                vedleggIndeks = vedleggIndeks
+                                innhold = $"<p>{attachment.Name}</p>"
                             };
                             htmlDocumentToInclude.aktivitetIdListe.Add(aktivitet.aktivitetId);
                             htmlDocumentsIncluded.Add(htmlDocumentToInclude);
@@ -2039,7 +2052,8 @@ namespace UttrekkFamilia
             finally
             {
                 connection.Close();
-            }            await GetHtmlDocumentsAsync(worker, htmlDocumentsIncluded, "Post", "Pos");
+            }            
+            await GetHtmlDocumentsAsync(worker, htmlDocumentsIncluded, "Post", "Pos");
             await WriteFileAsync(documents, GetJsonFileName("dokumenter", $"DokumenterBVVPos"));
             await WriteFileAsync(aktiviteter, GetJsonFileName("aktiviteter", "BVVPost"));
             return antall;
@@ -2252,6 +2266,7 @@ namespace UttrekkFamilia
                 {
                     rawData = await context.FaKlients
                         .Where(KlientFilter())
+                        .Where(m => !m.KliAvsluttetdato.HasValue && m.KliFoedselsdato > FromDateMigrationTilsyn)
                         .OrderBy(o => o.KliLoepenr)
                         .Take(MaksAntall)
                         .Where(k => k.KliFraannenkommune == 1)
@@ -2540,6 +2555,10 @@ namespace UttrekkFamilia
                         postnummer = klient.PnrPostnr?.Trim(),
                         hovedadresse = true
                     };
+                    if (string.IsNullOrEmpty(adresse.postnummer))
+                    {
+                        adresse.adresseType = "UFULDSTÆNDIG_ADRESSE";
+                    }
                     innbygger.adresse.Add(adresse);
                 }
 
@@ -2771,6 +2790,10 @@ namespace UttrekkFamilia
                             postnummer = forbindelse.PnrPostnr?.Trim(),
                             hovedadresse = true
                         };
+                        if (string.IsNullOrEmpty(adresse.postnummer))
+                        {
+                            adresse.adresseType = "UFULDSTÆNDIG_ADRESSE";
+                        }
                         if (!string.IsNullOrEmpty(forbindelse.ForPostadresse))
                         {
                             adresse.linje1 = forbindelse.ForPostadresse?.Trim();
@@ -2899,6 +2922,10 @@ namespace UttrekkFamilia
                             postnummer = forbindelse.PnrPostnr?.Trim(),
                             hovedadresse = true
                         };
+                        if (string.IsNullOrEmpty(adresse.postnummer))
+                        {
+                            adresse.adresseType = "UFULDSTÆNDIG_ADRESSE";
+                        }
                         if (!string.IsNullOrEmpty(forbindelse.ForPostadresse))
                         {
                             adresse.linje1 = forbindelse.ForPostadresse?.Trim();
@@ -3821,7 +3848,7 @@ namespace UttrekkFamilia
                     {
                         vedtak.behandlingIFylkesnemda = "FORENKLET";
                     }
-                    else if (saksJournal.SakBehFylkesnemnda == "FT" || saksJournal.SakBehFylkesnemnda == "SP")
+                    else if (saksJournal.SakBehFylkesnemnda == "FT" || saksJournal.SakBehFylkesnemnda == "SP" || saksJournal.MynVedtakstype == "FN")
                     {
                         vedtak.behandlingIFylkesnemda = "FULLTALLIG";
                     }
@@ -3838,43 +3865,46 @@ namespace UttrekkFamilia
                         && (mynVedtakstype == "FN" || mynVedtakstype == "LA" || mynVedtakstype == "TI"))
                     {
                         if (lovHovedParagraf == "4-4,3." || lovHovedParagraf == "4-4,3.1" || lovHovedParagraf == "4-4,3.2" || lovHovedParagraf == "4-4,3.3"
-                            || (lovHovedParagraf == "4-4,5." && (lovJmfParagraf1 == "4-24" || lovJmfParagraf2 == "4-24")))
+                            || (lovHovedParagraf == "4-4,5." && (lovJmfParagraf1 == "4-24" || lovJmfParagraf2 == "4-24"))
+                            || lovHovedParagraf == "§ 3-4" || lovHovedParagraf == "§ 3-5" || (lovHovedParagraf == "§ 3-5" && ((!string.IsNullOrEmpty(lovJmfParagraf1) && lovJmfParagraf1.StartsWith("§ 6-2")) || (!string.IsNullOrEmpty(lovJmfParagraf2) && lovJmfParagraf2.StartsWith("§ 6-2")))))
                         {
                             vedtak.vedtakstype = "PÅLAGT_HJELPETILTAK";
                         }
-                        else if (lovHovedParagraf == "4-11")
+                        else if (lovHovedParagraf == "4-11" || lovHovedParagraf == "§ 3-8")
                         {
                             vedtak.vedtakstype = "BEHANDLING_AV_BARN_MED_SÆRSKILTE_BEHOV";
                         }
-                        else if (lovHovedParagraf == "4-10")
+                        else if (lovHovedParagraf == "4-10" || lovHovedParagraf == "§ 3-7")
                         {
                             vedtak.vedtakstype = "MEDISINSK_UNDERSØKELSE_OG_BEHANDLING";
                         }
-                        else if (lovHovedParagraf == "4-8,1.")
+                        else if (lovHovedParagraf == "4-8,1." || lovHovedParagraf == "§ 4-3")
                         {
                             vedtak.vedtakstype = "FORBUD_MOT_FLYTTING";
                         }
-                        else if (lovHovedParagraf == "4-8,2." || lovHovedParagraf == "4-8,3." || (!string.IsNullOrEmpty(lovHovedParagraf) && lovHovedParagraf.StartsWith("4-12")))
+                        else if (lovHovedParagraf == "4-8,2." || lovHovedParagraf == "4-8,3." || (!string.IsNullOrEmpty(lovHovedParagraf) && lovHovedParagraf.StartsWith("4-12"))
+                            || (!string.IsNullOrEmpty(lovHovedParagraf) && lovHovedParagraf.StartsWith("§ 5-1")) || lovHovedParagraf == "§ 4-4"
+                            || (!string.IsNullOrEmpty(lovHovedParagraf) && lovHovedParagraf.StartsWith("§ 4-2")))
                         {
                             vedtak.vedtakstype = "OMSORGSOVERTAKELSE";
                         }
-                        else if (lovHovedParagraf == "4-24")
+                        else if (lovHovedParagraf == "4-24" || (!string.IsNullOrEmpty(lovHovedParagraf) && lovHovedParagraf.StartsWith("§ 6-2")) || lovHovedParagraf == "§ 8-4")
                         {
                             vedtak.vedtakstype = "ADFERDSTILTAK";
                         }
-                        else if (lovHovedParagraf == "4-20")
+                        else if (lovHovedParagraf == "4-20" || lovHovedParagraf == "§ 5-8" || lovHovedParagraf == "§ 5-10" || lovHovedParagraf == "§ 5-11")
                         {
                             vedtak.vedtakstype = "FRATAKELSE_AV_FORELDREANSVAR._ADOPSJON";
                         }
-                        else if (lovHovedParagraf == "4-19")
+                        else if (lovHovedParagraf == "4-19" || lovHovedParagraf == "§ 7-2,3.")
                         {
                             vedtak.vedtakstype = "SAMVÆRSRETT/SKJULT_ADRESSE";
                         }
-                        else if (lovHovedParagraf == "4-21")
+                        else if (lovHovedParagraf == "4-21" || lovHovedParagraf == "§ 5-7")
                         {
                             vedtak.vedtakstype = "OPPHEVING_AV_VEDTAK_OM_OMSORGSOVERTAGELSE";
                         }
-                        else if (lovHovedParagraf == "4-29" || lovHovedParagraf == "4-29,2.")
+                        else if (lovHovedParagraf == "4-29" || lovHovedParagraf == "4-29,2." || lovHovedParagraf == "§ 6-6" || lovHovedParagraf == "§ 4-5")
                         {
                             vedtak.vedtakstype = "MENNESKEHANDEL";
                         }
@@ -4246,7 +4276,53 @@ namespace UttrekkFamilia
                             }
                         }
                     }
-                    //TODO Tiltak - Legge inn arsakFlyttingFraFosterhjemInstitusjon, arsakFlyttingFraPresisering, flyttingTil, presiseringAvBosted
+                    if (tiltakFamilia.TilAvsluttetdato.HasValue && tiltakFamilia.TilAvsluttetdato.Value.Year == DateTime.Now.Year && Mappings.IsSSBFosterhjemInstitusjon(tiltakFamilia.TttTiltakstype))
+                    {
+                        using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                        {
+                            FaKlientadresser adresse = await context.FaKlientadressers
+                                .Where(a => a.KliLoepenr == tiltakFamilia.KliLoepenr)
+                                //TODO Tiltak - Order by med ABS og DATEDIFF når logikken blir avklart med barnevernsfaglige
+                                //.OrderBy(o => o.)
+                                .FirstOrDefaultAsync();
+                            if (adresse != null)
+                            {
+                                if (adresse.PahFraAarsak != null && string.IsNullOrEmpty(adresse.PahFraAarsak.Trim()))
+                                {
+                                    string aarsak = adresse.PahFraAarsak.Trim();
+                                    if (aarsak == "3.1")
+                                    {
+                                        //TODO Tiltak - Hvis aarsak = 3.1 opprette aktivitet FOSTERHJEM - FLYTTING_MED_FOSTERHJEM, da PAH_TIL_AARSAK betraktes som 9 uansett verdi i Familia
+                                    }
+                                    else
+                                    {
+                                        tiltak.arsakFlyttingFraFosterhjemInstitusjon = mappings.GetÅrsaksFylttingFra(aarsak);
+                                    }
+                                }
+                                if (adresse.PahTilAarsak != null && string.IsNullOrEmpty(adresse.PahTilAarsak.Trim()))
+                                {
+                                    string aarsak = adresse.PahTilAarsak.Trim();
+                                    if (aarsak == "9")
+                                    {
+                                        //TODO Tiltak - Hvis aarsak = 9 opprette aktivitet FOSTERHJEM - FLYTTING_MED_FOSTERHJEM, da PAH_TIL_AARSAK betraktes som 9 uansett verdi i Familia
+                                    }
+                                    else
+                                    {
+                                         tiltak.flyttingTil = mappings.GetÅrsaksFylttingTil(aarsak);
+                                    }
+                                }
+
+                                if (adresse.PahFraSpesifiser != null && string.IsNullOrEmpty(adresse.PahFraSpesifiser.Trim()))
+                                {
+                                    tiltak.arsakFlyttingFraPresisering = adresse.PahFraSpesifiser.Trim();
+                                }
+                                if (adresse.PahTilSpesifiser != null && string.IsNullOrEmpty(adresse.PahTilSpesifiser.Trim()))
+                                {
+                                    tiltak.presiseringAvBosted = adresse.PahTilSpesifiser.Trim();
+                                }
+                            }
+                        }
+                    }
                     if (!string.IsNullOrEmpty(tiltakFamilia.LovHovedParagraf))
                     {
                         tiltak.lovhjemmel = mappings.GetModulusLovhjemmel(tiltakFamilia.LovHovedParagraf);
@@ -4273,37 +4349,45 @@ namespace UttrekkFamilia
                             tiltak.jfLovhjemmelNr1 = mappings.GetModulusLovhjemmel(tiltakFamilia.LovJmfParagraf2);
                         }
                     }
-                    if (tiltakFamilia.TttTiltakstype == "14" || tiltakFamilia.TttTiltakstype == "15" || tiltakFamilia.TttTiltakstype == "16" || tiltakFamilia.TttTiltakstype == "17" || tiltakFamilia.TttTiltakstype == "18" || tiltakFamilia.TttTiltakstype == "103" || tiltakFamilia.TttTiltakstype == "104" || tiltakFamilia.TttTiltakstype == "105" || tiltakFamilia.TttTiltakstype == "106" || tiltakFamilia.TttTiltakstype == "107" || tiltakFamilia.TttTiltakstype == "108" || tiltakFamilia.TttTiltakstype == "109")
+                    string tiltakstype = tiltakFamilia.TttTiltakstype?.Trim();
+                    if (tiltakstype == "14" || tiltakstype == "15" || tiltakstype == "16" || tiltakstype == "17" || tiltakstype == "18" || tiltakstype == "103" || tiltakstype == "104" || tiltakstype == "105" || tiltakstype == "106" || tiltakstype == "107" || tiltakstype == "108" || tiltakstype == "109")
                     {
                         if (tiltakFamilia.TilIverksattdato.HasValue)
                         {
                             using (var context = new FamiliaDBContext(ConnectionStringFamilia))
                             {
                                 FaKlientplassering klientplassering = await context.FaKlientplasserings
-                                    .Where(m => m.KliLoepenr == tiltakFamilia.KliLoepenr && m.KplBorhos == "6"
-                                        && (m.KplFradato >= tiltakFamilia.TilIverksattdato.Value.AddDays(-30)))
+                                    .Where(m => m.KliLoepenr == tiltakFamilia.KliLoepenr && m.KplBorhos == "6")
                                     .OrderBy(b => b.KplFradato)
                                     .FirstOrDefaultAsync();
                                 if (klientplassering != null)
                                 {
+                                    string kommunenr = "";
                                     if (klientplassering.KomKommunenr < 1000)
                                     {
-                                        tiltak.tilsynskommunenummer = $"0{klientplassering.KomKommunenr}";
+                                        kommunenr = $"0{klientplassering.KomKommunenr}";
                                     }
                                     else
                                     {
-                                        tiltak.tilsynskommunenummer = klientplassering.KomKommunenr.ToString();
+                                        kommunenr = klientplassering.KomKommunenr.ToString();
+                                    }
+                                    if (mappings.IsValidKommunenummer(kommunenr))
+                                    {
+                                        tiltak.tilsynskommunenummer = kommunenr;
+                                    }
+                                    else
+                                    {
+                                        tiltak.tilsynskommunenummer = "0301";
                                     }
                                 }
                                 else
                                 {
-                                    //Tiltak - Midlertidig workaround inntil logikk for utledning blir avklart
                                     tiltak.tilsynskommunenummer = "0301";
                                 }
                             }
                         }
                     }
-                    //TODO Tiltak - Opprette aktivitet OPPDRAGSTAKER_AVTALE og hente dokument og knytte den til Tiltak via FA_ENGASJEMENTSAVTALE.TIL_LOEPENR, via FA_ENGASJEMENTSAVTALE.Dok_Loepenr - DOK_TYPE = 'EN' FA_ENGASJEMENTSAVTALE 'Tittel="Engasjementsavtale (fra Familia)" 'Aktivitet=OPPDRAGSTAKER_AVTALE 'JournalDato=ENG_AVGJORTDATO
+                    //TODO Tiltak - Opprette aktivitet OPPDRAGSTAKER_AVTALE og hente dokument og knytte den til Tiltak via FA_ENGASJEMENTSAVTALE.TIL_LOEPENR, via FA_ENGASJEMENTSAVTALE.Dok_Loepenr - DOK_TYPE = 'EN' FA_ENGASJEMENTSAVTALE 'Tittel="Engasjementsavtale (fra Familia)" 'Aktivitet=OPPDRAGSTAKER_AVTALE 'JournalDato=ENG_AVGJORTDATO samt lagre allerede migrert oppdragstaker slik at den ikke overføres flere ganger
                     tiltaksliste.Add(tiltak);
                     migrertAntall += 1;
                 }
@@ -4412,7 +4496,7 @@ namespace UttrekkFamilia
                                 if (planFamilia.TtpFradato.HasValue && planFamilia.TtpFradato.Value >= FirstInYearOfMigration)
                                 {
                                     plan.planType = "TILTAKSPLAN_ETTER_BVL_2021_8_1_TIDLIGERE_BVL_1992_4_5";
-                                    plan.lovhjemmel = "Bvl.§_8-1";
+                                    plan.lovhjemmel = "Bvl._§_8-1";
                                 }
                                 break;
                             case "2":
@@ -4434,7 +4518,7 @@ namespace UttrekkFamilia
                                 if (planFamilia.TtpFradato.HasValue && planFamilia.TtpFradato.Value >= FirstInYearOfMigration)
                                 {
                                     plan.planType = "OMSORGSPLAN_ETTER_BVL_2021_8_3_4_LEDD_TIDLIGERE_BVL_1992_4_15_3_LEDD";
-                                    plan.lovhjemmel = "Bvl.§_8-3";
+                                    plan.lovhjemmel = "Bvl._§_8-3";
                                 }
                                 break;
                             case "6":
@@ -5449,7 +5533,7 @@ namespace UttrekkFamilia
         #region Tidligere bydeler
         private async Task GetDataTidligereBydelerAsync(BackgroundWorker worker, DateTime fodselsDato, Decimal personNummer, string sakId, List<TidligereAvdeling> tidligereAvdelinger)
         {
-            //TODO Tidligere bydeler - GetDataTidligereBydelerAsync - Legge inn uttrekk av data fra tidligere bydeler Tiltak og Aktiviteter
+            //TODO Tidligere bydeler - GetDataTidligereBydelerAsync - Legge inn uttrekk av data fra tidligere bydeler for Tiltak og Aktiviteter
             try
             {
                 foreach (var tidligereBydel in tidligereAvdelinger)
@@ -5581,6 +5665,10 @@ namespace UttrekkFamilia
                             postnummer = forbindelse.PnrPostnr?.Trim(),
                             hovedadresse = true
                         };
+                        if (string.IsNullOrEmpty(adresse.postnummer))
+                        {
+                            adresse.adresseType = "UFULDSTÆNDIG_ADRESSE";
+                        }
                         if (!string.IsNullOrEmpty(forbindelse.ForPostadresse))
                         {
                             adresse.linje1 = forbindelse.ForPostadresse?.Trim();
@@ -5690,6 +5778,10 @@ namespace UttrekkFamilia
                             postnummer = forbindelse.PnrPostnr?.Trim(),
                             hovedadresse = true
                         };
+                        if (string.IsNullOrEmpty(adresse.postnummer))
+                        {
+                            adresse.adresseType = "UFULDSTÆNDIG_ADRESSE";
+                        }
                         if (!string.IsNullOrEmpty(forbindelse.ForPostadresse))
                         {
                             adresse.linje1 = forbindelse.ForPostadresse?.Trim();
@@ -5872,7 +5964,7 @@ namespace UttrekkFamilia
                     }
                     meldinger.Add(melding);
                 }
-                await GetDocumentsAsync(worker, $"Meldinger{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}", documentsIncluded, false);
+                await GetDocumentsAsync(worker, $"Meldinger{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}", documentsIncluded, false, bydel: bydel);
                 await WriteFileAsync(meldinger, GetJsonFileName("melding", $"Meldinger{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}"));
             }
             catch (Exception ex)
@@ -5954,7 +6046,7 @@ namespace UttrekkFamilia
                                 if (planFamilia.TtpFradato.HasValue && planFamilia.TtpFradato.Value >= FirstInYearOfMigration)
                                 {
                                     plan.planType = "TILTAKSPLAN_ETTER_BVL_2021_8_1_TIDLIGERE_BVL_1992_4_5";
-                                    plan.lovhjemmel = "Bvl.§_8-1";
+                                    plan.lovhjemmel = "Bvl._§_8-1";
                                 }
                                 break;
                             case "2":
@@ -5976,7 +6068,7 @@ namespace UttrekkFamilia
                                 if (planFamilia.TtpFradato.HasValue && planFamilia.TtpFradato.Value >= FirstInYearOfMigration)
                                 {
                                     plan.planType = "OMSORGSPLAN_ETTER_BVL_2021_8_3_4_LEDD_TIDLIGERE_BVL_1992_4_15_3_LEDD";
-                                    plan.lovhjemmel = "Bvl.§_8-3";
+                                    plan.lovhjemmel = "Bvl._§_8-3";
                                 }
                                 break;
                             case "6":
@@ -6124,7 +6216,7 @@ namespace UttrekkFamilia
                     }
                     planer.Add(plan);
                 }
-                await GetDocumentsAsync(worker, $"Plandokumenter{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}", documentsIncluded, false);
+                await GetDocumentsAsync(worker, $"Plandokumenter{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}", documentsIncluded, false, bydel: bydel);
                 await WriteFileAsync(aktiviteter, GetJsonFileName("aktiviteter", $"Plandokumentaktiviteter{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}"));
                 await WriteFileAsync(planer, GetJsonFileName("plan", $"Planer{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}"));
             }
@@ -6418,7 +6510,7 @@ namespace UttrekkFamilia
                     undersøkelser.Add(undersoekelse);
                 }
                 await GetTextDocumentsAsync(worker, textDocumentsIncluded);
-                await GetDocumentsAsync(worker, $"Undersøkelser{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}", documentsIncluded);
+                await GetDocumentsAsync(worker, $"Undersøkelser{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}", documentsIncluded, bydel: bydel);
                 await WriteFileAsync(undersøkelsesAktiviteter, GetJsonFileName("aktiviteter", $"UndersokelsesAktiviteter{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}"));
                 await WriteFileAsync(undersøkelser, GetJsonFileName("undersokelser", $"Undersokelser{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}"));
             }
@@ -6484,7 +6576,7 @@ namespace UttrekkFamilia
                     {
                         vedtak.behandlingIFylkesnemda = "FORENKLET";
                     }
-                    else if (saksJournal.SakBehFylkesnemnda == "FT" || saksJournal.SakBehFylkesnemnda == "SP")
+                    else if (saksJournal.SakBehFylkesnemnda == "FT" || saksJournal.SakBehFylkesnemnda == "SP" || saksJournal.MynVedtakstype == "FN")
                     {
                         vedtak.behandlingIFylkesnemda = "FULLTALLIG";
                     }
@@ -6501,43 +6593,45 @@ namespace UttrekkFamilia
                         && (mynVedtakstype == "FN" || mynVedtakstype == "LA" || mynVedtakstype == "TI"))
                     {
                         if (lovHovedParagraf == "4-4,3." || lovHovedParagraf == "4-4,3.1" || lovHovedParagraf == "4-4,3.2" || lovHovedParagraf == "4-4,3.3"
-                            || (lovHovedParagraf == "4-4,5." && (lovJmfParagraf1 == "4-24" || lovJmfParagraf2 == "4-24")))
+                            || (lovHovedParagraf == "4-4,5." && (lovJmfParagraf1 == "4-24" || lovJmfParagraf2 == "4-24"))
+                            || lovHovedParagraf == "§ 3-4" || (lovHovedParagraf == "§ 3-5" && ((!string.IsNullOrEmpty(lovJmfParagraf1) && lovJmfParagraf1.StartsWith("§ 6-2")) || (!string.IsNullOrEmpty(lovJmfParagraf2) && lovJmfParagraf2.StartsWith("§ 6-2")))))
                         {
                             vedtak.vedtakstype = "PÅLAGT_HJELPETILTAK";
                         }
-                        else if (lovHovedParagraf == "4-11")
+                        else if (lovHovedParagraf == "4-11" || lovHovedParagraf == "§ 3-8")
                         {
                             vedtak.vedtakstype = "BEHANDLING_AV_BARN_MED_SÆRSKILTE_BEHOV";
                         }
-                        else if (lovHovedParagraf == "4-10")
+                        else if (lovHovedParagraf == "4-10" || lovHovedParagraf == "§ 3-7")
                         {
                             vedtak.vedtakstype = "MEDISINSK_UNDERSØKELSE_OG_BEHANDLING";
                         }
-                        else if (lovHovedParagraf == "4-8,1.")
+                        else if (lovHovedParagraf == "4-8,1." || lovHovedParagraf == "§ 4-3")
                         {
                             vedtak.vedtakstype = "FORBUD_MOT_FLYTTING";
                         }
-                        else if (lovHovedParagraf == "4-8,2." || lovHovedParagraf == "4-8,3." || (!string.IsNullOrEmpty(lovHovedParagraf) && lovHovedParagraf.StartsWith("4-12")))
+                        else if (lovHovedParagraf == "4-8,2." || lovHovedParagraf == "4-8,3." || (!string.IsNullOrEmpty(lovHovedParagraf) && lovHovedParagraf.StartsWith("4-12"))
+                            || (!string.IsNullOrEmpty(lovHovedParagraf) && lovHovedParagraf.StartsWith("§ 5-1")))
                         {
                             vedtak.vedtakstype = "OMSORGSOVERTAKELSE";
                         }
-                        else if (lovHovedParagraf == "4-24")
+                        else if (lovHovedParagraf == "4-24" || (!string.IsNullOrEmpty(lovHovedParagraf) && lovHovedParagraf.StartsWith("§ 6-2")) || lovHovedParagraf == "§ 8-4")
                         {
                             vedtak.vedtakstype = "ADFERDSTILTAK";
                         }
-                        else if (lovHovedParagraf == "4-20")
+                        else if (lovHovedParagraf == "4-20" || lovHovedParagraf == "§ 5-8" || lovHovedParagraf == "§ 5-10" || lovHovedParagraf == "§ 5-11")
                         {
                             vedtak.vedtakstype = "FRATAKELSE_AV_FORELDREANSVAR._ADOPSJON";
                         }
-                        else if (lovHovedParagraf == "4-19")
+                        else if (lovHovedParagraf == "4-19" || lovHovedParagraf == "§ 7-2,3.")
                         {
                             vedtak.vedtakstype = "SAMVÆRSRETT/SKJULT_ADRESSE";
                         }
-                        else if (lovHovedParagraf == "4-21")
+                        else if (lovHovedParagraf == "4-21" || lovHovedParagraf == "§ 5-7")
                         {
                             vedtak.vedtakstype = "OPPHEVING_AV_VEDTAK_OM_OMSORGSOVERTAGELSE";
                         }
-                        else if (lovHovedParagraf == "4-29" || lovHovedParagraf == "4-29,2.")
+                        else if (lovHovedParagraf == "4-29" || lovHovedParagraf == "4-29,2." || lovHovedParagraf == "§ 6-6" || lovHovedParagraf == "§ 4-5")
                         {
                             vedtak.vedtakstype = "MENNESKEHANDEL";
                         }
@@ -6665,7 +6759,7 @@ namespace UttrekkFamilia
                         }
                     }
                 }
-                await GetDocumentsAsync(worker, $"Vedtak{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}", documentsIncluded);
+                await GetDocumentsAsync(worker, $"Vedtak{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}", documentsIncluded, bydel: bydel);
                 await WriteFileAsync(vedtaksliste, GetJsonFileName("vedtak", $"Vedtak{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}"));
             }
             catch (Exception ex)
@@ -6678,13 +6772,17 @@ namespace UttrekkFamilia
         #endregion
 
         #region Helper functions
-        private async Task<string> GetDocumentsAsync(BackgroundWorker worker, string sourceName, List<DocumentToInclude> documentsIncluded, bool showProgress = true)
+        private async Task<string> GetDocumentsAsync(BackgroundWorker worker, string sourceName, List<DocumentToInclude> documentsIncluded, bool showProgress = true, string bydel = "")
         {
             try
             {
                 if (showProgress)
                 {
                     worker.ReportProgress(0, $"Starter uttrekk dokumenter og filer for {sourceName} ...");
+                }
+                if (string.IsNullOrEmpty(bydel))
+                {
+                    bydel = Bydelsforkortelse;
                 }
                 List<InternalDocument> rawData;
                 int totalNumberExtracted = 0;
@@ -6732,7 +6830,7 @@ namespace UttrekkFamilia
                             Document document = new()
                             {
                                 dokumentId = AddBydel(documentFamilia.dokLoepenr.ToString()),
-                                filId = AddBydel(documentFamilia.dokLoepenr.ToString()),
+                                filId = AddSpecificBydel(documentFamilia.dokLoepenr.ToString(), bydel),
                                 ferdigstilt = true,
                                 opprettetAvId = documentToInclude.opprettetAvId,
                                 sakId = documentToInclude.sakId,
@@ -6932,9 +7030,7 @@ namespace UttrekkFamilia
                         aktivitetIdListe = documentBVV.aktivitetIdListe,
                         tittel = documentBVV.tittel,
                         journalDato = documentBVV.journalDato,
-                        filFormat = "PDF",
-                        hovedDokumentId = documentBVV.hovedDokumentId,
-                        vedleggIndeks = documentBVV.vedleggIndeks
+                        filFormat = "PDF"
                     };
                     document.filId += ".html";
                     documents.Add(document);

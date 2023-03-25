@@ -19,8 +19,6 @@ namespace UttrekkFamilia.Modulus
         public bool? ferdigstilt { get; set; }
         public string filFormat { get; set; }
         public string opprettetAvId { get; set; }
-        public string hovedDokumentId { get; set; }
-        public int vedleggIndeks { get; set; }
         public string merknadInnsyn { get; set; }
     }
 
@@ -74,7 +72,5 @@ namespace UttrekkFamilia.Modulus
         public DateTime? journalDato { get; set; }
         public string opprettetAvId { get; set; }
         public string innhold { get; set; }
-        public string hovedDokumentId { get; set; }
-        public int vedleggIndeks { get; set; }
     }
 }
