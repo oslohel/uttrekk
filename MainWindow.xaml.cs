@@ -324,12 +324,6 @@ namespace UttrekkFamilia
                     task.Wait();
                     information += task.Result;
                 }
-                if (SakerIsChecked)
-                {
-                    var task = uttrekk.GetSakerAsync(worker, MeldingerUtenSakIsChecked);
-                    task.Wait();
-                    information += task.Result;
-                }
                 if (InnbyggereBarnIsChecked)
                 {
                     var task = uttrekk.GetInnbyggereBarnAsync(worker, MeldingerUtenSakIsChecked);
@@ -345,6 +339,12 @@ namespace UttrekkFamilia
                 if (OrganisasjonerIsChecked)
                 {
                     var task = uttrekk.GetOrganisasjonerAsync(worker);
+                    task.Wait();
+                    information += task.Result;
+                }
+                if (SakerIsChecked)
+                {
+                    var task = uttrekk.GetSakerAsync(worker, MeldingerUtenSakIsChecked);
                     task.Wait();
                     information += task.Result;
                 }
