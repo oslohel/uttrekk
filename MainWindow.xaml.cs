@@ -423,7 +423,8 @@ namespace UttrekkFamilia
 
             stopwatch.Stop();
             worker.ReportProgress(0, string.Format("Uttrekket ferdig ({0} timer {1} minutter {2} sekunder)", stopwatch.Elapsed.Hours, stopwatch.Elapsed.Minutes, stopwatch.Elapsed.Seconds));
-            information += Environment.NewLine + string.Format("Uttrekket ferdig ({0} min {1} sek)", stopwatch.Elapsed.Minutes, stopwatch.Elapsed.Seconds);
+            information += Environment.NewLine + string.Format("Uttrekket ferdig (({0} timer {1} minutter {2} sekunder))", stopwatch.Elapsed.Hours, stopwatch.Elapsed.Minutes, stopwatch.Elapsed.Seconds);
+
             string fileName = $"{OutputFolderName}\\{Bydelsidentifikator}_{DateTime.Now:yyyyMMdd_HHmm_}Uttrekk.txt";
             var taskStatus = File.WriteAllTextAsync(fileName, information);
             taskStatus.Wait();
@@ -450,7 +451,7 @@ namespace UttrekkFamilia
 
             stopwatch.Stop();
             worker.ReportProgress(0, string.Format("Uttrekket ferdig ({0} timer {1} minutter {2} sekunder)", stopwatch.Elapsed.Hours, stopwatch.Elapsed.Minutes, stopwatch.Elapsed.Seconds));
-            information += Environment.NewLine + string.Format("Uttrekket ferdig ({0} min {1} sek)", stopwatch.Elapsed.Minutes, stopwatch.Elapsed.Seconds);
+            information += Environment.NewLine + string.Format("Uttrekket ferdig (({0} timer {1} minutter {2} sekunder))", stopwatch.Elapsed.Hours, stopwatch.Elapsed.Minutes, stopwatch.Elapsed.Seconds);
             string fileName = $"{OutputFolderName}\\BVV_{DateTime.Now:yyyyMMdd_HHmm_}Uttrekk.txt";
             var taskStatus = File.WriteAllTextAsync(fileName, information);
             taskStatus.Wait();

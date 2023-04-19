@@ -1,6 +1,7 @@
 ﻿#region Usings
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using UttrekkFamilia.Modulus;
 #endregion
 
@@ -814,6 +815,38 @@ namespace UttrekkFamilia
              {"§ 15-12","Bvl._§_15-12" }
         };
 
+        private readonly NameValueCollection HjemlerOversettelseGammelTilNyLov = new() {
+             {"1-1","Bvl._§_1-1" },
+             {"1-3","Bvl._§_3-6" },
+             {"1-3,2.","Bvl._§_3-6" },
+             {"2-2","Bvl._§_2-2" },
+             {"2-5","Bvl._§_2-5" },
+             {"3-1","Bvl._§_3-1" },
+             {"3-2","Bvl._§_3-2" },
+             {"4-1","Bvl._§_4-1" },
+             {"4-2","Bvl._§_4-2" },
+             {"4-3","Bvl._§_2-5" },
+             {"4-4","Bvl._§_3-1" },
+             {"4-19","Bvl._§_7-2" },
+             {"4-4,2.","Bvl._§_3-1" },
+             {"4-4,6.","Bvl._§_3-2" },
+             {"4-5","Bvl._§_8-1" },
+             //TODO Lover som må oversettes - Helle sjekker med BGR
+             {"4-12","" },
+             //TODO Lover som må oversettes - Norunn bestiller i Modulus Barn
+             {"64,7.","" },
+             {"4-21","Bvl._§_5-7" },
+             {"4-22","Bvl._§_5-3" },
+             {"5-3","Bvl._§_5-3" },
+             {"5-7","Bvl._§_5-7" },
+             {"6-1","Bvl._§_6-1" },
+             {"7-2","Bvl._§_7-2" },
+             {"8-1","Bvl._§_8-1" },
+             {"8-2","Bvl._§_8-2" },
+             {"9-1","Bvl._§_15-11" },
+             {"9-6","Bvl._§_9-6" }
+        };
+
         private readonly NameValueCollection Årsakskoder = new() {
             { "01","01_VANSKELIG_Å FÅ TAK_I_SAKKYNDIG_BISTAND" },
             { "02","02_SAKKYNDIG_BRUKER_LENGRE_TID_ENN_FORVENTET" },
@@ -1456,13 +1489,28 @@ namespace UttrekkFamilia
         #endregion
 
         #region Lovhjemler
-        public string GetModulusLovhjemmel(string familiaLovhjemmel)
+        public string GetModulusLovhjemmel(string familiaLovhjemmel, decimal? aar)
         {
             if (!string.IsNullOrEmpty(familiaLovhjemmel))
             {
                 familiaLovhjemmel = familiaLovhjemmel.Trim();
             }
-            return Hjemler[familiaLovhjemmel];
+            if (aar.HasValue && aar.Value > 2022)
+            {
+                string nyLov = HjemlerOversettelseGammelTilNyLov[familiaLovhjemmel];
+                if (nyLov == null)
+                {
+                    return Hjemler[familiaLovhjemmel];
+                }
+                else
+                {
+                    return nyLov;
+                }
+            }
+            else
+            {
+                return Hjemler[familiaLovhjemmel];
+            }
         }
         #endregion
 
@@ -1479,18 +1527,29 @@ namespace UttrekkFamilia
             return SSBUnderkategori[tiltakstype];
         }
 
+        public static bool IsSSBFosterhjem(string tiltakstype)
+        {
+            bool isSSBFosterhjem = false;
+            tiltakstype = tiltakstype?.Trim();
+            if (!string.IsNullOrEmpty(tiltakstype) && (
+                tiltakstype == "103" ||
+                tiltakstype == "104" ||
+                tiltakstype == "105" ||
+                tiltakstype == "106" ||
+                tiltakstype == "107" ||
+                tiltakstype == "108" ||
+                tiltakstype == "109"))
+            {
+                isSSBFosterhjem = true;
+            }
+            return isSSBFosterhjem;
+        }
+
         public static bool IsSSBFosterhjemInstitusjon(string tiltakstype)
         {
             bool isSSBFosterhjemInstitusjon = false;
             tiltakstype = tiltakstype?.Trim();
             if (!string.IsNullOrEmpty(tiltakstype) && (
-                tiltakstype == "14" ||
-                tiltakstype == "15" ||
-                tiltakstype == "16" ||
-                tiltakstype == "17" ||
-                tiltakstype == "18" ||
-                tiltakstype == "19" ||
-                tiltakstype == "21" ||
                 tiltakstype == "100" ||
                 tiltakstype == "101" ||
                 tiltakstype == "102" ||
