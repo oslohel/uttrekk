@@ -2349,7 +2349,7 @@ namespace UttrekkFamilia
 
                 using (var context = new FamiliaDBContext(ConnectionStringFamilia))
                 {
-                    rawData = await context.FaMeldingers.Where(m => !m.KliLoepenr.HasValue && m.MelMeldingstype != "UGR").ToListAsync();
+                    rawData = await context.FaMeldingers.Where(m => !m.KliLoepenr.HasValue && m.MelMeldingstype != "UGR" && m.MelAvsluttetgjennomgang.HasValue).ToListAsync();
                     totalAntall = rawData.Count;
                 }
 
@@ -2775,7 +2775,7 @@ namespace UttrekkFamilia
 
             using (var context = new FamiliaDBContext(ConnectionStringFamilia))
             {
-                rawData = await context.FaMeldingers.Where(m => !m.KliLoepenr.HasValue && m.MelMeldingstype != "UGR").ToListAsync();
+                rawData = await context.FaMeldingers.Where(m => !m.KliLoepenr.HasValue && m.MelMeldingstype != "UGR" && m.MelAvsluttetgjennomgang.HasValue).ToListAsync();
                 totalAntall = rawData.Count;
             }
 
@@ -3307,6 +3307,7 @@ namespace UttrekkFamilia
                 {
                     rawData = await context.FaMeldingers.Include(x => x.KliLoepenrNavigation)
                         .Where(KlientMeldingFilter())
+                        .Where(m => m.MelAvsluttetgjennomgang.HasValue)
                         .OrderBy(o => o.KliLoepenr)
                         .Take(MaksAntall)
                         .Where(m => m.MelMeldingstype != "UGR")
@@ -3480,7 +3481,7 @@ namespace UttrekkFamilia
 
                 using (var context = new FamiliaDBContext(ConnectionStringFamilia))
                 {
-                    rawData = await context.FaMeldingers.Where(m => !m.KliLoepenr.HasValue && m.MelMeldingstype != "UGR").ToListAsync();
+                    rawData = await context.FaMeldingers.Where(m => !m.KliLoepenr.HasValue && m.MelMeldingstype != "UGR" && m.MelAvsluttetgjennomgang.HasValue).ToListAsync();
                     totalAntall = rawData.Count;
                 }
 
@@ -4665,7 +4666,7 @@ namespace UttrekkFamilia
                 //TODO Tiltak - Oppdragsavtaleaktiviteter på eksisterende Oppdragstakersaker ikke foreløpig støttet av Modulus Barn
                 await GetDocumentsAsync(worker, "Oppdragsavtaleaktiviteter", documentsIncluded);
                 await WriteFileAsync(oppdragstakeravtaleAktiviteter, GetJsonFileName("aktiviteter", "Oppdragsavtaleaktiviteter"));
-                await WriteFileAsync(flyttingMedFosterhjemAktiviteter, GetJsonFileName("aktiviteter", "FlyttingMedFosterhjemAktiviteter"));
+                await WriteFileAsync(flyttingMedFosterhjemAktiviteter.GroupBy(c => c.aktivitetId).Select(s => s.First()), GetJsonFileName("aktiviteter", "FlyttingMedFosterhjemAktiviteter"));
                 await WriteFileAsync(tiltaksliste, GetJsonFileName("tiltak", "Tiltak"));
                 return $"Antall tiltak: {migrertAntall}" + Environment.NewLine;
             }
@@ -5829,7 +5830,6 @@ namespace UttrekkFamilia
         #region Tidligere bydeler
         private async Task GetDataTidligereBydelerAsync(BackgroundWorker worker, DateTime fodselsDato, Decimal personNummer, string sakId, List<TidligereAvdeling> tidligereAvdelinger)
         {
-            //TODO Tidligere bydeler - GetDataTidligereBydelerAsync - Legge inn uttrekk av data fra tidligere bydeler for Aktiviteter
             try
             {
                 foreach (var tidligereBydel in tidligereAvdelinger)
@@ -6166,7 +6166,7 @@ namespace UttrekkFamilia
                 using (var context = new FamiliaDBContext(mappings.GetConnectionstring(bydel, MainDBServer)))
                 {
                     rawData = await context.FaMeldingers.Include(x => x.KliLoepenrNavigation)
-                        .Where(m => m.MelMeldingstype != "UGR" && m.KliLoepenrNavigation.KliFoedselsdato == fodselsDato && m.KliLoepenrNavigation.KliPersonnr == personNummer)
+                        .Where(m => m.MelMeldingstype != "UGR" && m.MelAvsluttetgjennomgang.HasValue && m.KliLoepenrNavigation.KliFoedselsdato == fodselsDato && m.KliLoepenrNavigation.KliPersonnr == personNummer)
                         .ToListAsync();
                 }
 
@@ -7366,7 +7366,7 @@ namespace UttrekkFamilia
                 //TODO Tiltak - Oppdragsavtaleaktiviteter på eksisterende Oppdragstakersaker ikke foreløpig støttet av Modulus Barn
                 await GetDocumentsAsync(worker, $"Oppdragsavtaleaktiviteter{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}", documentsIncluded, bydel: bydel);
                 await WriteFileAsync(oppdragstakeravtaleAktiviteter, GetJsonFileName("aktiviteter", $"Oppdragsavtaleaktiviteter{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}"));
-                await WriteFileAsync(flyttingMedFosterhjemAktiviteter, GetJsonFileName("aktiviteter", $"FlyttingMedFosterhjemAktiviteter{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}"));
+                await WriteFileAsync(flyttingMedFosterhjemAktiviteter.GroupBy(c => c.aktivitetId).Select(s => s.First()), GetJsonFileName("aktiviteter", $"FlyttingMedFosterhjemAktiviteter{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}"));
                 await WriteFileAsync(tiltaksliste, GetJsonFileName("tiltak", $"Tiltak{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}"));
             }
             catch (Exception ex)
@@ -7384,10 +7384,10 @@ namespace UttrekkFamilia
                 await GetInterneSaksforberedelserTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
                 await GetVedtakAdministrativBeslutningerAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
                 await GetJournalAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
-                await GetSlettedeJournalAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
+                await GetSlettedeJournalAktiviteterTidligereBydelAsync(fodselsDato, personNummer, sakId, bydel);
                 await GetIndividuellPlanAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
                 await GetPostjournalAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
-                await GetSlettedePostjournalAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
+                await GetSlettedePostjournalAktiviteterTidligereBydelAsync(fodselsDato, personNummer, sakId, bydel);
                 await GetOppfølgingAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
             }
             catch (Exception ex)
@@ -7560,7 +7560,7 @@ namespace UttrekkFamilia
             await GetDocumentsAsync(worker, $"Postjournalaktiviteter{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}", documentsIncluded, bydel:bydel);
             await WriteFileAsync(aktiviteter, GetJsonFileName("aktiviteter", $"Postjournalaktiviteter{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}"));
         }
-        private async Task GetSlettedePostjournalAktiviteterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, Decimal personNummer, string sakId, string bydel)
+        private async Task GetSlettedePostjournalAktiviteterTidligereBydelAsync(DateTime fodselsDato, Decimal personNummer, string sakId, string bydel)
         {
             List<FaPostjournal> rawData;
 
@@ -7951,7 +7951,7 @@ namespace UttrekkFamilia
             await GetTextDocumentsAsync(worker, textDocumentsIncluded);
             await WriteFileAsync(aktiviteter, GetJsonFileName("aktiviteter", $"Journaler{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}"));
         }
-        private async Task GetSlettedeJournalAktiviteterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, Decimal personNummer, string sakId, string bydel)
+        private async Task GetSlettedeJournalAktiviteterTidligereBydelAsync(DateTime fodselsDato, Decimal personNummer, string sakId, string bydel)
         {
             List<FaJournal> rawData;
 
@@ -9184,6 +9184,10 @@ namespace UttrekkFamilia
         }
         private string AddBydel(string name)
         {
+            if (!string.IsNullOrEmpty(name))
+            {
+                name = name.Trim();
+            }
             if (string.IsNullOrEmpty(Bydelsforkortelse))
             {
                 return name;
@@ -9195,6 +9199,10 @@ namespace UttrekkFamilia
         }
         private string AddBydel(string name, string postfix)
         {
+            if (!string.IsNullOrEmpty(name))
+            {
+                name = name.Trim();
+            }
             if (string.IsNullOrEmpty(Bydelsforkortelse))
             {
                 return $"{name}__{postfix}";
@@ -9206,6 +9214,10 @@ namespace UttrekkFamilia
         }
         private static string AddSpecificBydel(string name, string bydel)
         {
+            if (!string.IsNullOrEmpty(name))
+            {
+                name = name.Trim();
+            }
             if (string.IsNullOrEmpty(bydel))
             {
                 return name;
@@ -9217,6 +9229,10 @@ namespace UttrekkFamilia
         }
         private static string AddSpecificBydel(string name, string postfix, string bydel)
         {
+            if (!string.IsNullOrEmpty(name))
+            {
+                name = name.Trim();
+            }
             if (string.IsNullOrEmpty(bydel))
             {
                 return $"{name}__{postfix}";

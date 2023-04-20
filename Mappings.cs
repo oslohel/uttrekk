@@ -831,10 +831,10 @@ namespace UttrekkFamilia
              {"4-4,2.","Bvl._§_3-1" },
              {"4-4,6.","Bvl._§_3-2" },
              {"4-5","Bvl._§_8-1" },
-             //TODO Lover som må oversettes - Helle sjekker med BGR
-             {"4-12","" },
-             //TODO Lover som må oversettes - Norunn bestiller i Modulus Barn
-             {"64,7.","" },
+             //TODO Lover som må oversettes - Helle sjekker med BGR - dette er satt midlertidig
+             {"4-12","Bvl._§_5-1" },
+             //TODO Lover som må oversettes - Norunn bestiller i Modulus Barn - dette er satt midlertidig
+             {"64,7.","Bvl._§_1-1" },
              {"4-21","Bvl._§_5-7" },
              {"4-22","Bvl._§_5-3" },
              {"5-3","Bvl._§_5-3" },
@@ -844,7 +844,9 @@ namespace UttrekkFamilia
              {"8-1","Bvl._§_8-1" },
              {"8-2","Bvl._§_8-2" },
              {"9-1","Bvl._§_15-11" },
-             {"9-6","Bvl._§_9-6" }
+             {"9-6","Bvl._§_9-6" },
+             //TODO Lover som må oversettes - Norunn bestiller i Modulus Barn - dette er satt midlertidig
+             {"strl. 17","Bvl._§_1-1" }
         };
 
         private readonly NameValueCollection Årsakskoder = new() {
@@ -940,7 +942,7 @@ namespace UttrekkFamilia
             { "BGR", "LENE" },
             { "BGA", "ARTA" },
             { "BNA", "BVAI" },
-            { "BNS", "KNHA" },
+            { "BNS", "VISA" },
             { "BSA", "BVAI" },
             { "BSH", "BVAI" },
             { "BSR", "MLSK" },
