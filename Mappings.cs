@@ -1,4 +1,5 @@
 ﻿#region Usings
+using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
@@ -933,24 +934,24 @@ namespace UttrekkFamilia
             { "MIG", "Server=*;Database=Migrering;Trusted_Connection=True;Encrypt=False;" }
         };
 
-        //TODO Mappings - BydelHovedsaksbehandlere - Legg inn hovedsaksbehandlere når dette blir avklart
         private readonly NameValueCollection BydelHovedsaksbehandlere = new() {
+            { "DEM", "ANJN" },
+            { "BNS", "VISA" },
+            { "BUN", "KBER" },
+            { "BNA", "AISO" },
+            { "BSH", "ANIF" },
+            //TODO Mappings - BydelHovedsaksbehandlere - Legg inn hovedsaksbehandlere når dette blir avklart, mangler disse:
             { "BAL", "MEKJ" },
             { "BBJ", "BVKM" },
             { "BFR", "BVMD" },
             { "BGO", "TUJA" },
             { "BGR", "LENE" },
             { "BGA", "ARTA" },
-            { "BNA", "BVAI" },
-            { "BNS", "VISA" },
             { "BSA", "BVAI" },
-            { "BSH", "BVAI" },
             { "BSR", "MLSK" },
             { "BSN", "CAGR" },
-            { "BUN", "SAMO" },
             { "BVA", "HEVA" },
-            { "BOS", "CETO" },
-            { "DEM", "ANJN" }
+            { "BOS", "CETO" }
         };
 
         private readonly List<string> Bydeler = new()
@@ -973,18 +974,18 @@ namespace UttrekkFamilia
         };
 
         private readonly NameValueCollection BVVTypeBarnevernsvaktsaker = new() {
-            { "5843", "BARNETS_RUSMISBRUK" },
-            { "5844", "FORELDRENES_RUSMISBRUK" },
-            { "5845", "BARNETS_KRIMINALITET" },
-            { "5846", "FORELDRENES_KRIMINALITET" },
-            { "5847", "SAMVÆRSKONFLIKT" },
-            { "5848", "BARNET_UTSATT_FOR_SEKSUELLE_OVERGREP" },
-            { "5849", "VOLD_I_HJEMMET_BARNET_VITNE_TIL_VOLD_I_NÆRE_RELASJONER" },
-            { "5850", "ANDRE_FORHOLD_VED_BARNETS_SITUASJON" },
-            { "5851", "FORELDRENES_PSYKISKE_PROBLEM_LIDELSE" },
-            { "5852", "BARNETS_ADFERD" },
-            { "5853", "BARNETS_PSYKISKE_PROBLEM_LIDELSE" },
-            { "5854", "KONFLIKT_MELLOM_BARN_UNGE" }
+            { "6029", "AKUTTSAK" },
+            { "9962", "ALARMTELEFONEN" },
+            { "6033", "ANNET" },
+            { "7291", "BEKYMRINGSMELDING" },
+            { "8377", "BISTAND_SAMARBEIDSPARTNER" },
+            { "7137", "INFORMASJON" },
+            { "6028", "KONTROLLBESØK" },
+            { "6031", "RÅD_OG_VEILEDNING" },
+            { "6032", "SAMVÆRSSAK" },
+            { "6030", "SAVNET_BARN" },
+            { "6657", "SAVNET_BARN" },
+            { "6658", "UTEBLITT_FRA_HJEMMET" }
         };
 
         private readonly NameValueCollection BVVHovedkategorier = new() {
@@ -1491,7 +1492,7 @@ namespace UttrekkFamilia
         #endregion
 
         #region Lovhjemler
-        public string GetModulusLovhjemmel(string familiaLovhjemmel, decimal? aar)
+        public string GetModulusLovhjemmel(string familiaLovhjemmel, decimal? aar, DateTime? iverksattdato)
         {
             if (!string.IsNullOrEmpty(familiaLovhjemmel))
             {
@@ -1499,14 +1500,21 @@ namespace UttrekkFamilia
             }
             if (aar.HasValue && aar.Value > 2022)
             {
-                string nyLov = HjemlerOversettelseGammelTilNyLov[familiaLovhjemmel];
-                if (nyLov == null)
+                if (iverksattdato.HasValue && iverksattdato.Value.Year > 2023)
                 {
-                    return Hjemler[familiaLovhjemmel];
+                    string nyLov = HjemlerOversettelseGammelTilNyLov[familiaLovhjemmel];
+                    if (nyLov == null)
+                    {
+                        return Hjemler[familiaLovhjemmel];
+                    }
+                    else
+                    {
+                        return nyLov;
+                    }
                 }
                 else
                 {
-                    return nyLov;
+                    return Hjemler[familiaLovhjemmel];
                 }
             }
             else
@@ -1724,7 +1732,7 @@ namespace UttrekkFamilia
                     rolle = "FAMILIERÅDSKOORDINATOR";
                     break;
                 case 6073:
-                    rolle = "ANNEN";
+                    rolle = "ANDRE";
                     break;
                 case 6652:
                     rolle = "VERGE";

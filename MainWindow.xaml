@@ -64,7 +64,7 @@
             <Button x:Name="Tidstest" Content="Tidstest" Height="24" Width="100" Click="Tidstest_Click" Canvas.Left="18" Canvas.Top="370" TabIndex="14" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <Button x:Name="OneFilFamilia" Content="Enkeltfil Familia" Height="24" Width="100" Click="OneFileFamilia_Click" Canvas.Left="123" Canvas.Top="370" TabIndex="18" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <Label Content="Antall pr. Zip-fil:" Height="26" Canvas.Left="18" Canvas.Top="151" Width="112" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-            <TextBox x:Name="AntallPerZip" Canvas.Left="136" TextWrapping="NoWrap" TextAlignment="Right" Text="50" Canvas.Top="153" Width="113" Height="22" TabIndex="7" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+            <TextBox x:Name="AntallPerZip" Canvas.Left="136" TextWrapping="NoWrap" TextAlignment="Right" Text="100" Canvas.Top="153" Width="113" Height="22" TabIndex="7" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <StatusBar x:Name="StatusBar" Height="30" Canvas.Left="10" Canvas.Top="463" HorizontalAlignment="Center" VerticalAlignment="Top" Width="761">
                 <Label x:Name="Status" Content="Klar" Margin="16,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             </StatusBar>
