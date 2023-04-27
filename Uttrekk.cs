@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
-using System.Diagnostics.Metrics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -858,7 +857,7 @@ namespace UttrekkFamilia
                 int migrertAntall = brukere.Count;
                 while (migrertAntall > toSkip)
                 {
-                    List<Bruker> brukerePart = brukere.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Bruker> brukerePart = brukere.OrderBy(o => o.brukerId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(brukerePart, GetJsonFileName("brukere", $"BVVBrukere{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -987,7 +986,7 @@ namespace UttrekkFamilia
                 int migrertAntall = aktiviteter.Count;
                 while (migrertAntall > toSkip)
                 {
-                    List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"BVVLogger{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -997,7 +996,7 @@ namespace UttrekkFamilia
                 migrertAntall = saker.Count;
                 while (migrertAntall > toSkip)
                 {
-                    List<Sak> sakerPart = saker.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Sak> sakerPart = saker.OrderBy(o => o.sakId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(sakerPart, GetJsonFileName("saker", $"BVVBarnevernvaktsaker{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -1335,7 +1334,7 @@ namespace UttrekkFamilia
             int migrertAntall = innbyggere.Count;
             while (migrertAntall > toSkip)
             {
-                List<Innbygger> innbyggerePart = innbyggere.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Innbygger> innbyggerePart = innbyggere.OrderBy(o => o.actorId).OrderBy(o => o.etternavn).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(innbyggerePart, GetJsonFileName("innbygger", $"BVVInnbyggereBarn{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -1521,7 +1520,7 @@ namespace UttrekkFamilia
             int migrertAntall = innbyggere.Count;
             while (migrertAntall > toSkip)
             {
-                List<Innbygger> innbyggerePart = innbyggere.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Innbygger> innbyggerePart = innbyggere.OrderBy(v => v.actorId).OrderBy(w => w.etternavn).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(innbyggerePart, GetJsonFileName("innbygger", $"BVVInnbyggere{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -1566,7 +1565,7 @@ namespace UttrekkFamilia
                 int migrertAntall = barnetsNettverk.Count;
                 while (migrertAntall > toSkip)
                 {
-                    List<BarnetsNettverk> barnetsNettverkPart = barnetsNettverk.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<BarnetsNettverk> barnetsNettverkPart = barnetsNettverk.OrderBy(o => o.sakId).OrderBy(o => o.actorId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(barnetsNettverkPart, GetJsonFileName("barnetsNettverk", $"BVVBarnetsNettverkBarn{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -1632,7 +1631,7 @@ namespace UttrekkFamilia
                 int migrertAntall = barnetsNettverkDistinct.Count;
                 while (migrertAntall > toSkip)
                 {
-                    List<BarnetsNettverk> barnetsNettverkDistinctPart = barnetsNettverkDistinct.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<BarnetsNettverk> barnetsNettverkDistinctPart = barnetsNettverkDistinct.OrderBy(o => o.sakId).OrderBy(o => o.actorId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(barnetsNettverkDistinctPart, GetJsonFileName("barnetsNettverk", $"BVVBarnetsNettverkFamilie{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -1692,7 +1691,7 @@ namespace UttrekkFamilia
                 int migrertAntall = barnetsNettverk.Count;
                 while (migrertAntall > toSkip)
                 {
-                    List<BarnetsNettverk> barnetsNettverkPart = barnetsNettverk.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<BarnetsNettverk> barnetsNettverkPart = barnetsNettverk.OrderBy(o => o.sakId).OrderBy(o => o.actorId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(barnetsNettverkPart, GetJsonFileName("barnetsNettverk", $"BVVBarnetsNettverk{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -1879,7 +1878,7 @@ namespace UttrekkFamilia
             int migrertAntall = documents.Count;
             while (migrertAntall > toSkip)
             {
-                List<Document> documentsPart = documents.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Document> documentsPart = documents.OrderBy(o => o.dokumentId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(documentsPart, GetJsonFileName("dokumenter", $"DokumenterBVVHen{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -1889,7 +1888,7 @@ namespace UttrekkFamilia
             migrertAntall = aktiviteter.Count;
             while (migrertAntall > toSkip)
             {
-                List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"BVVHenvendelser{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -2069,7 +2068,7 @@ namespace UttrekkFamilia
             int migrertAntall = documents.Count;
             while (migrertAntall > toSkip)
             {
-                List<Document> documentsPart = documents.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Document> documentsPart = documents.OrderBy(o => o.dokumentId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(documentsPart, GetJsonFileName("dokumenter", $"DokumenterBVVJou{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -2079,7 +2078,7 @@ namespace UttrekkFamilia
             migrertAntall = aktiviteter.Count;
             while (migrertAntall > toSkip)
             {
-                List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"BVVJournaler{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -2338,7 +2337,7 @@ namespace UttrekkFamilia
             int migrertAntall = documents.Count;
             while (migrertAntall > toSkip)
             {
-                List<Document> documentsPart = documents.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Document> documentsPart = documents.OrderBy(o => o.dokumentId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(documentsPart, GetJsonFileName("dokumenter", $"DokumenterBVVPos{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -2348,7 +2347,7 @@ namespace UttrekkFamilia
             migrertAntall = aktiviteter.Count;
             while (migrertAntall > toSkip)
             {
-                List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"BVVPost{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -2492,7 +2491,7 @@ namespace UttrekkFamilia
                 int antallEntiteter = saker.Count;
                 while (antallEntiteter > toSkip)
                 {
-                    List<Sak> sakerPart = saker.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Sak> sakerPart = saker.OrderBy(o => o.sakId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(sakerPart, GetJsonFileName("saker", $"Barnevernsaker{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -2555,7 +2554,7 @@ namespace UttrekkFamilia
                 int antallEntiteter = saker.Count;
                 while (antallEntiteter > toSkip)
                 {
-                    List<Sak> sakerPart = saker.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Sak> sakerPart = saker.OrderBy(o => o.sakId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(sakerPart, GetJsonFileName("saker", $"BarnevernsakerUtenSak{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -2656,7 +2655,7 @@ namespace UttrekkFamilia
                 int antallEntiteter = saker.Count;
                 while (antallEntiteter > toSkip)
                 {
-                    List<Sak> sakerPart = saker.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Sak> sakerPart = saker.OrderBy(o => o.sakId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(sakerPart, GetJsonFileName("saker", $"Tilsynssaker{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -2770,7 +2769,7 @@ namespace UttrekkFamilia
                 int antallEntiteter = saker.Count;
                 while (antallEntiteter > toSkip)
                 {
-                    List<Sak> sakerPart = saker.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Sak> sakerPart = saker.OrderBy(o => o.sakId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(sakerPart, GetJsonFileName("saker", $"Oppdragstakersaker{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -2963,7 +2962,7 @@ namespace UttrekkFamilia
             int antallEntiteter = innbyggere.Count;
             while (antallEntiteter > toSkip)
             {
-                List<Innbygger> innbyggerePart = innbyggere.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Innbygger> innbyggerePart = innbyggere.OrderBy(o => o.actorId).OrderBy(o => o.etternavn).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(innbyggerePart, GetJsonFileName("innbygger", $"InnbyggereBarn{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -3019,7 +3018,7 @@ namespace UttrekkFamilia
             int antallEntiteter = innbyggere.Count;
             while (antallEntiteter > toSkip)
             {
-                List<Innbygger> innbyggerePart = innbyggere.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Innbygger> innbyggerePart = innbyggere.OrderBy(o => o.actorId).OrderBy(o => o.etternavn).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(innbyggerePart, GetJsonFileName("innbygger", $"InnbyggereBarnUtenSak{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -3243,7 +3242,7 @@ namespace UttrekkFamilia
                 int antallEntiteter = innbyggere.Count;
                 while (antallEntiteter > toSkip)
                 {
-                    List<Innbygger> innbyggerePart = innbyggere.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Innbygger> innbyggerePart = innbyggere.OrderBy(o => o.actorId).OrderBy(o => o.etternavn).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(innbyggerePart, GetJsonFileName("innbygger", $"Innbyggere{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -3274,7 +3273,7 @@ namespace UttrekkFamilia
                         .Where(KlientTilknytningFilter())
                         .OrderBy(o => o.KliLoepenrNavigation.KliLoepenr)
                         .Take(MaksAntall)
-                        .Where(f => !string.IsNullOrEmpty(f.ForLoepenrNavigation.ForOrganisasjonsnr))
+                        .Where(f => !string.IsNullOrEmpty(f.ForLoepenrNavigation.ForOrganisasjonsnr) && f.ForLoepenrNavigation.ForOrganisasjonsnr.Length != 9 && f.ForLoepenrNavigation.ForOrganisasjonsnr.IndexOf(" ") == -1)
                         .Select(m => m.ForLoepenrNavigation)
                         .Distinct()
                         .ToListAsync();
@@ -3381,10 +3380,11 @@ namespace UttrekkFamilia
                 }
                 int toSkip = 0;
                 int fileNumber = 1;
-                int antallEntiteter = organisasjoner.Count;
+                List<Organisasjon> organisasjonerDistinct = organisasjoner.GroupBy(c => c.actorId).Select(s => s.First()).ToList();
+                int antallEntiteter = organisasjonerDistinct.Count;
                 while (antallEntiteter > toSkip)
                 {
-                    List<Organisasjon> organisasjonerPart = organisasjoner.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Organisasjon> organisasjonerPart = organisasjonerDistinct.OrderBy(o => o.actorId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(organisasjonerPart, GetJsonFileName("organisasjon", $"Organisasjoner{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -3451,7 +3451,7 @@ namespace UttrekkFamilia
                 int antallEntiteter = forbindeler.Count;
                 while (antallEntiteter > toSkip)
                 {
-                    List<BarnetsNettverk> forbindelerPart = forbindeler.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<BarnetsNettverk> forbindelerPart = forbindeler.OrderBy(o => o.sakId).OrderBy(o => o.actorId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(forbindelerPart, GetJsonFileName("barnetsNettverk", $"BarnetsNettverkBarn{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -3484,7 +3484,7 @@ namespace UttrekkFamilia
                         .Where(KlientTilknytningFilter())
                         .OrderBy(o => o.KliLoepenrNavigation.KliLoepenr)
                         .Take(MaksAntall)
-                        .Where(k => (!string.IsNullOrEmpty(k.ForLoepenrNavigation.ForFoedselsnummer) || k.ForLoepenrNavigation.ForDnummer.HasValue || !string.IsNullOrEmpty(k.ForLoepenrNavigation.ForOrganisasjonsnr)) || (rollerInkludert.Contains(k.KtkRolle)))
+                        .Where(k => (!string.IsNullOrEmpty(k.ForLoepenrNavigation.ForFoedselsnummer) || k.ForLoepenrNavigation.ForDnummer.HasValue || (!string.IsNullOrEmpty(k.ForLoepenrNavigation.ForOrganisasjonsnr) && k.ForLoepenrNavigation.ForOrganisasjonsnr.Length != 9 && k.ForLoepenrNavigation.ForOrganisasjonsnr.IndexOf(" ") == -1)) || (rollerInkludert.Contains(k.KtkRolle)))
                         .ToListAsync();
                     totalAntall = rawData.Count;
                 }
@@ -3526,7 +3526,7 @@ namespace UttrekkFamilia
                 int antallEntiteter = forbindeler.Count;
                 while (antallEntiteter > toSkip)
                 {
-                    List<BarnetsNettverk> forbindelerPart = forbindeler.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<BarnetsNettverk> forbindelerPart = forbindeler.OrderBy(o => o.sakId).OrderBy(o => o.actorId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(forbindelerPart, GetJsonFileName("barnetsNettverk", $"BarnetsNettverk{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -3572,7 +3572,7 @@ namespace UttrekkFamilia
                 int antallEntiteter = meldinger.Count;
                 while (antallEntiteter > toSkip)
                 {
-                    List<Melding> meldingerPart = meldinger.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Melding> meldingerPart = meldinger.OrderBy(o => o.meldingId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(meldingerPart, GetJsonFileName("melding", $"Meldinger{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -3751,7 +3751,7 @@ namespace UttrekkFamilia
                 int antallEntiteter = meldinger.Count;
                 while (antallEntiteter > toSkip)
                 {
-                    List<Melding> meldingerPart = meldinger.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Melding> meldingerPart = meldinger.OrderBy(o => o.meldingId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(meldingerPart, GetJsonFileName("melding", $"MeldingerUtenSak{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -3929,10 +3929,12 @@ namespace UttrekkFamilia
                             utfortAvId = AddBydel(undersøkelse.SbhInitialer),
                             notat = undersøkelse.Und6mndbegrunnelse,
                             fristDato = undersøkelse.UndFristdato,
-                            fristLovpaalagt = true,
-                            fristTitel = "Frist for gjennomføring av undersøkelsen",
-                            fristBeskrivelse = "Utvidet frist"
+                            fristLovpaalagt = true
                         };
+                        if (string.IsNullOrEmpty(undersøkelseUtvidelseFristAktivitet.notat))
+                        {
+                            undersøkelseUtvidelseFristAktivitet.notat = "Se dokument";
+                        }
                         if (!undersøkelseUtvidelseFristAktivitet.fristDato.HasValue)
                         {
                             undersøkelseUtvidelseFristAktivitet.fristDato = undersoekelse.konklusjonsDato.Value.AddDays(180);
@@ -3962,6 +3964,10 @@ namespace UttrekkFamilia
                         if (annetBrukt)
                         {
                             undersøkelseUtvidelseFristAktivitet.presiseringAvÅrsaksUtvidelseAvFristUndersokelse = undersøkelse.Und6mndbegrunnelse;
+                            if (string.IsNullOrEmpty(undersøkelseUtvidelseFristAktivitet.presiseringAvÅrsaksUtvidelseAvFristUndersokelse))
+                            {
+                                undersøkelseUtvidelseFristAktivitet.presiseringAvÅrsaksUtvidelseAvFristUndersokelse = "Familia: Mangler presisering";
+                            }
                         }
                         if (undersøkelse.UndFristdato.HasValue)
                         {
@@ -4086,7 +4092,7 @@ namespace UttrekkFamilia
                 int antallEntiteter = undersøkelsesAktiviteter.Count;
                 while (antallEntiteter > toSkip)
                 {
-                    List<Aktivitet> undersøkelsesAktiviteterPart = undersøkelsesAktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Aktivitet> undersøkelsesAktiviteterPart = undersøkelsesAktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(undersøkelsesAktiviteterPart, GetJsonFileName("aktiviteter", $"UndersokelsesAktiviteter{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -4096,7 +4102,7 @@ namespace UttrekkFamilia
                 antallEntiteter = undersøkelser.Count;
                 while (antallEntiteter > toSkip)
                 {
-                    List<Undersøkelse> undersøkelserPart = undersøkelser.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Undersøkelse> undersøkelserPart = undersøkelser.OrderBy(o => o.sakId).OrderBy(o => o.meldingId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(undersøkelserPart, GetJsonFileName("undersokelser", $"Undersokelser{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -4148,7 +4154,7 @@ namespace UttrekkFamilia
                 int antallEntiteter = avdelingsmappinger.Count;
                 while (antallEntiteter > toSkip)
                 {
-                    List<Avdelingsmapping> avdelingsmappingerPart = avdelingsmappinger.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Avdelingsmapping> avdelingsmappingerPart = avdelingsmappinger.OrderBy(o => o.avdelingId).OrderBy(o => o.enhetskodeModulusBarn).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(avdelingsmappingerPart, GetJsonFileName("avdelingsmapping", $"Avdelingsmapping{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -4284,7 +4290,7 @@ namespace UttrekkFamilia
                 int antallEntiteter = brukere.Count;
                 while (antallEntiteter > toSkip)
                 {
-                    List<Bruker> brukerePart = brukere.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Bruker> brukerePart = brukere.OrderBy(o => o.brukerId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(brukerePart, GetJsonFileName("brukere", $"Brukere{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -4563,7 +4569,7 @@ namespace UttrekkFamilia
                 int antallEntiteter = vedtaksliste.Count;
                 while (antallEntiteter > toSkip)
                 {
-                    List<Vedtak> vedtakslistePart = vedtaksliste.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Vedtak> vedtakslistePart = vedtaksliste.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(vedtakslistePart, GetJsonFileName("vedtak", $"Vedtak{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -4981,7 +4987,7 @@ namespace UttrekkFamilia
                 int antallEntiteter = oppdragstakeravtaleAktiviteter.Count;
                 while (antallEntiteter > toSkip)
                 {
-                    List<Aktivitet> oppdragstakeravtaleAktiviteterPart = oppdragstakeravtaleAktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Aktivitet> oppdragstakeravtaleAktiviteterPart = oppdragstakeravtaleAktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(oppdragstakeravtaleAktiviteterPart, GetJsonFileName("aktiviteter", $"Oppdragsavtaleaktiviteter{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -4993,7 +4999,7 @@ namespace UttrekkFamilia
                 antallEntiteter = tiltaksliste.Count;
                 while (antallEntiteter > toSkip)
                 {
-                    List<Tiltak> tiltakslistePart = tiltaksliste.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Tiltak> tiltakslistePart = tiltaksliste.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(tiltakslistePart, GetJsonFileName("tiltak", $"Tiltak{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -5070,6 +5076,10 @@ namespace UttrekkFamilia
                     {
                         plan.lovhjemmel = mappings.GetModulusLovhjemmel(planFamilia.PtyPlankodeNavigation.PtyLovhjemmel, null, null);
                     }
+                    if (!plan.gyldigTilDato.HasValue && plan.gyldigFraDato.HasValue)
+                    {
+                        plan.gyldigTilDato = plan.gyldigFraDato.Value.AddYears(1);
+                    }
                     if (plan.gyldigTilDato.HasValue && plan.gyldigFraDato.HasValue && plan.gyldigTilDato < plan.gyldigFraDato)
                     {
                         plan.gyldigTilDato = plan.gyldigFraDato;
@@ -5111,9 +5121,25 @@ namespace UttrekkFamilia
                             case "2":
                             case "3":
                                 plan.planType = "PLAN_FOR_TILTAK_-_ADFERD";
+                                plan.barnetsBehovOverTid = null;
+                                plan.bostedOgVarighet = null;
+                                plan.varighetOgTilbakeforing = null;
+                                plan.tjenesterHjelpeapparatet = null;
+                                plan.tidsperspektiv = null;
+                                plan.plasseringsted = null;
+                                plan.planForFlytting = null;
+                                plan.nettverk = null;
+                                plan.skolegangDagtilbud = null;
+                                plan.intensjonForKontaktMedFamilie = null;
                                 break;
                             case "4":
                                 plan.planType = "PLAN_FOR_TILTAK_-_FORELØPIG_OMSORGSPLAN";
+                                plan.bostedOgVarighet = null;
+                                plan.skolegangDagtilbud = null;
+                                plan.tjenesterHjelpeapparatet = null;
+                                plan.planForFlytting = null;
+                                plan.nettverk = null;
+                                plan.tidsperspektiv = null;
                                 break;
                             case "5":
                                 plan.planType = "PLAN_FOR_TILTAK_-_OMSORGSPLAN";
@@ -5132,6 +5158,10 @@ namespace UttrekkFamilia
                                 break;
                             case "6":
                                 plan.planType = "PLAN_FOR_FREMTIDIG_TILTAK_-_ETTERVERN";
+                                plan.barnetsBehovOverTid = null;
+                                plan.varighetOgTilbakeforing = null;
+                                plan.plasseringsted = null;
+                                plan.intensjonForKontaktMedFamilie = null;
                                 break;
                             case "7":
                                 plan.planType = "HANDLINGSPLAN";
@@ -5146,6 +5176,26 @@ namespace UttrekkFamilia
                                 plan.nettverk = null;
                                 plan.tidsperspektiv = null;
                                 break;
+                        }
+                    }
+                    else
+                    {
+                        plan.planType = "PLAN_FOR_TILTAK_-_HELPETILTAK";
+                        plan.varighetOgTilbakeforing = null;
+                        plan.plasseringsted = null;
+                        plan.intensjonForKontaktMedFamilie = null;
+                        plan.barnetsBehovOverTid = null;
+                        plan.bostedOgVarighet = null;
+                        plan.skolegangDagtilbud = null;
+                        plan.tjenesterHjelpeapparatet = null;
+                        plan.planForFlytting = null;
+                        plan.nettverk = null;
+                        plan.tidsperspektiv = null;
+                        plan.lovhjemmel = "Bvl._§_4-5_(gammel_lov)";
+                        if (planFamilia.TtpFradato.HasValue && planFamilia.TtpFradato.Value >= FirstInYearOfMigration)
+                        {
+                            plan.planType = "TILTAKSPLAN_ETTER_BVL_2021_8_1_TIDLIGERE_BVL_1992_4_5";
+                            plan.lovhjemmel = "Bvl._§_8-1";
                         }
                     }
                     if (!plan.avsluttetDato.HasValue && !(plan.gyldigTilDato.HasValue && DateTime.Now > plan.gyldigTilDato))
@@ -5282,7 +5332,7 @@ namespace UttrekkFamilia
                 int antallEntiteter = aktiviteter.Count;
                 while (antallEntiteter > toSkip)
                 {
-                    List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"Plandokumentaktiviteter{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -5292,7 +5342,7 @@ namespace UttrekkFamilia
                 antallEntiteter = planer.Count;
                 while (antallEntiteter > toSkip)
                 {
-                    List<Plan> planerPart = planer.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Plan> planerPart = planer.OrderBy(o => o.planId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(planerPart, GetJsonFileName("plan", $"Planer{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -5316,7 +5366,8 @@ namespace UttrekkFamilia
                 worker.ReportProgress(0, "Starter uttrekk aktiviteter...");
                 string statusText = $"Antall aktiviteter tilsynsrapporter: {await GetTilsynsrapporterAsync(worker)}" + Environment.NewLine;
                 statusText += $"Antall aktiviteter interne saksforberedelser: {await GetInterneSaksforberedelserAsync(worker)}" + Environment.NewLine;
-                statusText += $"Antall aktiviteter vedtak administrative beslutninger: {await GetVedtakAdministrativBeslutningerAktiviteterAsync(worker)}" + Environment.NewLine;
+                //TODO Adminitrative belutninger overføre fra aktivitet til vedtak
+                //statusText += $"Antall aktiviteter vedtak administrative beslutninger: {await GetVedtakAdministrativBeslutningerAktiviteterAsync(worker)}" + Environment.NewLine;
                 statusText += $"Antall aktiviteter journaler: {await GetJournalAktiviteterAsync(worker)}" + Environment.NewLine;
                 statusText += $"Antall aktiviteter slettede journaler: {await GetSlettedeJournalAktiviteterAsync(worker)}" + Environment.NewLine;
                 statusText += $"Antall aktiviteter individuelle planer: {await GetIndividuellPlanAktiviteterAsync(worker)}" + Environment.NewLine;
@@ -5444,7 +5495,7 @@ namespace UttrekkFamilia
             int fileNumber = 1;
             while (migrertAntall > toSkip)
             {
-                List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"Tilsynsrapporter{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -5553,7 +5604,7 @@ namespace UttrekkFamilia
             int fileNumber = 1;
             while (migrertAntall > toSkip)
             {
-                List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"Postjournalaktiviteter{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -5623,7 +5674,7 @@ namespace UttrekkFamilia
             int fileNumber = 1;
             while (migrertAntall > toSkip)
             {
-                List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"SlettedePostjournalaktiviteter{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -5742,7 +5793,7 @@ namespace UttrekkFamilia
             int fileNumber = 1;
             while (migrertAntall > toSkip)
             {
-                List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"Oppfølgingsaktiviteter{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -5824,7 +5875,7 @@ namespace UttrekkFamilia
             int fileNumber = 1;
             while (migrertAntall > toSkip)
             {
-                List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"InterneSaksforberedelser{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -5903,7 +5954,7 @@ namespace UttrekkFamilia
             int fileNumber = 1;
             while (migrertAntall > toSkip)
             {
-                List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"VedtakAdministrativeBeslutninger{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -6098,7 +6149,7 @@ namespace UttrekkFamilia
             int fileNumber = 1;
             while (migrertAntall > toSkip)
             {
-                List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"Journaler{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -6157,7 +6208,7 @@ namespace UttrekkFamilia
             int fileNumber = 1;
             while (migrertAntall > toSkip)
             {
-                List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"SlettedeJournaler{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -6250,7 +6301,7 @@ namespace UttrekkFamilia
             int fileNumber = 1;
             while (migrertAntall > toSkip)
             {
-                List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"IndividuellPlan{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -6425,7 +6476,7 @@ namespace UttrekkFamilia
                 string guid = Guid.NewGuid().ToString().Replace('-', '_');
                 while (migrertAntall > toSkip)
                 {
-                    List<Innbygger> innbyggerePart = innbyggere.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Innbygger> innbyggerePart = innbyggere.OrderBy(o => o.actorId).OrderBy(o => o.etternavn).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(innbyggerePart, GetJsonFileName("innbygger", $"Innbyggere{bydel}_{guid}_{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -6447,7 +6498,7 @@ namespace UttrekkFamilia
                 using (var context = new FamiliaDBContext(mappings.GetConnectionstring(bydel, MainDBServer)))
                 {
                     rawData = await context.FaKlienttilknytnings.Include(m => m.ForLoepenrNavigation)
-                        .Where(f => f.KliLoepenrNavigation.KliFoedselsdato == fodselsDato && f.KliLoepenrNavigation.KliPersonnr == personNummer && !string.IsNullOrEmpty(f.ForLoepenrNavigation.ForOrganisasjonsnr))
+                        .Where(f => f.KliLoepenrNavigation.KliFoedselsdato == fodselsDato && f.KliLoepenrNavigation.KliPersonnr == personNummer && (!string.IsNullOrEmpty(f.ForLoepenrNavigation.ForOrganisasjonsnr) && f.ForLoepenrNavigation.ForOrganisasjonsnr.Length != 9 && f.ForLoepenrNavigation.ForOrganisasjonsnr.IndexOf(" ") == -1))
                         .Select(m => m.ForLoepenrNavigation)
                         .Distinct()
                         .ToListAsync();
@@ -6548,11 +6599,12 @@ namespace UttrekkFamilia
                 }
                 int toSkip = 0;
                 int fileNumber = 1;
-                int migrertAntall = organisasjoner.Count;
+                List<Organisasjon> organisasjonerDistinct = organisasjoner.GroupBy(c => c.actorId).Select(s => s.First()).ToList();
+                int migrertAntall = organisasjonerDistinct.Count;
                 string guid = Guid.NewGuid().ToString().Replace('-', '_');
                 while (migrertAntall > toSkip)
                 {
-                    List<Organisasjon> organisasjonerPart = organisasjoner.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Organisasjon> organisasjonerPart = organisasjonerDistinct.OrderBy(o => o.actorId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(organisasjonerPart, GetJsonFileName("organisasjon", $"Organisasjoner{bydel}_{guid}_{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -6606,7 +6658,7 @@ namespace UttrekkFamilia
                 string guid = Guid.NewGuid().ToString().Replace('-', '_');
                 while (migrertAntall > toSkip)
                 {
-                    List<BarnetsNettverk> forbindelerPart = forbindeler.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<BarnetsNettverk> forbindelerPart = forbindeler.OrderBy(o => o.sakId).OrderBy(o => o.actorId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(forbindelerPart, GetJsonFileName("barnetsNettverk", $"BarnetsNettverk{bydel}_{guid}_{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -6743,7 +6795,7 @@ namespace UttrekkFamilia
                 string guid = Guid.NewGuid().ToString().Replace('-', '_');
                 while (migrertAntall > toSkip)
                 {
-                    List<Melding> meldingerPart = meldinger.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Melding> meldingerPart = meldinger.OrderBy(o => o.meldingId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(meldingerPart, GetJsonFileName("melding", $"Meldinger{bydel}_{guid}_{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -6798,6 +6850,10 @@ namespace UttrekkFamilia
                     {
                         plan.lovhjemmel = mappings.GetModulusLovhjemmel(planFamilia.PtyPlankodeNavigation.PtyLovhjemmel, null, null);
                     }
+                    if (!plan.gyldigTilDato.HasValue && plan.gyldigFraDato.HasValue)
+                    {
+                        plan.gyldigTilDato = plan.gyldigFraDato.Value.AddYears(1);
+                    }
                     if (plan.gyldigTilDato.HasValue && plan.gyldigFraDato.HasValue && plan.gyldigTilDato < plan.gyldigFraDato)
                     {
                         plan.gyldigTilDato = plan.gyldigFraDato;
@@ -6839,9 +6895,25 @@ namespace UttrekkFamilia
                             case "2":
                             case "3":
                                 plan.planType = "PLAN_FOR_TILTAK_-_ADFERD";
+                                plan.barnetsBehovOverTid = null;
+                                plan.bostedOgVarighet = null;
+                                plan.varighetOgTilbakeforing = null;
+                                plan.tjenesterHjelpeapparatet = null;
+                                plan.tidsperspektiv = null;
+                                plan.plasseringsted = null;
+                                plan.planForFlytting = null;
+                                plan.nettverk = null;
+                                plan.skolegangDagtilbud = null;
+                                plan.intensjonForKontaktMedFamilie = null;
                                 break;
                             case "4":
                                 plan.planType = "PLAN_FOR_TILTAK_-_FORELØPIG_OMSORGSPLAN";
+                                plan.bostedOgVarighet = null;
+                                plan.skolegangDagtilbud = null;
+                                plan.tjenesterHjelpeapparatet = null;
+                                plan.planForFlytting = null;
+                                plan.nettverk = null;
+                                plan.tidsperspektiv = null;
                                 break;
                             case "5":
                                 plan.planType = "PLAN_FOR_TILTAK_-_OMSORGSPLAN";
@@ -6860,10 +6932,12 @@ namespace UttrekkFamilia
                                 break;
                             case "6":
                                 plan.planType = "PLAN_FOR_FREMTIDIG_TILTAK_-_ETTERVERN";
+                                plan.barnetsBehovOverTid = null;
+                                plan.varighetOgTilbakeforing = null;
+                                plan.plasseringsted = null;
+                                plan.intensjonForKontaktMedFamilie = null;
                                 break;
                             case "7":
-                            //TODO Planer - Sjekk om de som ikke har plankode skal behandles som Handlingsplan
-                            case null:
                                 plan.planType = "HANDLINGSPLAN";
                                 plan.varighetOgTilbakeforing = null;
                                 plan.plasseringsted = null;
@@ -6876,6 +6950,26 @@ namespace UttrekkFamilia
                                 plan.nettverk = null;
                                 plan.tidsperspektiv = null;
                                 break;
+                        }
+                    }
+                    else
+                    {
+                        plan.planType = "PLAN_FOR_TILTAK_-_HELPETILTAK";
+                        plan.varighetOgTilbakeforing = null;
+                        plan.plasseringsted = null;
+                        plan.intensjonForKontaktMedFamilie = null;
+                        plan.barnetsBehovOverTid = null;
+                        plan.bostedOgVarighet = null;
+                        plan.skolegangDagtilbud = null;
+                        plan.tjenesterHjelpeapparatet = null;
+                        plan.planForFlytting = null;
+                        plan.nettverk = null;
+                        plan.tidsperspektiv = null;
+                        plan.lovhjemmel = "Bvl._§_4-5_(gammel_lov)";
+                        if (planFamilia.TtpFradato.HasValue && planFamilia.TtpFradato.Value >= FirstInYearOfMigration)
+                        {
+                            plan.planType = "TILTAKSPLAN_ETTER_BVL_2021_8_1_TIDLIGERE_BVL_1992_4_5";
+                            plan.lovhjemmel = "Bvl._§_8-1";
                         }
                     }
                     if (!plan.avsluttetDato.HasValue && !(plan.gyldigTilDato.HasValue && DateTime.Now > plan.gyldigTilDato))
@@ -7012,7 +7106,7 @@ namespace UttrekkFamilia
                 string guid = Guid.NewGuid().ToString().Replace('-', '_');
                 while (migrertAntall > toSkip)
                 {
-                    List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"Plandokumentaktiviteter{bydel}_{guid}_{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -7023,7 +7117,7 @@ namespace UttrekkFamilia
                 guid = Guid.NewGuid().ToString().Replace('-', '_');
                 while (migrertAntall > toSkip)
                 {
-                    List<Plan> planerPart = planer.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Plan> planerPart = planer.OrderBy(o => o.planId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(planerPart, GetJsonFileName("plan", $"Planer{bydel}_{guid}_{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -7181,10 +7275,12 @@ namespace UttrekkFamilia
                             utfortAvId = AddSpecificBydel(undersøkelse.SbhInitialer, bydel),
                             notat = undersøkelse.Und6mndbegrunnelse,
                             fristDato = undersøkelse.UndFristdato,
-                            fristLovpaalagt = true,
-                            fristTitel = "Frist for gjennomføring av undersøkelsen",
-                            fristBeskrivelse = "Utvidet frist"
+                            fristLovpaalagt = true
                         };
+                        if (string.IsNullOrEmpty(undersøkelseUtvidelseFristAktivitet.notat))
+                        {
+                            undersøkelseUtvidelseFristAktivitet.notat = "Se dokument";
+                        }
                         if (!undersøkelseUtvidelseFristAktivitet.fristDato.HasValue)
                         {
                             undersøkelseUtvidelseFristAktivitet.fristDato = undersoekelse.konklusjonsDato.Value.AddDays(180);
@@ -7214,6 +7310,10 @@ namespace UttrekkFamilia
                         if (annetBrukt)
                         {
                             undersøkelseUtvidelseFristAktivitet.presiseringAvÅrsaksUtvidelseAvFristUndersokelse = undersøkelse.Und6mndbegrunnelse;
+                            if (string.IsNullOrEmpty(undersøkelseUtvidelseFristAktivitet.presiseringAvÅrsaksUtvidelseAvFristUndersokelse))
+                            {
+                                undersøkelseUtvidelseFristAktivitet.presiseringAvÅrsaksUtvidelseAvFristUndersokelse = "Familia: Mangler presisering";
+                            }
                         }
                         if (undersøkelse.UndFristdato.HasValue)
                         {
@@ -7338,7 +7438,7 @@ namespace UttrekkFamilia
                 string guid = Guid.NewGuid().ToString().Replace('-', '_');
                 while (migrertAntall > toSkip)
                 {
-                    List<Aktivitet> undersøkelsesAktiviteterPart = undersøkelsesAktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Aktivitet> undersøkelsesAktiviteterPart = undersøkelsesAktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(undersøkelsesAktiviteterPart, GetJsonFileName("aktiviteter", $"UndersokelsesAktiviteter{bydel}_{guid}_{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -7349,7 +7449,7 @@ namespace UttrekkFamilia
                 guid = Guid.NewGuid().ToString().Replace('-', '_');
                 while (migrertAntall > toSkip)
                 {
-                    List<Undersøkelse> undersøkelserPart = undersøkelser.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Undersøkelse> undersøkelserPart = undersøkelser.OrderBy(o => o.undersokelseId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(undersøkelserPart, GetJsonFileName("undersokelser", $"Undersokelser{bydel}_{guid}_{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -7609,7 +7709,7 @@ namespace UttrekkFamilia
                 string guid = Guid.NewGuid().ToString().Replace('-', '_');
                 while (migrertAntall > toSkip)
                 {
-                    List<Vedtak> vedtakslistePart = vedtaksliste.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Vedtak> vedtakslistePart = vedtaksliste.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(vedtakslistePart, GetJsonFileName("vedtak", $"Vedtak{bydel}_{guid}_{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -7895,7 +7995,7 @@ namespace UttrekkFamilia
                 string guid = Guid.NewGuid().ToString().Replace('-', '_');
                 while (migrertAntall > toSkip)
                 {
-                    List<Aktivitet> oppdragstakeravtaleAktiviteterPart = oppdragstakeravtaleAktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Aktivitet> oppdragstakeravtaleAktiviteterPart = oppdragstakeravtaleAktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(oppdragstakeravtaleAktiviteterPart, GetJsonFileName("aktiviteter", $"Oppdragsavtaleaktiviteter{bydel}_{guid}_{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -7906,7 +8006,7 @@ namespace UttrekkFamilia
                 guid = Guid.NewGuid().ToString().Replace('-', '_');
                 while (migrertAntall > toSkip)
                 {
-                    List<Aktivitet> flyttingMedFosterhjemAktiviteterPart = flyttingMedFosterhjemAktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Aktivitet> flyttingMedFosterhjemAktiviteterPart = flyttingMedFosterhjemAktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(flyttingMedFosterhjemAktiviteterPart, GetJsonFileName("aktiviteter", $"FlyttingMedFosterhjemAktiviteter{bydel}_{guid}_{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -7917,7 +8017,7 @@ namespace UttrekkFamilia
                 guid = Guid.NewGuid().ToString().Replace('-', '_');
                 while (migrertAntall > toSkip)
                 {
-                    List<Tiltak> tiltakslistePart = tiltaksliste.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Tiltak> tiltakslistePart = tiltaksliste.OrderBy(o => o.tiltakId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(tiltakslistePart, GetJsonFileName("tiltak", $"Tiltak{bydel}_{guid}_{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -7936,7 +8036,8 @@ namespace UttrekkFamilia
             {
                 await GetTilsynsrapporterTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
                 await GetInterneSaksforberedelserTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
-                await GetVedtakAdministrativBeslutningerAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
+                //TODO Adminitrative belutninger overføre fra aktivitet til vedtak
+                //await GetVedtakAdministrativBeslutningerAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
                 await GetJournalAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
                 await GetSlettedeJournalAktiviteterTidligereBydelAsync(fodselsDato, personNummer, sakId, bydel);
                 await GetIndividuellPlanAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
@@ -8047,7 +8148,7 @@ namespace UttrekkFamilia
             string guid = Guid.NewGuid().ToString().Replace('-', '_');
             while (migrertAntall > toSkip)
             {
-                List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"Tilsynsrapporter{bydel}_{guid}_{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -8138,7 +8239,7 @@ namespace UttrekkFamilia
             string guid = Guid.NewGuid().ToString().Replace('-', '_');
             while (migrertAntall > toSkip)
             {
-                List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"Postjournalaktiviteter{bydel}_{guid}_{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -8191,7 +8292,7 @@ namespace UttrekkFamilia
             string guid = Guid.NewGuid().ToString().Replace('-', '_');
             while (migrertAntall > toSkip)
             {
-                List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"SlettedePostjournalaktiviteter{bydel}_{guid}_{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -8293,7 +8394,7 @@ namespace UttrekkFamilia
             string guid = Guid.NewGuid().ToString().Replace('-', '_');
             while (migrertAntall > toSkip)
             {
-                List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"Oppfølgingsaktiviteter{bydel}_{guid}_{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -8358,7 +8459,7 @@ namespace UttrekkFamilia
             string guid = Guid.NewGuid().ToString().Replace('-', '_');
             while (migrertAntall > toSkip)
             {
-                List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"InterneSaksforberedelser{bydel}_{guid}_{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -8420,7 +8521,7 @@ namespace UttrekkFamilia
             string guid = Guid.NewGuid().ToString().Replace('-', '_');
             while (migrertAntall > toSkip)
             {
-                List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"VedtakAdministrativeBeslutninger{bydel}_{guid}_{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -8597,7 +8698,7 @@ namespace UttrekkFamilia
             string guid = Guid.NewGuid().ToString().Replace('-', '_');
             while (migrertAntall > toSkip)
             {
-                List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"Journaler{bydel}_{guid}_{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -8639,7 +8740,7 @@ namespace UttrekkFamilia
             string guid = Guid.NewGuid().ToString().Replace('-', '_');
             while (migrertAntall > toSkip)
             {
-                List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"SlettedeJournaler{bydel}_{guid}_{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -8715,7 +8816,7 @@ namespace UttrekkFamilia
             string guid = Guid.NewGuid().ToString().Replace('-', '_');
             while (migrertAntall > toSkip)
             {
-                List<Aktivitet> aktiviteterPart = aktiviteter.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                 await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"IndividuellPlan{bydel}_{guid}_{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
@@ -8859,7 +8960,7 @@ namespace UttrekkFamilia
                 int migrertAntall = documents.Count;
                 while (migrertAntall > toSkip)
                 {
-                    List<Document> documentsPart = documents.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Document> documentsPart = documents.OrderBy(o => o.dokumentId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(documentsPart, GetJsonFileName("dokumenter", $"Dokumenter{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -8956,7 +9057,7 @@ namespace UttrekkFamilia
                 int migrertAntall = documents.Count;
                 while (migrertAntall > toSkip)
                 {
-                    List<Document> documentsPart = documents.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Document> documentsPart = documents.OrderBy(o => o.dokumentId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(documentsPart, GetJsonFileName("dokumenter", $"DokumenterTekst{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -9014,7 +9115,7 @@ namespace UttrekkFamilia
                 int migrertAntall = documents.Count;
                 while (migrertAntall > toSkip)
                 {
-                    List<Document> documentsPart = documents.Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    List<Document> documentsPart = documents.OrderBy(o => o.dokumentId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
                     await WriteFileAsync(documentsPart, GetJsonFileName("dokumenter", $"BVVDokumenterHTML{category}{fileNumber}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
@@ -9249,6 +9350,13 @@ namespace UttrekkFamilia
             mottattBekymringsmelding.melderFritekst = AddTextToStringIfNotEmpty(mottattBekymringsmelding.melderFritekst, meldingFamilia.MelMeldertelefonmobil?.Trim(), ", M:");
 
             GetTypeMelder(meldingFamilia, mottattBekymringsmelding);
+            if (mottattBekymringsmelding.typeMelder.Contains("ANDRE_OFFENTLIG_INSTANSER"))
+            {
+                if (string.IsNullOrEmpty(mottattBekymringsmelding.typeMelderPresisering))
+                {
+                    mottattBekymringsmelding.typeMelderPresisering = "Familia: Presisering mangler";
+                }
+            }
             GetSaksinnholdMelding(meldingFamilia, mottattBekymringsmelding);
 
             switch (meldingFamilia.MelMeldingstype?.Trim())

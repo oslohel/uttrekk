@@ -628,7 +628,7 @@ namespace UttrekkFamilia
              {"fvl. 19","Fvl._§_19_(gammel_lov)" },
              {"jf. § 3-2a","Bvl._§_3-2._bokstav_a_(gammel_lov)" },
              {"jf. § 4-15, 3. ledd","Bvl._§_4-15._3.ledd_(gammel_lov)" },
-             {"jf. § 4-15, 4. ledd","Bvl._§_4-15._4.ledd_(gammel_lov)" },
+             {"jf. § 4-15, 4. ledd","Bvl._§_4-15_(gammel_lov)" },
              {"jf. § 4-28","Bvl._§_4-28_(gammel_lov)" },
              {"jf. § 4-5","Bvl._§_4-5_(gammel_lov)" },
              {"19a","Fvl._§_19_(gammel_lov)" },

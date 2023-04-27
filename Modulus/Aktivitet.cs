@@ -28,8 +28,6 @@ namespace UttrekkFamilia.Modulus
         public bool? lovPaalagt { get; set; }
         public DateTime? fristDato { get; set; }
         public bool? fristLovpaalagt { get; set; }
-        public string fristTitel { get; set; }
-        public string fristBeskrivelse { get; set; }
         public List<string> årsakskoderUtvidelseAvFristUndersokelse { get; set; }
         public string presiseringAvÅrsaksUtvidelseAvFristUndersokelse { get; set; }
         public string tilbudOmEttervern { get; set; }
