@@ -648,6 +648,8 @@ namespace UttrekkFamilia
              {"§ 2-4","Bvl._§_2-4" },
              {"§ 2-5","Bvl._§_2-5" },
              {"§ 2-5,1.","Bvl._§_2-5._1.ledd" },
+             {"§ 2-5, 1.a","Bvl._§_2-5._1.ledd" },
+             {"§ 2-5,1.b","Bvl._§_2-5._1.ledd" },
              {"§ 2-5,2.","Bvl._§_2-5._2.ledd" },
              {"§ 2-5,3.","Bvl._§_2-5._3.ledd" },
              {"§ 2-6","Bvl._§_2-6" },
@@ -848,6 +850,46 @@ namespace UttrekkFamilia
              {"9-6","Bvl._§_9-6" },
              //TODO Lover som må oversettes - Norunn bestiller i Modulus Barn - dette er satt midlertidig
              {"strl. 17","Bvl._§_1-1" }
+        };
+
+        private readonly NameValueCollection HjemlerOversettelseNyTilGammelLov = new() {
+            {"§ 1-3","Bvl._§_4-1_(gammel_lov)" },
+            {"§ 2-2","Bvl._§_4-3_(gammel_lov)" },
+            //TODO 4-3,7. finnes ikke i Modulus Barn
+            {"§ 2-3","-" },
+            //TODO 4-3,6. finnes ikke i Modulus Barn
+            {"§ 2-5","-" },
+            //TODO 4-3,6. finnes ikke i Modulus Barn
+            {"§ 2-5,1.","-" },
+            {"§ 3-1","Bvl._§_4-4._2.ledd_(gammel_lov)" },
+            {"§ 3-6","Bvl._§_1-3_(gammel_lov)" },
+            {"§ 4-2","Bvl._§_4-6._2.ledd_(gammel_lov)" },
+            {"§ 5-1","Bvl._§_4-12_(gammel_lov)" },
+            {"§ 5-1 a","Bvl._§_4-12_(gammel_lov)" },
+            {"§ 5-5","Bvl._§_4-17_(gammel_lov)" },
+            {"§ 5-7","Bvl._§_4-21_(gammel_lov)" },
+            //TODO Hva skal det være her?
+            {"§ 6-2","-" },
+            {"§ 7-2","Bvl._§_4-19_(gammel_lov)" },
+            {"§ 9-5","Bvl._§_4-22_(gammel_lov)" }
+        };
+
+        private readonly NameValueCollection HjemlerEtterPlankodeGammelLov = new() {
+            { "1","Bvl._§_4-5_(gammel_lov)" },
+            { "2","Bvl._§_4-28_(gammel_lov)" },
+            { "3","Bvl._§_4-28_(gammel_lov)" },
+            { "4","Bvl._§_4-15_(gammel_lov)" },
+            { "5","Bvl._§_4-15_(gammel_lov)" },
+            { "6","Bvl._§_4-15_(gammel_lov)" }
+        };
+
+        private readonly NameValueCollection HjemlerEtterPlankodeNyLov = new() {
+            { "1","Bvl._§_8-1" },
+            { "2","Bvl._§_8-4" },
+            { "3","Bvl._§_8-4" },
+            { "4","Bvl._§_8-3._4.ledd" },
+            { "5","Bvl._§_8-3._4.ledd" },
+            { "6","Bvl._§_8-5" }
         };
 
         private readonly NameValueCollection Årsakskoder = new() {
@@ -1492,7 +1534,7 @@ namespace UttrekkFamilia
         #endregion
 
         #region Lovhjemler
-        public string GetModulusLovhjemmel(string familiaLovhjemmel, decimal? aar, DateTime? iverksattdato)
+        public string GetModulusLovhjemmel(string familiaLovhjemmel, decimal? aar, DateTime? iverksattdato, DateTime? slutningsdato)
         {
             if (!string.IsNullOrEmpty(familiaLovhjemmel))
             {
@@ -1500,7 +1542,7 @@ namespace UttrekkFamilia
             }
             if (aar.HasValue && aar.Value > 2022)
             {
-                if (iverksattdato.HasValue && iverksattdato.Value.Year > 2023)
+                if (iverksattdato.HasValue && iverksattdato.Value.Year > 2022)
                 {
                     string nyLov = HjemlerOversettelseGammelTilNyLov[familiaLovhjemmel];
                     if (nyLov == null)
@@ -1519,7 +1561,37 @@ namespace UttrekkFamilia
             }
             else
             {
-                return Hjemler[familiaLovhjemmel];
+                if ((iverksattdato.HasValue && iverksattdato.Value.Year < 2023) || (slutningsdato.HasValue && slutningsdato.Value.Year < 2023))
+                {
+                    string gammelLov = HjemlerOversettelseNyTilGammelLov[familiaLovhjemmel];
+                    if (gammelLov == null)
+                    {
+                        return Hjemler[familiaLovhjemmel];
+                    }
+                    else
+                    {
+                        return gammelLov;
+                    }
+                }
+                else
+                {
+                    return Hjemler[familiaLovhjemmel];
+                }
+            }
+        }
+        public string GetModulusLovhjemmelEtterPlankode(string plankode, DateTime? fradato)
+        {
+            if (!string.IsNullOrEmpty(plankode))
+            {
+                plankode = plankode.Trim();
+            }
+            if (fradato.HasValue && fradato.Value.Year > 2022)
+            {
+                return HjemlerEtterPlankodeNyLov[plankode];
+            }
+            else
+            {
+                return HjemlerEtterPlankodeGammelLov[plankode];
             }
         }
         #endregion
