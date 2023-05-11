@@ -468,6 +468,7 @@ namespace UttrekkFamilia
              {"4-3,3.","Bvl._§_4-3._3.ledd_(gammel_lov)" },
              {"4-3,4.","Bvl._§_4-3._4.ledd_(gammel_lov)" },
              {"4-3,5.","Bvl._§_4-3._5.ledd_(gammel_lov)" },
+             {"4-3,6.","Bvl._§_4-3._6.ledd_(gammel_lov)" },
              {"4-4","Bvl._§_4-4_(gammel_lov)" },
              {"4-4,1.","Bvl._§_4-4._1.ledd_(gammel_lov)" },
              {"4-4,2.","Bvl._§_4-4._2.ledd_(gammel_lov)" },
@@ -598,6 +599,7 @@ namespace UttrekkFamilia
              {"7-23","Bvl._§_7-23_(gammel_lov)" },
              {"7-24","Bvl._§_7-24_(gammel_lov)" },
              {"7-25","Bvl._§_7-25_(gammel_lov)" },
+             {"7-3", "Bvl._§_4-12_(gammel_lov)"},
              {"7-4","Bvl._§_7-4_(gammel_lov)" },
              {"7-4,1.","Bvl._§_7-4_(gammel_lov)" },
              {"7-4,2.","Bvl._§_7-4_(gammel_lov)" },
@@ -834,9 +836,8 @@ namespace UttrekkFamilia
              {"4-4,2.","Bvl._§_3-1" },
              {"4-4,6.","Bvl._§_3-2" },
              {"4-5","Bvl._§_8-1" },
-             //TODO Lover som må oversettes - Helle sjekker med BGR - dette er satt midlertidig
              {"4-12","Bvl._§_5-1" },
-             //TODO Lover som må oversettes - Norunn bestiller i Modulus Barn - dette er satt midlertidig
+             //TODO §64,7. - Finnes ikke i Modulus Barn - N bestiller - denne er satt midlertidig
              {"64,7.","Bvl._§_1-1" },
              {"4-21","Bvl._§_5-7" },
              {"4-22","Bvl._§_5-3" },
@@ -848,19 +849,16 @@ namespace UttrekkFamilia
              {"8-2","Bvl._§_8-2" },
              {"9-1","Bvl._§_15-11" },
              {"9-6","Bvl._§_9-6" },
-             //TODO Lover som må oversettes - Norunn bestiller i Modulus Barn - dette er satt midlertidig
-             {"strl. 17","Bvl._§_1-1" }
+             {"strl. 17","Bvl._§_1-3" }
         };
 
         private readonly NameValueCollection HjemlerOversettelseNyTilGammelLov = new() {
             {"§ 1-3","Bvl._§_4-1_(gammel_lov)" },
             {"§ 2-2","Bvl._§_4-3_(gammel_lov)" },
-            //TODO 4-3,7. finnes ikke i Modulus Barn
-            {"§ 2-3","-" },
-            //TODO 4-3,6. finnes ikke i Modulus Barn
-            {"§ 2-5","-" },
-            //TODO 4-3,6. finnes ikke i Modulus Barn
-            {"§ 2-5,1.","-" },
+            //TODO §4-3,7. - Finnes ikke i Modulus Barn - N bestiller - denne er satt midlertidig
+            {"§ 2-3","Bvl._§_4-3_(gammel_lov)" },
+            {"§ 2-5","Bvl._§_4-3._6.ledd_(gammel_lov)" },
+            {"§ 2-5,1.","Bvl._§_4-3._6.ledd_(gammel_lov)" },
             {"§ 3-1","Bvl._§_4-4._2.ledd_(gammel_lov)" },
             {"§ 3-6","Bvl._§_1-3_(gammel_lov)" },
             {"§ 4-2","Bvl._§_4-6._2.ledd_(gammel_lov)" },
@@ -868,8 +866,6 @@ namespace UttrekkFamilia
             {"§ 5-1 a","Bvl._§_4-12_(gammel_lov)" },
             {"§ 5-5","Bvl._§_4-17_(gammel_lov)" },
             {"§ 5-7","Bvl._§_4-21_(gammel_lov)" },
-            //TODO Hva skal det være her?
-            {"§ 6-2","-" },
             {"§ 7-2","Bvl._§_4-19_(gammel_lov)" },
             {"§ 9-5","Bvl._§_4-22_(gammel_lov)" }
         };
@@ -889,7 +885,7 @@ namespace UttrekkFamilia
             { "3","Bvl._§_8-4" },
             { "4","Bvl._§_8-3._4.ledd" },
             { "5","Bvl._§_8-3._4.ledd" },
-            { "6","Bvl._§_8-5" }
+            { "6","Bvl._§_8-5._2.ledd" }
         };
 
         private readonly NameValueCollection Årsakskoder = new() {
@@ -935,9 +931,9 @@ namespace UttrekkFamilia
             { "4.9","2.9_ANDRE_GRUNNER_(KREVER_PRESISERING)" },
             { "1.1","1.1.1_OMSORGSPLASSERINGEN_OPPHØRER" },
             { "1.2","1.1.2_BARNET_BLIR_MYNDIG" },
-            { "1.3","1.1.3_FOSTERFORELDRE_KLARER_IKKE_ÅDEKKE_BARNETS_BEHOV(FORHOLD_VED_FOSTERHJEMMET)" },
+            { "1.3","1.1.3_FOSTERFORELDRE_KLARER_IKKE_Å_DEKKE_BARNETS_BEHOV_(FORHOLD_VED_FOSTERHJEMMET)" },
             { "1.4","1.1.4_BARNET_HAR_BEHOV_FOR_ANNET_PLASSERINGSSTED_(INSTITUSJON_TFCO_FOSTERHJEM_FORSTERKET_FOSTERHJEM_OSV." },
-            { "1.5","1.1.5_ANDRE_GRUNNER_(F.EKS.UENIGHET_OM_OPPDRAGETS_OMFANG,ØKONOMI,FORSTERKNINGSTILTAK_MV.)(KREVER_PRESISERING)" },
+            { "1.5","1.1.5_ANDRE_GRUNNER_(F.EKS._UENIGHET_OM_OPPDRAGETS_OMFANG,_ØKONOMI,_FORSTERKNINGSTILTAK_MV.)_(KREVER_PRESISERING)" },
             { "2.1","1.2.1_BARNET_HAR_BEHOV_FOSTERFORELDRE_IKKE_KAN_DEKKE\"" },
             { "2.2","1.2.2_ENDRING_I_FOSTERFORELDRES_LIVSSITUASJON_(SKILSMISSE_DØD_OSV.)" },
             { "2,3","1.2.3_ANDRE_GRUNNER_(F.EKS.UENIGHET_OM_OPPDRAGETS_OMFANGØKONOMI_FORSTERKNINGSTILTAK_MANGLENDE_ELLER_LITE_EFFEKTIV_VEILEDNING_MV.)_(KREVER_PRESISERING)" }
@@ -979,10 +975,10 @@ namespace UttrekkFamilia
         private readonly NameValueCollection BydelHovedsaksbehandlere = new() {
             { "DEM", "ANJN" },
             { "BNS", "VISA" },
+            //TODO Mappings - BydelHovedsaksbehandlere - Legg inn hovedsaksbehandlere når dette blir avklart, mangler disse:
             { "BUN", "KBER" },
             { "BNA", "AISO" },
             { "BSH", "ANIF" },
-            //TODO Mappings - BydelHovedsaksbehandlere - Legg inn hovedsaksbehandlere når dette blir avklart, mangler disse:
             { "BAL", "MEKJ" },
             { "BBJ", "BVKM" },
             { "BFR", "BVMD" },
@@ -1534,48 +1530,43 @@ namespace UttrekkFamilia
         #endregion
 
         #region Lovhjemler
-        public string GetModulusLovhjemmel(string familiaLovhjemmel, decimal? aar, DateTime? iverksattdato, DateTime? slutningsdato)
+        public string GetModulusLovhjemmel(string familiaLovhjemmel, DateTime? iverksattdato, DateTime? slutningsdato)
         {
             if (!string.IsNullOrEmpty(familiaLovhjemmel))
             {
                 familiaLovhjemmel = familiaLovhjemmel.Trim();
             }
-            if (aar.HasValue && aar.Value > 2022)
+            if (!iverksattdato.HasValue && !slutningsdato.HasValue)
             {
-                if (iverksattdato.HasValue && iverksattdato.Value.Year > 2022)
+                return Hjemler[familiaLovhjemmel];
+            }
+            DateTime? datoForLovbruk = iverksattdato;
+            if (slutningsdato.HasValue)
+            {
+                datoForLovbruk = slutningsdato;
+            }
+            if ((datoForLovbruk.HasValue && datoForLovbruk.Value.Year < 2023))
+            {
+                string gammelLov = HjemlerOversettelseNyTilGammelLov[familiaLovhjemmel];
+                if (gammelLov == null)
                 {
-                    string nyLov = HjemlerOversettelseGammelTilNyLov[familiaLovhjemmel];
-                    if (nyLov == null)
-                    {
-                        return Hjemler[familiaLovhjemmel];
-                    }
-                    else
-                    {
-                        return nyLov;
-                    }
+                    return Hjemler[familiaLovhjemmel];
                 }
                 else
                 {
-                    return Hjemler[familiaLovhjemmel];
+                    return gammelLov;
                 }
             }
             else
             {
-                if ((iverksattdato.HasValue && iverksattdato.Value.Year < 2023) || (slutningsdato.HasValue && slutningsdato.Value.Year < 2023))
+                string nyLov = HjemlerOversettelseGammelTilNyLov[familiaLovhjemmel];
+                if (nyLov == null)
                 {
-                    string gammelLov = HjemlerOversettelseNyTilGammelLov[familiaLovhjemmel];
-                    if (gammelLov == null)
-                    {
-                        return Hjemler[familiaLovhjemmel];
-                    }
-                    else
-                    {
-                        return gammelLov;
-                    }
+                    return Hjemler[familiaLovhjemmel];
                 }
                 else
                 {
-                    return Hjemler[familiaLovhjemmel];
+                    return nyLov;
                 }
             }
         }

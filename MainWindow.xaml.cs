@@ -1,5 +1,6 @@
 ﻿#region Usings
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -106,6 +107,23 @@ namespace UttrekkFamilia
                 {
                     workerUttrekk.WorkerReportsProgress = true;
                     workerUttrekk.DoWork += WorkerUttrekkFamilia_DoWork;
+                    workerUttrekk.ProgressChanged += Worker_ProgressChanged;
+                    workerUttrekk.RunWorkerAsync();
+                }
+            }
+        }
+        private void UttrekkHeleFamilia_Click(object sender, RoutedEventArgs e)
+        {
+            MessageBoxResult answer = MessageBox.Show("Vil du starte uttrekket av data fra alle Familia-databasene?", "Start uttrekk", MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+            if (answer == MessageBoxResult.Yes)
+            {
+                SetParameters();
+
+                using (BackgroundWorker workerUttrekk = new())
+                {
+                    workerUttrekk.WorkerReportsProgress = true;
+                    workerUttrekk.DoWork += WorkerUttrekkFamiliaAll_DoWork;
                     workerUttrekk.ProgressChanged += Worker_ProgressChanged;
                     workerUttrekk.RunWorkerAsync();
                 }
@@ -428,6 +446,134 @@ namespace UttrekkFamilia
             string fileName = $"{OutputFolderName}\\{Bydelsidentifikator}_{DateTime.Now:yyyyMMdd_HHmm_}Uttrekk.txt";
             var taskStatus = File.WriteAllTextAsync(fileName, information);
             taskStatus.Wait();
+        }
+        private void WorkerUttrekkFamiliaAll_DoWork(object sender, DoWorkEventArgs e)
+        {
+            Mappings mappings = new Mappings(true);
+            List<string> bydeler = mappings.GetAlleBydeler();
+
+            foreach (string bydel in bydeler)
+            { 
+                Stopwatch stopwatch = new();
+                stopwatch.Start();
+                var worker = sender as BackgroundWorker;
+                string information = $"UTTREKK {DateTime.Now:dd.MM.yyyy HH:mm} Bydelsid: {bydel} Maks antall: {MaksimumAntall}" + Environment.NewLine + Environment.NewLine;
+                try
+                {
+                    Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, bydel, MaksimumAntall, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip);
+                    uttrekk.CreateAllfolders(OnlyWriteDocumentFiles);
+
+                    if (UseSokrates)
+                    {
+                        var task = uttrekk.ExtractSokratesAsync(worker);
+                        task.Wait();
+                        information += task.Result;
+                    }
+                    if (InnbyggereBarnIsChecked)
+                    {
+                        var task = uttrekk.GetInnbyggereBarnAsync(worker, MeldingerUtenSakIsChecked);
+                        task.Wait();
+                        information += task.Result;
+                    }
+                    if (InnbyggereIsChecked)
+                    {
+                        var task = uttrekk.GetInnbyggereAsync(worker);
+                        task.Wait();
+                        information += task.Result;
+                    }
+                    if (OrganisasjonerIsChecked)
+                    {
+                        var task = uttrekk.GetOrganisasjonerAsync(worker);
+                        task.Wait();
+                        information += task.Result;
+                    }
+                    if (SakerIsChecked)
+                    {
+                        var task = uttrekk.GetSakerAsync(worker, MeldingerUtenSakIsChecked);
+                        task.Wait();
+                        information += task.Result;
+                    }
+                    if (BarnetsNettverkBarnIsChecked)
+                    {
+                        var task = uttrekk.GetBarnetsNettverkBarnAsync(worker);
+                        task.Wait();
+                        information += task.Result;
+                    }
+                    if (BarnetsNettverkIsChecked)
+                    {
+                        var task = uttrekk.GetBarnetsNettverkAsync(worker);
+                        task.Wait();
+                        information += task.Result;
+                    }
+                    if (MeldingerIsChecked)
+                    {
+                        var task = uttrekk.GetMeldingerAsync(worker);
+                        task.Wait();
+                        information += task.Result;
+                    }
+                    if (MeldingerUtenSakIsChecked)
+                    {
+                        var task = uttrekk.GetMeldingerUtenSakAsync(worker);
+                        task.Wait();
+                        information += task.Result;
+                    }
+                    if (UndersokelserIsChecked)
+                    {
+                        var task = uttrekk.GetUndersokelserAsync(worker);
+                        task.Wait();
+                        information += task.Result;
+                    }
+                    if (AvdelingsmappingIsChecked)
+                    {
+                        var task = uttrekk.GetAvdelingsmappingAsync(worker);
+                        task.Wait();
+                        information += task.Result;
+                    }
+                    if (BrukereIsChecked)
+                    {
+                        var task = uttrekk.GetBrukereAsync(worker);
+                        task.Wait();
+                        information += task.Result;
+                    }
+                    if (VedtakIsChecked)
+                    {
+                        var task = uttrekk.GetVedtakAsync(worker);
+                        task.Wait();
+                        information += task.Result;
+                    }
+                    if (TiltakIsChecked)
+                    {
+                        var task = uttrekk.GetTiltakAsync(worker);
+                        task.Wait();
+                        information += task.Result;
+                    }
+                    if (PlanerIsChecked)
+                    {
+                        var task = uttrekk.GetPlanerAsync(worker);
+                        task.Wait();
+                        information += task.Result;
+                    }
+                    if (AktiviteterIsChecked)
+                    {
+                        var task = uttrekk.GetAktiviteterAsync(worker);
+                        task.Wait();
+                        information += task.Result;
+                    }
+                }
+                catch (AggregateException ex)
+                {
+                    string message = $"Unhandled exception ({ex.Source}): {ex.Message} Stack trace: {ex.StackTrace}";
+                    MessageBox.Show(message, "Migrering - Unhandled exception", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+
+                stopwatch.Stop();
+                worker.ReportProgress(0, string.Format("Uttrekket ferdig ({0} timer {1} minutter {2} sekunder)", stopwatch.Elapsed.Hours, stopwatch.Elapsed.Minutes, stopwatch.Elapsed.Seconds));
+                information += Environment.NewLine + string.Format("Uttrekket ferdig (({0} timer {1} minutter {2} sekunder))", stopwatch.Elapsed.Hours, stopwatch.Elapsed.Minutes, stopwatch.Elapsed.Seconds);
+
+                string fileName = $"{OutputFolderName}\\{bydel}_{DateTime.Now:yyyyMMdd_HHmm_}Uttrekk.txt";
+                var taskStatus = File.WriteAllTextAsync(fileName, information);
+                taskStatus.Wait();
+            }
         }
         private void WorkerUttrekkBVV_DoWork(object sender, DoWorkEventArgs e)
         {

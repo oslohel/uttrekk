@@ -19,11 +19,12 @@
             <PasswordBox x:Name="ConnSokratesBox" Canvas.Left="136" Canvas.Top="215" Width="317" Height="22" TabIndex="11" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             <Button x:Name="InfoFamiliaDatabase" Content="DB Familia" Height="24" Width="100" Click="InfoFamiliaDatabase_Click" Canvas.Left="18" Canvas.Top="312" HorizontalAlignment="Center" VerticalAlignment="Top" TabIndex="12"/>
             <Button x:Name="InfoSokratesDatabase" Content="DB Sokrates" Height="24" Width="100" Click="InfoSokratesDatabase_Click" Canvas.Left="123" Canvas.Top="312" TabIndex="15" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-            <Button x:Name="ZipButton" Content="Zip" Height="24" Width="100" Click="ZipButton_Click" TabIndex="21" Canvas.Left="355" Canvas.Top="312" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+            <Button x:Name="ZipButton" Content="Zip" Height="24" Width="100" Click="ZipButton_Click" TabIndex="22" Canvas.Left="355" Canvas.Top="312" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <Button x:Name="UttrekkFamiliaButton" Content="Uttrekk Familia" Grid.ColumnSpan="2" HorizontalAlignment="Center" Height="24" VerticalAlignment="Top" Width="100" Click="UttrekkFamiliaButton_Click" TabIndex="19" Canvas.Left="250" Canvas.Top="312"/>
             <Button x:Name="UttrekkBVVButton" Content="Uttrekk VFB" Grid.ColumnSpan="2" HorizontalAlignment="Center" Height="24" VerticalAlignment="Top" Width="100" Click="UttrekkBVVButton_Click" TabIndex="20" Canvas.Left="250" Canvas.Top="341"/>
-            <Button x:Name="MarkAll" Content="Merk alle" Height="24" Width="100" Click="MarkAll_Click" TabIndex="23" Canvas.Left="569" Canvas.Top="260" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-            <Button x:Name="ClearAll" Content="Fjern alle" Height="24" Width="100" Click="ClearAll_Click" TabIndex="24" Canvas.Left="674" Canvas.Top="260" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+            <Button x:Name="UttrekkHeleFamilia" Content="Hele Familia" Grid.ColumnSpan="2" HorizontalAlignment="Center" Height="24" VerticalAlignment="Top" Width="100"  Click="UttrekkHeleFamilia_Click" TabIndex="21" Canvas.Left="250" Canvas.Top="370"/>
+            <Button x:Name="MarkAll" Content="Merk alle" Height="24" Width="100" Click="MarkAll_Click" TabIndex="24" Canvas.Left="569" Canvas.Top="260" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+            <Button x:Name="ClearAll" Content="Fjern alle" Height="24" Width="100" Click="ClearAll_Click" TabIndex="25" Canvas.Left="674" Canvas.Top="260" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <GroupBox Height="209" Header="Velg data fra Familia:" Width="299" Canvas.Left="474" Canvas.Top="40" HorizontalAlignment="Center" VerticalAlignment="Top">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -45,8 +46,8 @@
                         <CheckBox Content="Undersøkelser" x:Name="chkUndersokelser" IsChecked="True" Height="19"/>
                     </StackPanel>
                     <StackPanel Margin="10,10,0,0" Grid.Row="0" Grid.Column="1">
-                        <CheckBox Content="Avdelingsmapping" x:Name="chkAvdelingsmapping" IsChecked="True" Height="19"/>
-                        <CheckBox Content="Saksbehandlere" x:Name="chkBrukere" IsChecked="True" Height="19"/>
+                        <CheckBox Content="Avdelingsmapping" x:Name="chkAvdelingsmapping" IsChecked="False" Height="19"/>
+                        <CheckBox Content="Saksbehandlere" x:Name="chkBrukere" IsChecked="False" Height="19"/>
                         <CheckBox Content="Vedtak" x:Name="chkVedtak" IsChecked="True" Height="19"/>
                         <CheckBox Content="Tiltak" x:Name="chkTiltak" IsChecked="True" Height="19"/>
                         <CheckBox Content="Planer" x:Name="chkPlaner" IsChecked="True" Height="19"/>
@@ -57,7 +58,8 @@
             <GroupBox Height="209" Header="Konfigurasjon uttrekk Familia og Sokrates:" Panel.ZIndex="-1" Width="454" Canvas.Left="10" Canvas.Top="40" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <GroupBox Height="115" Header="Informasjon:" Panel.ZIndex="-1" Width="220" Canvas.Left="10" Canvas.Top="288" HorizontalAlignment="Center" VerticalAlignment="Top">
             </GroupBox>
-            <GroupBox Height="115" Header="Uttrekk:" Panel.ZIndex="-1" Width="223" Canvas.Left="241" Canvas.Top="288" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <GroupBox Height="115" Header="Uttrekk:" Panel.ZIndex="-1" Width="223" Canvas.Left="241" Canvas.Top="288" HorizontalAlignment="Center" VerticalAlignment="Center">
+            </GroupBox>
             <Button x:Name="WriteSokrates" Content="Saksoversikt" Height="24" Width="100" Click="WriteSokrates_Click" Canvas.Left="18" Canvas.Top="341" TabIndex="13" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <CheckBox Content="Bruk Sokrates" x:Name="chkUseSokrates" IsChecked="True" TabIndex="5" Height="20" Canvas.Left="136" Canvas.Top="128" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <CheckBox Content="Kun filer (for føropplasting)" x:Name="chkOnlyWriteDocumentFiles" IsChecked="False" TabIndex="6" Height="20" Canvas.Left="263" Canvas.Top="128" HorizontalAlignment="Left" VerticalAlignment="Center"/>
@@ -69,7 +71,7 @@
                 <Label x:Name="Status" Content="Klar" Margin="16,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             </StatusBar>
             <Button x:Name="InfoBVVDatabase" Content="DB VFB" Height="24" Width="100"  Canvas.Left="123" Canvas.Top="341" Click="InfoBVVDatabase_Click" TabIndex="17" Margin="0,0,0,0"/>
-            <Button x:Name="AlleBrukere" Content="Alle brukere" Height="24" Width="100" Click="AlleBrukere_Click" TabIndex="22" Canvas.Left="355" Canvas.Top="341" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <Button x:Name="AlleBrukere" Content="Alle brukere" Height="24" Width="100" Click="AlleBrukere_Click" TabIndex="23" Canvas.Left="355" Canvas.Top="341" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             <Label Content="DB server:" Height="26" Canvas.Left="18" Canvas.Top="182" Width="112" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <Label Content="Extra server:" Height="26" Canvas.Left="259" Canvas.Top="182" Width="82" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             <Label Content="Dok.nr:" Height="26" Canvas.Left="259" Canvas.Top="151" Width="82" HorizontalAlignment="Left" VerticalAlignment="Center"/>
