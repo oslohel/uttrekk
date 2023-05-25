@@ -16,6 +16,7 @@ namespace UttrekkFamilia.Modulus
         public string aktivitetsType { get; set; }
         public string aktivitetsUnderType { get; set; }
         public List<string> parter { get; set; }
+        public DateTime? utlopsdato { get; set; }
         public DateTime? hendelsesdato { get; set; }
         public string saksbehandlerId { get; set; }
         public string status { get; set; }

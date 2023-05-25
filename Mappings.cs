@@ -469,6 +469,7 @@ namespace UttrekkFamilia
              {"4-3,4.","Bvl._§_4-3._4.ledd_(gammel_lov)" },
              {"4-3,5.","Bvl._§_4-3._5.ledd_(gammel_lov)" },
              {"4-3,6.","Bvl._§_4-3._6.ledd_(gammel_lov)" },
+             {"4-3,7.","Bvl._§_4-3._7.ledd_(gammel_lov)" },
              {"4-4","Bvl._§_4-4_(gammel_lov)" },
              {"4-4,1.","Bvl._§_4-4._1.ledd_(gammel_lov)" },
              {"4-4,2.","Bvl._§_4-4._2.ledd_(gammel_lov)" },
@@ -624,7 +625,6 @@ namespace UttrekkFamilia
              {"9-3,2.","Bvl._§_9-3_(gammel_lov)" },
              {"9-3,3.","Bvl._§_9-3_(gammel_lov)" },
              {"9-3,4.","Bvl._§_9-3_(gammel_lov)" },
-             {"43a","Bl._§_43._bokstav_a_(gammel_lov)" },
              {"11","Fvl._§_11_(gammel_lov)" },
              {"fvl 2,1e","Fvl._§_2._bokstav_e_(gammel_lov)" },
              {"fvl. 19","Fvl._§_19_(gammel_lov)" },
@@ -652,6 +652,7 @@ namespace UttrekkFamilia
              {"§ 2-5,1.","Bvl._§_2-5._1.ledd" },
              {"§ 2-5, 1.a","Bvl._§_2-5._1.ledd" },
              {"§ 2-5,1.b","Bvl._§_2-5._1.ledd" },
+             {"§ 2-5,1.c","Bvl._§_2-5._1.ledd" },
              {"§ 2-5,2.","Bvl._§_2-5._2.ledd" },
              {"§ 2-5,3.","Bvl._§_2-5._3.ledd" },
              {"§ 2-6","Bvl._§_2-6" },
@@ -834,13 +835,18 @@ namespace UttrekkFamilia
              {"4-4","Bvl._§_3-1" },
              {"4-19","Bvl._§_7-2" },
              {"4-4,2.","Bvl._§_3-1" },
+             {"4-4,3.","Bvl._§_3-4" },
+             {"4-4,5.","Bvl._§_3-5" },
              {"4-4,6.","Bvl._§_3-2" },
              {"4-5","Bvl._§_8-1" },
              {"4-12","Bvl._§_5-1" },
+             {"4-12,1.a","Bvl._§_5-1" },
+             {"4-14a","Bvl._§_5-3" },
              //TODO §64,7. - Finnes ikke i Modulus Barn - N bestiller - denne er satt midlertidig
              {"64,7.","Bvl._§_1-1" },
              {"4-21","Bvl._§_5-7" },
              {"4-22","Bvl._§_5-3" },
+             {"4-26","Bvl._§_6-1" },
              {"5-3","Bvl._§_5-3" },
              {"5-7","Bvl._§_5-7" },
              {"6-1","Bvl._§_6-1" },
@@ -849,14 +855,15 @@ namespace UttrekkFamilia
              {"8-2","Bvl._§_8-2" },
              {"9-1","Bvl._§_15-11" },
              {"9-6","Bvl._§_9-6" },
-             {"strl. 17","Bvl._§_1-3" }
+             {"strl. 17","Bvl._§_1-3" },
+             {"43a","Bl._§_43._bokstav_a" }
         };
 
         private readonly NameValueCollection HjemlerOversettelseNyTilGammelLov = new() {
             {"§ 1-3","Bvl._§_4-1_(gammel_lov)" },
+            {"§ 1-4","Bvl._§_1-6_(gammel_lov)" },
             {"§ 2-2","Bvl._§_4-3_(gammel_lov)" },
-            //TODO §4-3,7. - Finnes ikke i Modulus Barn - N bestiller - denne er satt midlertidig
-            {"§ 2-3","Bvl._§_4-3_(gammel_lov)" },
+            {"§ 2-3","Bvl._§_4-3._7.ledd_(gammel_lov)" },
             {"§ 2-5","Bvl._§_4-3._6.ledd_(gammel_lov)" },
             {"§ 2-5,1.","Bvl._§_4-3._6.ledd_(gammel_lov)" },
             {"§ 3-1","Bvl._§_4-4._2.ledd_(gammel_lov)" },
@@ -867,7 +874,9 @@ namespace UttrekkFamilia
             {"§ 5-5","Bvl._§_4-17_(gammel_lov)" },
             {"§ 5-7","Bvl._§_4-21_(gammel_lov)" },
             {"§ 7-2","Bvl._§_4-19_(gammel_lov)" },
-            {"§ 9-5","Bvl._§_4-22_(gammel_lov)" }
+            {"§ 9-1","Bvl._§_4-22_(gammel_lov)" },
+            {"§ 9-5","Bvl._§_4-22_(gammel_lov)" },
+            {"43a","Bl._§_43._bokstav_a_(gammel_lov)" }
         };
 
         private readonly NameValueCollection HjemlerEtterPlankodeGammelLov = new() {

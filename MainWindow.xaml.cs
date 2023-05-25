@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Windows;
 #endregion
 
@@ -449,7 +450,7 @@ namespace UttrekkFamilia
         }
         private void WorkerUttrekkFamiliaAll_DoWork(object sender, DoWorkEventArgs e)
         {
-            Mappings mappings = new Mappings(true);
+            Mappings mappings = new(true);
             List<string> bydeler = mappings.GetAlleBydeler();
 
             foreach (string bydel in bydeler)
