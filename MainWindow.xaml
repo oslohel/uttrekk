@@ -78,6 +78,8 @@
             <TextBox x:Name="MainDBServerBox" Canvas.Left="136" TextWrapping="NoWrap" Text="" Canvas.Top="184" Width="113" Height="22" TabIndex="9" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             <TextBox x:Name="ExtraDBServerBox" Canvas.Left="336" TextWrapping="NoWrap" Text="" Canvas.Top="184" Width="113" Height="22" TabIndex="10" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             <TextBox x:Name="Doknumber" Canvas.Left="336" TextWrapping="NoWrap" Text="" Canvas.Top="153" Width="113" Height="22" TabIndex="8" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+            <CheckBox Content="Kun akive saker" x:Name="chkOnlyActiveCases" IsChecked="False" TabIndex="26" Height="20" Canvas.Left="18" Canvas.Top="417" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+            <CheckBox Content="Kun passive saker" x:Name="chkOnlyPassiveCases" IsChecked="False" TabIndex="27" Height="20" Canvas.Left="133" Canvas.Top="417" HorizontalAlignment="Left" VerticalAlignment="Center" Width="149"/>
         </Canvas>
     </DockPanel>
 </Window>

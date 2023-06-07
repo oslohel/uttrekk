@@ -40,6 +40,8 @@ namespace UttrekkFamilia
         private string Bydelsforkortelse = "";
         private readonly int MaksAntall;
         private readonly bool OnlyWriteDocumentFiles;
+        private readonly bool OnlyActiveCases;
+        private readonly bool OnlyPassiveCases;
         private readonly int AntallFilerPerZip;
         private readonly Mappings mappings;
         private readonly string BVVLeder = "18";
@@ -47,7 +49,7 @@ namespace UttrekkFamilia
         #endregion
 
         #region Contructors
-        public Uttrekk(string connSokrates, string mainDBServer, string extraDBServer, string outputFolderName, string bydelsidentifikator, int maksAntall, bool useSokrates, bool onlyWriteDocumentFiles, int antallFilerPerZip)
+        public Uttrekk(string connSokrates, string mainDBServer, string extraDBServer, string outputFolderName, string bydelsidentifikator, int maksAntall, bool useSokrates, bool onlyWriteDocumentFiles, int antallFilerPerZip, bool onlyActiveCases, bool onlyPassiveCases)
         {
             mappings = new Mappings(useSokrates);
             ConnectionStringFamilia = mappings.GetConnectionstring(bydelsidentifikator, mainDBServer);
@@ -66,6 +68,13 @@ namespace UttrekkFamilia
                 MaksAntall = maksAntall;
             }
             OnlyWriteDocumentFiles = onlyWriteDocumentFiles;
+            OnlyActiveCases = onlyActiveCases;
+            OnlyPassiveCases = onlyPassiveCases;
+            if (OnlyActiveCases && OnlyPassiveCases)
+            {
+                OnlyActiveCases = false;
+                OnlyPassiveCases = false;
+            }
             AntallFilerPerZip = antallFilerPerZip;
         }
         #endregion
@@ -2446,12 +2455,12 @@ namespace UttrekkFamilia
             {
                 worker.ReportProgress(0, "Starter uttrekk saker...");
                 string statusText = $"Antall barnevernsaker: {await GetBarnevernsakerAsync(worker)}" + Environment.NewLine;
-                if (meldingerUtenSakIsChecked && MaksAntall == int.MaxValue)
+                if (meldingerUtenSakIsChecked && MaksAntall == int.MaxValue && !OnlyActiveCases)
                 {
                     statusText += $"Antall barnevernsaker uten sak: {await GetBarnevernsakerUtenSakAsync(worker)}" + Environment.NewLine;
                 }
                 statusText += $"Antall tilsynssaker: {await GetTilsynssakerAsync(worker)}" + Environment.NewLine;
-                if (MaksAntall == int.MaxValue)
+                if (MaksAntall == int.MaxValue && !OnlyPassiveCases)
                 {
                     statusText += $"Antall oppdragstakersaker: {await GetOppdragstakersakerAsync(worker)}" + Environment.NewLine;
                 }
@@ -2631,6 +2640,10 @@ namespace UttrekkFamilia
                         status = "LUKKET",
                         sakstype = "BARNEVERNSSAK"
                     };
+                    if (melding.MelPersonnr.HasValue && melding.MelFoedselsdato.HasValue && melding.MelPersonnr.GetValueOrDefault() != 99999 && melding.MelPersonnr.GetValueOrDefault() != 00100 && melding.MelPersonnr.GetValueOrDefault() != 00200)
+                    {
+                        sak.aktorId = await GetAktorIdFraBVVHvisFinnesAsync(sak.aktorId, melding.MelFoedselsdato.Value.ToString("ddMMyy") + melding.MelPersonnr);
+                    }
                     if (sak.sluttDato.HasValue && sak.startDato.HasValue && sak.sluttDato.Value < sak.startDato.Value)
                     {
                         sak.sluttDato = sak.startDato;
@@ -2905,7 +2918,7 @@ namespace UttrekkFamilia
             {
                 worker.ReportProgress(0, "Starter uttrekk innbyggere - barn...");
                 string statusText = $"Antall innbyggere barn: {await GetInnbyggereBarnHovedAsync(worker)}" + Environment.NewLine;
-                if (meldingerUtenSakIsChecked && MaksAntall == int.MaxValue)
+                if (meldingerUtenSakIsChecked && MaksAntall == int.MaxValue && !OnlyActiveCases)
                 {
                     statusText += $"Antall innbyggere barn uten sak: {await GetInnbyggereBarnUtenSakAsync(worker)}" + Environment.NewLine;
                 }
@@ -3156,6 +3169,10 @@ namespace UttrekkFamilia
                     if (string.IsNullOrEmpty(melding.MelGmlreferanse))
                     {
                         innbygger.fodselsnummer = melding.MelFoedselsdato.Value.ToString("ddMMyy") + melding.MelPersonnr;
+                        if (await ExistsInBVVAsync(innbygger.fodselsnummer))
+                        {
+                            continue;
+                        }
                     }
                 }
                 if (melding.MelPersonnr.HasValue && melding.MelPersonnr.Value == 99999)
@@ -3184,6 +3201,10 @@ namespace UttrekkFamilia
         {
             try
             {
+                if (OnlyPassiveCases)
+                {
+                    return $"Antall innbyggere: 0" + Environment.NewLine;
+                }
                 worker.ReportProgress(0, "Starter uttrekk innbyggere...");
                 int totalAntall = 0;
                 int antall = 0;
@@ -3812,6 +3833,10 @@ namespace UttrekkFamilia
                                 FaKlient klientSak = await context.FaKlients.Where(KlientFilter()).Where(k => k.KliFraannenkommune == 0 && k.KliFoedselsdato == meldingFamilia.MelFoedselsdato && k.KliPersonnr == meldingFamilia.MelPersonnr).FirstOrDefaultAsync();
                                 if (klientSak != null)
                                 {
+                                    if (!mappings.IsOwner(klientSak.KliLoepenr))
+                                    {
+                                        continue;
+                                    }
                                     melding.sakId = GetSakId(klientSak.KliLoepenr.ToString());
                                 }
                                 else
@@ -3944,7 +3969,7 @@ namespace UttrekkFamilia
         {
             try
             {
-                if (MaksAntall != int.MaxValue)
+                if (MaksAntall != int.MaxValue || OnlyActiveCases)
                 {
                     return null;
                 }
@@ -4365,6 +4390,10 @@ namespace UttrekkFamilia
         {
             try
             {
+                if (OnlyPassiveCases)
+                {
+                    return $"Antall avdelingsmappinger: 0" + Environment.NewLine;
+                }
                 worker.ReportProgress(0, "Starter uttrekk avdelingsmappinger...");
                 List<FaDistrikt> rawData;
                 int totalAntall = 0;
@@ -4438,6 +4467,10 @@ namespace UttrekkFamilia
         {
             try
             {
+                if (OnlyPassiveCases)
+                {
+                    return $"Antall saksbehandlere: 0" + Environment.NewLine;
+                }
                 worker.ReportProgress(0, "Starter uttrekk saksbehandlere...");
                 List<FaSaksbehandlere> rawData;
                 int totalAntall = 0;
@@ -5156,6 +5189,10 @@ namespace UttrekkFamilia
                     {
                         tiltak.ssbUnderkategoriSpesifisering = "Familia: Mangler presisering";
                     }
+                    if (tiltak.ssbUnderkategori == "ANDRE_HJEMMEBASERTE_TILTAK" && string.IsNullOrEmpty(tiltak.ssbUnderkategoriSpesifisering))
+                    {
+                        tiltak.ssbUnderkategoriSpesifisering = "Familia: Mangler presisering";
+                    }
                     if (tiltak.planlagtTilDato.HasValue && tiltak.planlagtTilDato < tiltak.planlagtFraDato)
                     {
                         tiltak.planlagtTilDato = tiltak.planlagtFraDato;
@@ -5221,7 +5258,7 @@ namespace UttrekkFamilia
                                         }
                                         else
                                         {
-                                            if (tiltakFamilia.TilHovedgrunnavsluttet == "4")
+                                            if (tiltakFamilia.TilHovedgrunnavsluttet == "4" || string.IsNullOrEmpty(tiltakFamilia.TilHovedgrunnavsluttet))
                                             {
                                                 tiltak.avsluttetKode = "ANNET_(SPESIFISER)";
                                                 tiltak.avsluttetSpesifisering = tiltakFamilia.TilPresisering;
@@ -5286,7 +5323,7 @@ namespace UttrekkFamilia
                                 {
                                     tiltak.arsakFlyttingFraPresisering = adresse.PahFraSpesifiser.Trim();
                                 }
-                                if (adresse.PahTilSpesifiser != null && string.IsNullOrEmpty(adresse.PahTilSpesifiser.Trim()))
+                                if (adresse.PahTilSpesifiser != null && !string.IsNullOrEmpty(adresse.PahTilSpesifiser.Trim()))
                                 {
                                     tiltak.presiseringAvBosted = adresse.PahTilSpesifiser.Trim();
                                 }
@@ -5404,7 +5441,7 @@ namespace UttrekkFamilia
                     FaEngasjementsavtale engasjementsavtale = null;
                     using (var context = new FamiliaDBContext(ConnectionStringFamilia))
                     {
-                        engasjementsavtale = await context.FaEngasjementsavtales.Include(m => m.ForLoepenrNavigation.ForLoepenrNavigation).Where(e => e.TilLoepenr == tiltakFamilia.TilLoepenr && e.DokLoepenr.HasValue && e.EngAvgjortdato.HasValue && e.EngStatus != "BOR" && e.EngStatus != "BEH" && e.EngStatus != "KLR"
+                        engasjementsavtale = await context.FaEngasjementsavtales.Include(m => m.ForLoepenrNavigation.ForLoepenrNavigation).Where(e => string.IsNullOrEmpty(e.ForLoepenrNavigation.ForLoepenrNavigation.ForGmlreferanse) && e.TilLoepenr == tiltakFamilia.TilLoepenr && e.DokLoepenr.HasValue && e.EngAvgjortdato.HasValue && e.EngStatus != "BOR" && e.EngStatus != "BEH" && e.EngStatus != "KLR"
                               && (e.EngTildato >= FirstInYearOfMigration || e.EngStoppetdato >= FirstInYearOfMigration)).FirstOrDefaultAsync();
                     }
                     if (engasjementsavtale != null)
@@ -5415,7 +5452,7 @@ namespace UttrekkFamilia
                             sakId = $"{GetActorId(engasjementsavtale.ForLoepenrNavigation.ForLoepenrNavigation)}__OPP",
                             aktivitetsType = "OPPDRAGSTAKER_AVTALE",
                             aktivitetsUnderType = "ANNET",
-                            hendelsesdato = engasjementsavtale.EngAvgjortdato,
+                            hendelsesdato = engasjementsavtale.EngFradato,
                             status = "UTFØRT",
                             tittel = "Oppdragstakeravtale",
                             notat = "Se dokument",
@@ -5928,7 +5965,7 @@ namespace UttrekkFamilia
                     aktivitet.saksbehandlerId = AddBydel(postjournal.KliLoepenrNavigation.SbhInitialer);
                     aktivitet.utfortAvId = AddBydel(postjournal.KliLoepenrNavigation.SbhInitialer);
                 }
-                if (postjournal.PosAar >= FirstInYearOfMigration.Year)
+                if (postjournal.PosDato.Year >= FirstInYearOfMigration.Year)
                 {
                     using (var context = new FamiliaDBContext(ConnectionStringFamilia))
                     {
@@ -6241,7 +6278,7 @@ namespace UttrekkFamilia
                     aktivitet.saksbehandlerId = AddBydel(postjournal.KliLoepenrNavigation.SbhInitialer);
                     aktivitet.utfortAvId = AddBydel(postjournal.KliLoepenrNavigation.SbhInitialer);
                 }
-                if (postjournal.PosAar >= FirstInYearOfMigration.Year)
+                if (postjournal.PosDato.Year >= FirstInYearOfMigration.Year)
                 {
                     using (var context = new FamiliaDBContext(ConnectionStringFamilia))
                     {
@@ -7929,6 +7966,10 @@ namespace UttrekkFamilia
                     {
                         tiltak.ssbUnderkategoriSpesifisering = "Familia: Mangler presisering";
                     }
+                    if (tiltak.ssbUnderkategori == "ANDRE_HJEMMEBASERTE_TILTAK" && string.IsNullOrEmpty(tiltak.ssbUnderkategoriSpesifisering))
+                    {
+                        tiltak.ssbUnderkategoriSpesifisering = "Familia: Mangler presisering";
+                    }
                     if (tiltak.planlagtTilDato.HasValue && tiltak.planlagtTilDato < tiltak.planlagtFraDato)
                     {
                         tiltak.planlagtTilDato = tiltak.planlagtFraDato;
@@ -7994,7 +8035,7 @@ namespace UttrekkFamilia
                                         }
                                         else
                                         {
-                                            if (tiltakFamilia.TilHovedgrunnavsluttet == "4")
+                                            if (tiltakFamilia.TilHovedgrunnavsluttet == "4" || string.IsNullOrEmpty(tiltakFamilia.TilHovedgrunnavsluttet))
                                             {
                                                 tiltak.avsluttetKode = "ANNET_(SPESIFISER)";
                                                 tiltak.avsluttetSpesifisering = tiltakFamilia.TilPresisering;
@@ -8059,7 +8100,7 @@ namespace UttrekkFamilia
                                 {
                                     tiltak.arsakFlyttingFraPresisering = adresse.PahFraSpesifiser.Trim();
                                 }
-                                if (adresse.PahTilSpesifiser != null && string.IsNullOrEmpty(adresse.PahTilSpesifiser.Trim()))
+                                if (adresse.PahTilSpesifiser != null && !string.IsNullOrEmpty(adresse.PahTilSpesifiser.Trim()))
                                 {
                                     tiltak.presiseringAvBosted = adresse.PahTilSpesifiser.Trim();
                                 }
@@ -8177,7 +8218,7 @@ namespace UttrekkFamilia
                     FaEngasjementsavtale engasjementsavtale = null;
                     using (var context = new FamiliaDBContext(mappings.GetConnectionstring(bydel, MainDBServer)))
                     {
-                        engasjementsavtale = await context.FaEngasjementsavtales.Include(m => m.ForLoepenrNavigation.ForLoepenrNavigation).Where(e => e.TilLoepenr == tiltakFamilia.TilLoepenr && e.DokLoepenr.HasValue && e.EngAvgjortdato.HasValue && e.EngStatus != "BOR" && e.EngStatus != "BEH" && e.EngStatus != "KLR"
+                        engasjementsavtale = await context.FaEngasjementsavtales.Include(m => m.ForLoepenrNavigation.ForLoepenrNavigation).Where(e => string.IsNullOrEmpty(e.ForLoepenrNavigation.ForLoepenrNavigation.ForGmlreferanse) && e.TilLoepenr == tiltakFamilia.TilLoepenr && e.DokLoepenr.HasValue && e.EngAvgjortdato.HasValue && e.EngStatus != "BOR" && e.EngStatus != "BEH" && e.EngStatus != "KLR"
                               && (e.EngTildato >= FirstInYearOfMigration || e.EngStoppetdato >= FirstInYearOfMigration)).FirstOrDefaultAsync();
                     }
                     if (engasjementsavtale != null)
@@ -8188,7 +8229,7 @@ namespace UttrekkFamilia
                             sakId = $"{GetActorId(engasjementsavtale.ForLoepenrNavigation.ForLoepenrNavigation)}__OPP",
                             aktivitetsType = "OPPDRAGSTAKER_AVTALE",
                             aktivitetsUnderType = "ANNET",
-                            hendelsesdato = engasjementsavtale.EngAvgjortdato,
+                            hendelsesdato = engasjementsavtale.EngFradato,
                             status = "UTFØRT",
                             tittel = "Oppdragstakeravtale",
                             notat = "Se dokument",
@@ -8324,7 +8365,7 @@ namespace UttrekkFamilia
                     aktivitet.saksbehandlerId = AddSpecificBydel(postjournal.KliLoepenrNavigation.SbhInitialer, bydel);
                     aktivitet.utfortAvId = AddSpecificBydel(postjournal.KliLoepenrNavigation.SbhInitialer, bydel);
                 }
-                if (postjournal.PosAar >= FirstInYearOfMigration.Year)
+                if (postjournal.PosDato.Year >= FirstInYearOfMigration.Year)
                 {
                     using (var context = new FamiliaDBContext(mappings.GetConnectionstring(bydel, MainDBServer)))
                     {
@@ -8588,7 +8629,7 @@ namespace UttrekkFamilia
                     aktivitet.saksbehandlerId = AddSpecificBydel(postjournal.KliLoepenrNavigation.SbhInitialer, bydel);
                     aktivitet.utfortAvId = AddSpecificBydel(postjournal.KliLoepenrNavigation.SbhInitialer, bydel);
                 }
-                if (postjournal.PosAar >= FirstInYearOfMigration.Year)
+                if (postjournal.PosDato.Year >= FirstInYearOfMigration.Year)
                 {
                     using (var context = new FamiliaDBContext(mappings.GetConnectionstring(bydel, MainDBServer)))
                     {
@@ -9723,6 +9764,18 @@ namespace UttrekkFamilia
                     }
                 }
             }
+            if (tilbakemeldingTilMelder.status == "AKTIV" && meldingFamilia.MelMottattdato.AddDays(21) < DateTime.Now)
+            {
+                tilbakemeldingTilMelder.status = "UTFØRT";
+                if (!string.IsNullOrEmpty(tilbakemeldingTilMelder.notat))
+                {
+                    tilbakemeldingTilMelder.notat += " - Modulus: Automatisk opprettet aktivitet ved migrering";
+                }
+                else
+                {
+                    tilbakemeldingTilMelder.notat = "Modulus: Automatisk opprettet aktivitet ved migrering";
+                }
+            }
             return tilbakemeldingTilMelder;
         }
         private static void GetSaksinnholdMelding(FaMeldinger meldingFamilia, MottattBekymringsmelding mottattBekymringsmelding)
@@ -9985,14 +10038,14 @@ namespace UttrekkFamilia
                 {
                     mottattBekymringsmelding.typeMelder.Add("ANDRE_PRIVATPERSONER");
                 }
-                if (mottattBekymringsmelding.typeMelder.Count == 0)
-                {
-                    mottattBekymringsmelding.typeMelder.Add("ANDRE_OFFENTLIG_INSTANSER");
-                    mottattBekymringsmelding.typeMelderPresisering = "Familia: Type melder ikke oppgitt";
-                }
                 if (mottattBekymringsmelding.typeMelder.Count > 0)
                 {
                     mottattBekymringsmelding.mottattBekymringsmeldingsType = "PRIVAT";
+                }
+                else 
+                {
+                    mottattBekymringsmelding.typeMelder.Add("ANDRE_OFFENTLIG_INSTANSER");
+                    mottattBekymringsmelding.typeMelderPresisering = "Familia: Type melder ikke oppgitt";
                 }
             }
         }
@@ -10504,6 +10557,50 @@ namespace UttrekkFamilia
             }
             return actorId;
         }
+        private async Task<bool> ExistsInBVVAsync(string fodselsnummer)
+        {
+            bool exists = false;
+
+            using (var context = new BVVDBContext(ConnectionStringVFB))
+            {
+                PersonPerson person = await context.PersonPeople.Where(p => p.BirthNumber == fodselsnummer).FirstOrDefaultAsync();
+                if (person != null)
+                {
+                    ClientClient client = await context.ClientClients.Where(c => c.PersonId == person.PersonPersonId).FirstOrDefaultAsync();
+                    if (client is not null)
+                    {
+                        CaseCase caseCase = await context.CaseCases.Where(k => k.ClientId == client.ClientClientId && k.Type != 2 && k.Type != 3).FirstOrDefaultAsync();
+                        if (caseCase is not null)
+                        {
+                            exists = true;
+                        }
+                    }
+                }
+            }
+            return exists;
+        }
+        private async Task<string> GetAktorIdFraBVVHvisFinnesAsync(string aktorId, string fodselsnummer)
+        {
+            string newAktorId = aktorId;
+
+            using (var context = new BVVDBContext(ConnectionStringVFB))
+            {
+                PersonPerson person = await context.PersonPeople.Where(p => p.BirthNumber == fodselsnummer).FirstOrDefaultAsync();
+                if (person != null)
+                {
+                    ClientClient client = await context.ClientClients.Where(c => c.PersonId == person.PersonPersonId).FirstOrDefaultAsync();
+                    if (client is not null)
+                    {
+                        CaseCase caseCase = await context.CaseCases.Where(k => k.ClientId == client.ClientClientId && k.Type != 2 && k.Type != 3).FirstOrDefaultAsync();
+                        if (caseCase is not null)
+                        {
+                            newAktorId = GetActorId(person);
+                        }
+                    }
+                }
+            }
+            return newAktorId;
+        }
         private static bool IsValidMod11(string number)
         {
             string cleanNumber = new(number.Where(char.IsDigit).ToArray());
@@ -10596,7 +10693,18 @@ namespace UttrekkFamilia
         #region Filter
         private Expression<Func<FaKlient, bool>> KlientFilter()
         {
-            return k => k.KliFoedselsdato.HasValue && (k.KliFoedselsdato > LastDateNoMigration || !k.KliAvsluttetdato.HasValue);
+            if (OnlyActiveCases)
+            {
+                return k => k.KliFoedselsdato.HasValue && !k.KliAvsluttetdato.HasValue;
+            }
+            else if (OnlyPassiveCases)
+            {
+                return k => k.KliFoedselsdato.HasValue && k.KliFoedselsdato > LastDateNoMigration && k.KliAvsluttetdato.HasValue;
+            }
+            else
+            {
+                return k => k.KliFoedselsdato.HasValue && (k.KliFoedselsdato > LastDateNoMigration || !k.KliAvsluttetdato.HasValue);
+            }
         }
         private Expression<Func<FaKlient, bool>> KlientKunGyldigeTilsyn()
         {
@@ -10604,44 +10712,147 @@ namespace UttrekkFamilia
         }
         private Expression<Func<FaPostjournal, bool>> KlientPostJournalFilter()
         {
-            return p => p.KliLoepenrNavigation.KliFoedselsdato.HasValue && (p.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration || !p.KliLoepenrNavigation.KliAvsluttetdato.HasValue)
-                && !(p.KliLoepenrNavigation.KliFraannenkommune == 1 && (p.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (p.KliLoepenrNavigation.KliFoedselsdato.HasValue && p.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            if (OnlyActiveCases)
+            {
+                return p => p.KliLoepenrNavigation.KliFoedselsdato.HasValue && !p.KliLoepenrNavigation.KliAvsluttetdato.HasValue
+                    && !(p.KliLoepenrNavigation.KliFraannenkommune == 1 && (p.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (p.KliLoepenrNavigation.KliFoedselsdato.HasValue && p.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
+            else if (OnlyPassiveCases)
+            {
+                return p => p.KliLoepenrNavigation.KliFoedselsdato.HasValue && p.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && p.KliLoepenrNavigation.KliAvsluttetdato.HasValue
+                    && !(p.KliLoepenrNavigation.KliFraannenkommune == 1 && (p.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (p.KliLoepenrNavigation.KliFoedselsdato.HasValue && p.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
+            else
+            {
+                return p => p.KliLoepenrNavigation.KliFoedselsdato.HasValue && (p.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration || !p.KliLoepenrNavigation.KliAvsluttetdato.HasValue)
+                    && !(p.KliLoepenrNavigation.KliFraannenkommune == 1 && (p.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (p.KliLoepenrNavigation.KliFoedselsdato.HasValue && p.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
         }
         private Expression<Func<FaSaksjournal, bool>> KlientSakJournalFilter()
         {
-            return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && (m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration || !m.KliLoepenrNavigation.KliAvsluttetdato.HasValue)
-                && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
-
+            if (OnlyActiveCases)
+            {
+                return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && !m.KliLoepenrNavigation.KliAvsluttetdato.HasValue
+                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
+            else if (OnlyPassiveCases)
+            {
+                return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && m.KliLoepenrNavigation.KliAvsluttetdato.HasValue
+                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
+            else
+            {
+                return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && (m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration || !m.KliLoepenrNavigation.KliAvsluttetdato.HasValue)
+                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
         }
         private Expression<Func<FaKlienttilknytning, bool>> KlientTilknytningFilter()
         {
-            return f => f.KliLoepenrNavigation.KliFoedselsdato.HasValue && (f.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration || !f.KliLoepenrNavigation.KliAvsluttetdato.HasValue)
-                && !(f.KliLoepenrNavigation.KliFraannenkommune == 1 && (f.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (f.KliLoepenrNavigation.KliFoedselsdato.HasValue && f.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            if (OnlyActiveCases)
+            {
+                return f => f.KliLoepenrNavigation.KliFoedselsdato.HasValue && !f.KliLoepenrNavigation.KliAvsluttetdato.HasValue
+                    && !(f.KliLoepenrNavigation.KliFraannenkommune == 1 && (f.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (f.KliLoepenrNavigation.KliFoedselsdato.HasValue && f.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
+            else if (OnlyPassiveCases)
+            {
+                return f => f.KliLoepenrNavigation.KliFoedselsdato.HasValue && f.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && f.KliLoepenrNavigation.KliAvsluttetdato.HasValue
+                    && !(f.KliLoepenrNavigation.KliFraannenkommune == 1 && (f.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (f.KliLoepenrNavigation.KliFoedselsdato.HasValue && f.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
+            else
+            {
+                return f => f.KliLoepenrNavigation.KliFoedselsdato.HasValue && (f.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration || !f.KliLoepenrNavigation.KliAvsluttetdato.HasValue)
+                    && !(f.KliLoepenrNavigation.KliFraannenkommune == 1 && (f.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (f.KliLoepenrNavigation.KliFoedselsdato.HasValue && f.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
         }
         private Expression<Func<FaMeldinger, bool>> KlientMeldingFilter()
         {
-            return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && (m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration || !m.KliLoepenrNavigation.KliAvsluttetdato.HasValue)
-                && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            if (OnlyActiveCases)
+            {
+                return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && !m.KliLoepenrNavigation.KliAvsluttetdato.HasValue
+                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
+            else if (OnlyPassiveCases)
+            {
+                return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && m.KliLoepenrNavigation.KliAvsluttetdato.HasValue
+                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
+            else
+            {
+                return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && (m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration || !m.KliLoepenrNavigation.KliAvsluttetdato.HasValue)
+                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
         }
         private Expression<Func<FaUndersoekelser, bool>> KlientUndersøkelseFilter()
         {
-            return m => m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato.HasValue && (m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration || !m.MelLoepenrNavigation.KliLoepenrNavigation.KliAvsluttetdato.HasValue)
-                && !(m.MelLoepenrNavigation.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.MelLoepenrNavigation.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            if (OnlyActiveCases)
+            {
+                return m => m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato.HasValue && !m.MelLoepenrNavigation.KliLoepenrNavigation.KliAvsluttetdato.HasValue
+                    && !(m.MelLoepenrNavigation.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.MelLoepenrNavigation.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
+            else if (OnlyPassiveCases)
+            {
+                return m => m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && m.MelLoepenrNavigation.KliLoepenrNavigation.KliAvsluttetdato.HasValue
+                    && !(m.MelLoepenrNavigation.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.MelLoepenrNavigation.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
+            else
+            {
+                return m => m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato.HasValue && (m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration || !m.MelLoepenrNavigation.KliLoepenrNavigation.KliAvsluttetdato.HasValue)
+                    && !(m.MelLoepenrNavigation.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.MelLoepenrNavigation.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
         }
         private Expression<Func<FaTiltak, bool>> KlientTiltakFilter()
         {
-            return m => m.Sak != null && m.Sak.SakStatus != "BEH" && m.KliLoepenrNavigation.KliFoedselsdato.HasValue && (m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration || !m.KliLoepenrNavigation.KliAvsluttetdato.HasValue)
-                && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            if (OnlyActiveCases)
+            {
+                return m => m.Sak != null && m.Sak.SakStatus != "BEH" && m.KliLoepenrNavigation.KliFoedselsdato.HasValue && !m.KliLoepenrNavigation.KliAvsluttetdato.HasValue
+                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
+            else if (OnlyPassiveCases)
+            {
+                return m => m.Sak != null && m.Sak.SakStatus != "BEH" && m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && m.KliLoepenrNavigation.KliAvsluttetdato.HasValue
+                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
+            else
+            {
+                return m => m.Sak != null && m.Sak.SakStatus != "BEH" && m.KliLoepenrNavigation.KliFoedselsdato.HasValue && (m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration || !m.KliLoepenrNavigation.KliAvsluttetdato.HasValue)
+                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
         }
         private Expression<Func<FaTiltaksplan, bool>> KlientPlanFilter()
         {
-            return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && (m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration || !m.KliLoepenrNavigation.KliAvsluttetdato.HasValue)
-                && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            if (OnlyActiveCases)
+            {
+                return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && !m.KliLoepenrNavigation.KliAvsluttetdato.HasValue
+                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
+            else if (OnlyPassiveCases)
+            {
+                return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && m.KliLoepenrNavigation.KliAvsluttetdato.HasValue
+                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
+            else
+            {
+                return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && (m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration || !m.KliLoepenrNavigation.KliAvsluttetdato.HasValue)
+                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
         }
         private Expression<Func<FaJournal, bool>> KlientJournalFilter()
         {
-            return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && (m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration || !m.KliLoepenrNavigation.KliAvsluttetdato.HasValue)
-                && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            if (OnlyActiveCases)
+            {
+                return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && !m.KliLoepenrNavigation.KliAvsluttetdato.HasValue
+                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
+            else if (OnlyPassiveCases)
+            {
+                return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && m.KliLoepenrNavigation.KliAvsluttetdato.HasValue
+                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
+            else
+            {
+                return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && (m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration || !m.KliLoepenrNavigation.KliAvsluttetdato.HasValue)
+                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+            }
         }
         #endregion
     }
