@@ -46,10 +46,13 @@ namespace UttrekkFamilia
         private readonly Mappings mappings;
         private readonly string BVVLeder = "18";
         private readonly int MaxAntallEntiteterPerFil = 1000;
+        private readonly int FomKlientId;
+        private readonly int TomKlientId;
+        private readonly DateTime ClosedCasesBeforeDate;
         #endregion
 
         #region Contructors
-        public Uttrekk(string connSokrates, string mainDBServer, string extraDBServer, string outputFolderName, string bydelsidentifikator, int maksAntall, bool useSokrates, bool onlyWriteDocumentFiles, int antallFilerPerZip, bool onlyActiveCases, bool onlyPassiveCases)
+        public Uttrekk(string connSokrates, string mainDBServer, string extraDBServer, string outputFolderName, string bydelsidentifikator, int maksAntall, bool useSokrates, bool onlyWriteDocumentFiles, int antallFilerPerZip, bool onlyActiveCases, bool onlyPassiveCases, int fomKlientId, int tomKlientId, DateTime closedCasesBeforeDate)
         {
             mappings = new Mappings(useSokrates);
             ConnectionStringFamilia = mappings.GetConnectionstring(bydelsidentifikator, mainDBServer);
@@ -75,6 +78,9 @@ namespace UttrekkFamilia
                 OnlyActiveCases = false;
                 OnlyPassiveCases = false;
             }
+            FomKlientId = fomKlientId;
+            TomKlientId = tomKlientId;
+            ClosedCasesBeforeDate = closedCasesBeforeDate;
             AntallFilerPerZip = antallFilerPerZip;
         }
         #endregion
@@ -1283,7 +1289,7 @@ namespace UttrekkFamilia
                     AktørTelefonnummer aktørTelefonnummerMobil = new()
                     {
                         telefonnummerType = "PRIVAT",
-                        telefonnummer = person.PhonePrefix?.Trim() + person.Phone?.Trim(),
+                        telefonnummer = GetTelefonnummer(person.PhonePrefix?.Trim() + person.Phone?.Trim()),
                         hovedtelefon = true
                     };
                     hovetelefonBestemt = true;
@@ -1294,7 +1300,7 @@ namespace UttrekkFamilia
                     AktørTelefonnummer aktørTelefonnummerPrivat = new()
                     {
                         telefonnummerType = "ANNET",
-                        telefonnummer = person.SecondaryPhonePrefix?.Trim() + person.SecondaryPhone?.Trim()
+                        telefonnummer = GetTelefonnummer(person.SecondaryPhonePrefix?.Trim() + person.SecondaryPhone?.Trim())
                     };
                     if (!hovetelefonBestemt)
                     {
@@ -1504,7 +1510,7 @@ namespace UttrekkFamilia
                     AktørTelefonnummer aktørTelefonnummerMobil = new()
                     {
                         telefonnummerType = "PRIVAT",
-                        telefonnummer = person.PhonePrefix?.Trim() + person.Phone?.Trim(),
+                        telefonnummer = GetTelefonnummer(person.PhonePrefix?.Trim() + person.Phone?.Trim()),
                         hovedtelefon = true
                     };
                     hovetelefonBestemt = true;
@@ -1515,7 +1521,7 @@ namespace UttrekkFamilia
                     AktørTelefonnummer aktørTelefonnummerPrivat = new()
                     {
                         telefonnummerType = "ANNET",
-                        telefonnummer = person.SecondaryPhonePrefix?.Trim() + person.SecondaryPhone?.Trim()
+                        telefonnummer = GetTelefonnummer(person.SecondaryPhonePrefix?.Trim() + person.SecondaryPhone?.Trim())
                     };
                     if (!hovetelefonBestemt)
                     {
@@ -2814,7 +2820,7 @@ namespace UttrekkFamilia
                     using (var context = new FamiliaDBContext(ConnectionStringFamilia))
                     {
                         numberOfActiveContracts = await context.FaEngasjementsavtales.Where(e => e.EngAvgjortdato.HasValue && e.EngStatus != "BOR" && e.EngStatus != "BEH" && e.EngStatus != "KLR"
-                            && (e.EngTildato >= FirstInYearOfMigration || e.EngStoppetdato >= FirstInYearOfMigration)).CountAsync();
+                            && (e.EngTildato >= FirstInYearOfMigration)).CountAsync();
                     }
                     if (numberOfActiveContracts == 0)
                     {
@@ -3019,7 +3025,7 @@ namespace UttrekkFamilia
                     AktørTelefonnummer aktørTelefonnummerMobil = new()
                     {
                         telefonnummerType = "PRIVAT",
-                        telefonnummer = klient.KliTelefonmobil?.Trim(),
+                        telefonnummer = GetTelefonnummer(klient.KliTelefonmobil?.Trim()),
                         hovedtelefon = true
                     };
                     hovetelefonBestemt = true;
@@ -3030,7 +3036,7 @@ namespace UttrekkFamilia
                     AktørTelefonnummer aktørTelefonnummerPrivat = new()
                     {
                         telefonnummerType = "PRIVAT",
-                        telefonnummer = klient.KliTelefonprivat?.Trim()
+                        telefonnummer = GetTelefonnummer(klient.KliTelefonprivat?.Trim())
                     };
                     if (!hovetelefonBestemt)
                     {
@@ -3044,7 +3050,7 @@ namespace UttrekkFamilia
                     AktørTelefonnummer aktørTelefonnummerArbeid = new()
                     {
                         telefonnummerType = "JOBB",
-                        telefonnummer = klient.KliTelefonarbeid?.Trim()
+                        telefonnummer = GetTelefonnummer(klient.KliTelefonarbeid?.Trim())
                     };
                     if (!hovetelefonBestemt)
                     {
@@ -3374,7 +3380,7 @@ namespace UttrekkFamilia
                         AktørTelefonnummer aktørTelefonnummerMobil = new()
                         {
                             telefonnummerType = "PRIVAT",
-                            telefonnummer = forbindelse.ForTelefonmobil?.Trim(),
+                            telefonnummer = GetTelefonnummer(forbindelse.ForTelefonmobil?.Trim()),
                             hovedtelefon = true
                         };
                         hovetelefonBestemt = true;
@@ -3385,7 +3391,7 @@ namespace UttrekkFamilia
                         AktørTelefonnummer aktørTelefonnummerPrivat = new()
                         {
                             telefonnummerType = "PRIVAT",
-                            telefonnummer = forbindelse.ForTelefonprivat?.Trim()
+                            telefonnummer = GetTelefonnummer(forbindelse.ForTelefonprivat?.Trim())
                         };
                         if (!hovetelefonBestemt)
                         {
@@ -3399,7 +3405,7 @@ namespace UttrekkFamilia
                         AktørTelefonnummer aktørTelefonnummerArbeid = new()
                         {
                             telefonnummerType = "JOBB",
-                            telefonnummer = forbindelse.ForTelefonarbeid?.Trim()
+                            telefonnummer = GetTelefonnummer(forbindelse.ForTelefonarbeid?.Trim())
                         };
                         if (!hovetelefonBestemt)
                         {
@@ -3518,7 +3524,7 @@ namespace UttrekkFamilia
                         AktørTelefonnummer aktørTelefonnummerArbeid = new()
                         {
                             telefonnummerType = "ANNET",
-                            telefonnummer = forbindelse.ForTelefonarbeid?.Trim(),
+                            telefonnummer = GetTelefonnummer(forbindelse.ForTelefonarbeid?.Trim()),
                             hovedtelefon = true
                         };
                         hovetelefonBestemt = true;
@@ -3529,7 +3535,7 @@ namespace UttrekkFamilia
                         AktørTelefonnummer aktørTelefonnummerMobil = new()
                         {
                             telefonnummerType = "ANNET",
-                            telefonnummer = forbindelse.ForTelefonmobil?.Trim()
+                            telefonnummer = GetTelefonnummer(forbindelse.ForTelefonmobil?.Trim())
                         };
                         if (!hovetelefonBestemt)
                         {
@@ -3543,7 +3549,7 @@ namespace UttrekkFamilia
                         AktørTelefonnummer aktørTelefonnummerPrivat = new()
                         {
                             telefonnummerType = "ANNET",
-                            telefonnummer = forbindelse.ForTelefonprivat?.Trim()
+                            telefonnummer = GetTelefonnummer(forbindelse.ForTelefonprivat?.Trim())
                         };
                         if (!hovetelefonBestemt)
                         {
@@ -4772,7 +4778,8 @@ namespace UttrekkFamilia
                         else if (lovHovedParagraf == "4-8,2." || lovHovedParagraf == "4-8,3." || lovHovedParagraf == "7-3" || (!string.IsNullOrEmpty(lovHovedParagraf) && lovHovedParagraf.StartsWith("4-12"))
                             || (!string.IsNullOrEmpty(lovHovedParagraf) && lovHovedParagraf.StartsWith("§ 5-1")) || lovHovedParagraf == "§ 4-4"
                             || (!string.IsNullOrEmpty(lovHovedParagraf) && lovHovedParagraf.StartsWith("§ 4-2"))
-                            || (lovHovedParagraf.StartsWith("4-8") && (lovJmfParagraf1 == "4-12" || lovJmfParagraf2 == "4-12")))
+                            || (lovHovedParagraf.StartsWith("4-8") && (lovJmfParagraf1 == "4-12" || lovJmfParagraf2 == "4-12"))
+                            || (lovHovedParagraf == "4-8" && (string.IsNullOrEmpty(lovJmfParagraf1) && string.IsNullOrEmpty(lovJmfParagraf2))))
                         {
                             vedtak.vedtakstype = "OMSORGSOVERTAKELSE";
                         }
@@ -4913,6 +4920,7 @@ namespace UttrekkFamilia
                     {
                         vedtak.rettsinstans = "BARNEVERNSOGHELSENEMND";
                     }
+                    //TODO Eventuelt legge inn sjekk VEDTAKFRARETTSINSTANSER og hovedparagraf er 4-6,2. eller hvis inneholder starter med 4.8 og 4.9 i samme vedtak - ikke legg inn vedtaket, men opprett aktivitet "Barnevern_helsenemnd_rettsprosesser" / "Avgjørelser", følger status på vedtaket
                     if (saksJournal.SakStatus == "AVS")
                     {
                         vedtak.avsluttetStatusDato = saksJournal.SakAvgjortdato;
@@ -5442,7 +5450,7 @@ namespace UttrekkFamilia
                     using (var context = new FamiliaDBContext(ConnectionStringFamilia))
                     {
                         engasjementsavtale = await context.FaEngasjementsavtales.Include(m => m.ForLoepenrNavigation.ForLoepenrNavigation).Where(e => string.IsNullOrEmpty(e.ForLoepenrNavigation.ForLoepenrNavigation.ForGmlreferanse) && e.TilLoepenr == tiltakFamilia.TilLoepenr && e.DokLoepenr.HasValue && e.EngAvgjortdato.HasValue && e.EngStatus != "BOR" && e.EngStatus != "BEH" && e.EngStatus != "KLR"
-                              && (e.EngTildato >= FirstInYearOfMigration || e.EngStoppetdato >= FirstInYearOfMigration)).FirstOrDefaultAsync();
+                              && (e.EngTildato >= FirstInYearOfMigration)).FirstOrDefaultAsync();
                     }
                     if (engasjementsavtale != null)
                     {
@@ -7731,7 +7739,8 @@ namespace UttrekkFamilia
                         else if (lovHovedParagraf == "4-8,2." || lovHovedParagraf == "4-8,3." || lovHovedParagraf == "7-3" || (!string.IsNullOrEmpty(lovHovedParagraf) && lovHovedParagraf.StartsWith("4-12"))
                             || (!string.IsNullOrEmpty(lovHovedParagraf) && lovHovedParagraf.StartsWith("§ 5-1")) || lovHovedParagraf == "§ 4-4"
                             || (!string.IsNullOrEmpty(lovHovedParagraf) && lovHovedParagraf.StartsWith("§ 4-2"))
-                            || (lovHovedParagraf.StartsWith("4-8") && (lovJmfParagraf1 == "4-12" || lovJmfParagraf2 == "4-12")))
+                            || (lovHovedParagraf.StartsWith("4-8") && (lovJmfParagraf1 == "4-12" || lovJmfParagraf2 == "4-12"))
+                            || (lovHovedParagraf == "4-8" && (string.IsNullOrEmpty(lovJmfParagraf1) && string.IsNullOrEmpty(lovJmfParagraf2))))
                         {
                             vedtak.vedtakstype = "OMSORGSOVERTAKELSE";
                         }
@@ -7872,6 +7881,7 @@ namespace UttrekkFamilia
                     {
                         vedtak.rettsinstans = "BARNEVERNSOGHELSENEMND";
                     }
+                    //TODO Eventuelt legge inn sjekk VEDTAKFRARETTSINSTANSER og hovedparagraf er 4-6,2. eller hvis inneholder starter med 4.8 og 4.9 i samme vedtak - ikke legg inn vedtaket, men opprett aktivitet "Barnevern_helsenemnd_rettsprosesser" / "Avgjørelser", følger status på vedtaket
                     if (saksJournal.SakStatus == "AVS")
                     {
                         vedtak.avsluttetStatusDato = saksJournal.SakAvgjortdato;
@@ -8219,7 +8229,7 @@ namespace UttrekkFamilia
                     using (var context = new FamiliaDBContext(mappings.GetConnectionstring(bydel, MainDBServer)))
                     {
                         engasjementsavtale = await context.FaEngasjementsavtales.Include(m => m.ForLoepenrNavigation.ForLoepenrNavigation).Where(e => string.IsNullOrEmpty(e.ForLoepenrNavigation.ForLoepenrNavigation.ForGmlreferanse) && e.TilLoepenr == tiltakFamilia.TilLoepenr && e.DokLoepenr.HasValue && e.EngAvgjortdato.HasValue && e.EngStatus != "BOR" && e.EngStatus != "BEH" && e.EngStatus != "KLR"
-                              && (e.EngTildato >= FirstInYearOfMigration || e.EngStoppetdato >= FirstInYearOfMigration)).FirstOrDefaultAsync();
+                              && (e.EngTildato >= FirstInYearOfMigration)).FirstOrDefaultAsync();
                     }
                     if (engasjementsavtale != null)
                     {
@@ -9767,6 +9777,7 @@ namespace UttrekkFamilia
             if (tilbakemeldingTilMelder.status == "AKTIV" && meldingFamilia.MelMottattdato.AddDays(21) < DateTime.Now)
             {
                 tilbakemeldingTilMelder.status = "UTFØRT";
+                tilbakemeldingTilMelder.utfortDato = meldingFamilia.MelAvsluttetgjennomgang;
                 if (!string.IsNullOrEmpty(tilbakemeldingTilMelder.notat))
                 {
                     tilbakemeldingTilMelder.notat += " - Modulus: Automatisk opprettet aktivitet ved migrering";
@@ -10688,6 +10699,16 @@ namespace UttrekkFamilia
             }
             return sOutput.ToString();
         }
+        private static string GetTelefonnummer(string number)
+        {
+            string formattedNumber = number;
+            if (formattedNumber != null)
+            {
+                formattedNumber = formattedNumber.Replace(" ", "");
+                formattedNumber = formattedNumber.Replace("-", "");
+            }
+            return formattedNumber;
+        }
         #endregion
 
         #region Filter
@@ -10699,7 +10720,7 @@ namespace UttrekkFamilia
             }
             else if (OnlyPassiveCases)
             {
-                return k => k.KliFoedselsdato.HasValue && k.KliFoedselsdato > LastDateNoMigration && k.KliAvsluttetdato.HasValue;
+                return k => k.KliFoedselsdato.HasValue && k.KliFoedselsdato > LastDateNoMigration && k.KliAvsluttetdato.HasValue && k.KliAvsluttetdato.Value < ClosedCasesBeforeDate && (k.KliLoepenr >= FomKlientId && k.KliLoepenr <= TomKlientId);
             }
             else
             {
@@ -10719,8 +10740,9 @@ namespace UttrekkFamilia
             }
             else if (OnlyPassiveCases)
             {
-                return p => p.KliLoepenrNavigation.KliFoedselsdato.HasValue && p.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && p.KliLoepenrNavigation.KliAvsluttetdato.HasValue
-                    && !(p.KliLoepenrNavigation.KliFraannenkommune == 1 && (p.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (p.KliLoepenrNavigation.KliFoedselsdato.HasValue && p.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+                return p => p.KliLoepenrNavigation.KliFoedselsdato.HasValue && p.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && p.KliLoepenrNavigation.KliAvsluttetdato.HasValue && p.KliLoepenrNavigation.KliAvsluttetdato.Value < ClosedCasesBeforeDate
+                    && !(p.KliLoepenrNavigation.KliFraannenkommune == 1 && (p.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (p.KliLoepenrNavigation.KliFoedselsdato.HasValue && p.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)))
+                    && (p.KliLoepenrNavigation.KliLoepenr >= FomKlientId && p.KliLoepenrNavigation.KliLoepenr <= TomKlientId);
             }
             else
             {
@@ -10737,8 +10759,9 @@ namespace UttrekkFamilia
             }
             else if (OnlyPassiveCases)
             {
-                return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && m.KliLoepenrNavigation.KliAvsluttetdato.HasValue
-                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+                return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && m.KliLoepenrNavigation.KliAvsluttetdato.HasValue && m.KliLoepenrNavigation.KliAvsluttetdato.Value < ClosedCasesBeforeDate
+                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)))
+                    && (m.KliLoepenrNavigation.KliLoepenr >= FomKlientId && m.KliLoepenrNavigation.KliLoepenr <= TomKlientId);
             }
             else
             {
@@ -10755,8 +10778,9 @@ namespace UttrekkFamilia
             }
             else if (OnlyPassiveCases)
             {
-                return f => f.KliLoepenrNavigation.KliFoedselsdato.HasValue && f.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && f.KliLoepenrNavigation.KliAvsluttetdato.HasValue
-                    && !(f.KliLoepenrNavigation.KliFraannenkommune == 1 && (f.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (f.KliLoepenrNavigation.KliFoedselsdato.HasValue && f.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+                return f => f.KliLoepenrNavigation.KliFoedselsdato.HasValue && f.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && f.KliLoepenrNavigation.KliAvsluttetdato.HasValue && f.KliLoepenrNavigation.KliAvsluttetdato.Value < ClosedCasesBeforeDate
+                    && !(f.KliLoepenrNavigation.KliFraannenkommune == 1 && (f.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (f.KliLoepenrNavigation.KliFoedselsdato.HasValue && f.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)))
+                    && (f.KliLoepenrNavigation.KliLoepenr >= FomKlientId && f.KliLoepenrNavigation.KliLoepenr <= TomKlientId);
             }
             else
             {
@@ -10773,8 +10797,9 @@ namespace UttrekkFamilia
             }
             else if (OnlyPassiveCases)
             {
-                return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && m.KliLoepenrNavigation.KliAvsluttetdato.HasValue
-                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+                return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && m.KliLoepenrNavigation.KliAvsluttetdato.HasValue && m.KliLoepenrNavigation.KliAvsluttetdato.Value < ClosedCasesBeforeDate
+                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)))
+                    && (m.KliLoepenrNavigation.KliLoepenr >= FomKlientId && m.KliLoepenrNavigation.KliLoepenr <= TomKlientId);
             }
             else
             {
@@ -10791,8 +10816,9 @@ namespace UttrekkFamilia
             }
             else if (OnlyPassiveCases)
             {
-                return m => m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && m.MelLoepenrNavigation.KliLoepenrNavigation.KliAvsluttetdato.HasValue
-                    && !(m.MelLoepenrNavigation.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.MelLoepenrNavigation.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+                return m => m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && m.MelLoepenrNavigation.KliLoepenrNavigation.KliAvsluttetdato.HasValue && m.MelLoepenrNavigation.KliLoepenrNavigation.KliAvsluttetdato.Value < ClosedCasesBeforeDate
+                    && !(m.MelLoepenrNavigation.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.MelLoepenrNavigation.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)))
+                    && (m.MelLoepenrNavigation.KliLoepenrNavigation.KliLoepenr >= FomKlientId && m.MelLoepenrNavigation.KliLoepenrNavigation.KliLoepenr <= TomKlientId);
             }
             else
             {
@@ -10809,8 +10835,9 @@ namespace UttrekkFamilia
             }
             else if (OnlyPassiveCases)
             {
-                return m => m.Sak != null && m.Sak.SakStatus != "BEH" && m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && m.KliLoepenrNavigation.KliAvsluttetdato.HasValue
-                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+                return m => m.Sak != null && m.Sak.SakStatus != "BEH" && m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && m.KliLoepenrNavigation.KliAvsluttetdato.HasValue && m.KliLoepenrNavigation.KliAvsluttetdato.Value < ClosedCasesBeforeDate
+                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)))
+                    && (m.KliLoepenrNavigation.KliLoepenr >= FomKlientId && m.KliLoepenrNavigation.KliLoepenr <= TomKlientId);
             }
             else
             {
@@ -10827,8 +10854,9 @@ namespace UttrekkFamilia
             }
             else if (OnlyPassiveCases)
             {
-                return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && m.KliLoepenrNavigation.KliAvsluttetdato.HasValue
-                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+                return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && m.KliLoepenrNavigation.KliAvsluttetdato.HasValue && m.KliLoepenrNavigation.KliAvsluttetdato.Value < ClosedCasesBeforeDate
+                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)))
+                    && (m.KliLoepenrNavigation.KliLoepenr >= FomKlientId && m.KliLoepenrNavigation.KliLoepenr <= TomKlientId);
             }
             else
             {
@@ -10845,8 +10873,9 @@ namespace UttrekkFamilia
             }
             else if (OnlyPassiveCases)
             {
-                return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && m.KliLoepenrNavigation.KliAvsluttetdato.HasValue
-                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+                return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && m.KliLoepenrNavigation.KliAvsluttetdato.HasValue && m.KliLoepenrNavigation.KliAvsluttetdato.Value < ClosedCasesBeforeDate
+                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)))
+                    && (m.KliLoepenrNavigation.KliLoepenr >= FomKlientId && m.KliLoepenrNavigation.KliLoepenr <= TomKlientId);
             }
             else
             {

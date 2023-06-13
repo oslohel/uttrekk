@@ -30,6 +30,7 @@
 
   <ItemGroup>
     <Folder Include="ModelsBVV\" />
+    <Folder Include="Database\" />
   </ItemGroup>
 
 </Project>

@@ -842,7 +842,7 @@ namespace UttrekkFamilia
              {"4-12","Bvl._§_5-1" },
              {"4-12,1.a","Bvl._§_5-1" },
              {"4-14a","Bvl._§_5-3" },
-             //TODO §64,7. - Finnes ikke i Modulus Barn - N bestiller - denne er satt midlertidig
+             //TODO §64,7. - Finnes ikke i Modulus Barn - er bestilt - denne er satt midlertidig
              {"64,7.","Bvl._§_1-1" },
              {"4-21","Bvl._§_5-7" },
              {"4-22","Bvl._§_5-3" },
@@ -856,7 +856,9 @@ namespace UttrekkFamilia
              {"9-1","Bvl._§_15-11" },
              {"9-6","Bvl._§_9-6" },
              {"strl. 17","Bvl._§_1-3" },
-             {"43a","Bl._§_43._bokstav_a" }
+             {"43a","Bl._§_43._bokstav_a" },
+             {"fvl 2,1e","Fvl._§_2._bokstav_e" },
+             {"fvl. 19","Fvl._§_19" }
         };
 
         private readonly NameValueCollection HjemlerOversettelseNyTilGammelLov = new() {
