@@ -6794,12 +6794,15 @@ namespace UttrekkFamilia
                 foreach (var tidligereBydel in tidligereAvdelinger)
                 {
                     string bydel = tidligereBydel.avdelingId[..3];
-                    await GetMeldingerTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
-                    await GetPlanerTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
-                    await GetUndersokelserTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
-                    await GetVedtakTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
-                    await GetTiltakTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
-                    await GetAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
+                    if (bydel != Bydelsforkortelse)
+                    {
+                        await GetMeldingerTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
+                        await GetPlanerTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
+                        await GetUndersokelserTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
+                        await GetVedtakTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
+                        await GetTiltakTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
+                        await GetAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
+                    }
                 }
             }
             catch (Exception ex)
@@ -9213,7 +9216,7 @@ namespace UttrekkFamilia
                 while (migrertAntall > toSkip)
                 {
                     List<Document> documentsPart = documentsDistinct.OrderBy(o => o.dokumentId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
-                    await WriteFileAsync(documentsPart, GetJsonFileName("dokumenter", $"Dokumenter{fileNumber}"));
+                    await WriteFileAsync(documentsPart, GetJsonFileName("dokumenter", $"Dokumenter{fileNumber}{Guid.NewGuid().ToString().Replace('-', '_')}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
                 }
@@ -9311,7 +9314,7 @@ namespace UttrekkFamilia
                 while (migrertAntall > toSkip)
                 {
                     List<Document> documentsPart = documentsDistinct.OrderBy(o => o.dokumentId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
-                    await WriteFileAsync(documentsPart, GetJsonFileName("dokumenter", $"DokumenterTekst{fileNumber}"));
+                    await WriteFileAsync(documentsPart, GetJsonFileName("dokumenter", $"DokumenterTekst{fileNumber}{Guid.NewGuid().ToString().Replace('-', '_')}"));
                     fileNumber += 1;
                     toSkip += MaxAntallEntiteterPerFil;
                 }
