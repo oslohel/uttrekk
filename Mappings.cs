@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.ComponentModel;
 using UttrekkFamilia.Modulus;
 #endregion
 
@@ -169,7 +168,8 @@ namespace UttrekkFamilia
             { "145", "ANDRE_TILTAK_KNYTTET_TIL_UNDERSØKELSE_OG_BEHANDLING_FRA_ANDRE_TJENESTER" },
             { "146", "ØKONOMISK_HJELP_VED_ETABLERING_I_EGEN_BOLIG/_HYBEL" },
             { "147", "BOLIG_MED_OPPFØLGING_(INKLUDERER_OGSÅ_BOFELLESSKAP)" },
-            { "148", "BOTRENINGSKURS" }, { "149", "ANDRE_BOLIGTILTAK" }
+            { "148", "BOTRENINGSKURS" }, 
+            { "149", "ANDRE_BOLIGTILTAK" }
         };
 
         private readonly NameValueCollection Land = new() {
@@ -526,6 +526,7 @@ namespace UttrekkFamilia
              {"4-22,3.","Bvl._§_4-22._3.ledd_(gammel_lov)" },
              {"4-22,4.","Bvl._§_4-22._4.ledd_(gammel_lov)" },
              {"4-22,5.","Bvl._§_4-22._5.ledd_(gammel_lov)" },
+             {"4-23","Bvl._§_4-22_(gammel_lov)" },
              {"4-24","Bvl._§_4-24_(gammel_lov)" },
              {"4-24,1.","Bvl._§_4-24._1.ledd_(gammel_lov)" },
              {"4-24,2.","Bvl._§_4-24._2.ledd_(gammel_lov)" },
@@ -849,6 +850,7 @@ namespace UttrekkFamilia
              {"4-26","Bvl._§_6-1" },
              {"5-3","Bvl._§_5-3" },
              {"5-7","Bvl._§_5-7" },
+             {"5-8","Bvl._§_5-8" },
              {"6-1","Bvl._§_6-1" },
              {"7-2","Bvl._§_7-2" },
              {"8-1","Bvl._§_8-1" },
@@ -980,13 +982,11 @@ namespace UttrekkFamilia
             { "BUN", "Server=*;Database=BUN_BV06P;Trusted_Connection=True;Encrypt=False;" },
             { "BVA", "Server=*;Database=BVA_BV07P;Trusted_Connection=True;Encrypt=False;" },
             { "BOS", "Server=*;Database=BOS_BV13P;Trusted_Connection=True;Encrypt=False;" },
-            { "DEM", "Server=*;Database=HEL_BVDEMO;Trusted_Connection=True;Encrypt=False;" },
             { "BVV", "Server=*;Database=BVV;Trusted_Connection=True;Encrypt=False;" },
             { "MIG", "Server=*;Database=Migrering;Trusted_Connection=True;Encrypt=False;" }
         };
 
         private readonly NameValueCollection BydelHovedsaksbehandlere = new() {
-            { "DEM", "ANJN" },
             { "BNS", "VISA" },
             //TODO Mappings - BydelHovedsaksbehandlere - Legg inn hovedsaksbehandlere når dette blir avklart, mangler disse:
             { "BUN", "KBER" },
@@ -1487,7 +1487,7 @@ namespace UttrekkFamilia
             "5441",
             "5442",
             "5443",
-            "5444"        
+            "5444"
         };
 
         private readonly NameValueCollection Bydelskontorer = new() {

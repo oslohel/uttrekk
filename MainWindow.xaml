@@ -12,9 +12,7 @@
             <Label Content="Uttrekksfolder:" Height="28" Canvas.Left="18" Canvas.Top="93" Width="112" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             <TextBox x:Name="OutputFolder" Canvas.Left="136" TextWrapping="NoWrap" Text="E:\Uttrekk\Data\" Canvas.Top="96" Width="313" Height="22" TabIndex="3" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             <Label Content="Bydel:" Height="26" Canvas.Left="18" Canvas.Top="67" Width="112" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-            <TextBox x:Name="BydelsidentifikatorBox" Canvas.Left="136" TextWrapping="NoWrap" MaxLength="3" Text="DEM" CharacterCasing="Upper" Canvas.Top="69" Width="113" Height="22" HorizontalAlignment="Left" VerticalAlignment="Center" TabIndex="1"/>
-            <Label Content="Maks antall saker:" Height="26" Canvas.Left="259" Canvas.Top="67" Width="112" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-            <TextBox x:Name="MaksAntall" Canvas.Left="369" TextWrapping="NoWrap" TextAlignment="Right" Text="0" Canvas.Top="69" Width="80" Height="22" TabIndex="2" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+            <TextBox x:Name="BydelsidentifikatorBox" Canvas.Left="136" TextWrapping="NoWrap" MaxLength="3" Text="B" CharacterCasing="Upper" Canvas.Top="69" Width="113" Height="22" HorizontalAlignment="Left" VerticalAlignment="Center" TabIndex="1"/>
             <Label Content="Sokrates conn:" Height="26" Canvas.Left="18" Canvas.Top="213" Width="112" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <PasswordBox x:Name="ConnSokratesBox" Canvas.Left="136" Canvas.Top="215" Width="313" Height="22" TabIndex="11" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             <Button x:Name="InfoFamiliaDatabase" Content="DB Familia" Height="24" Width="100" Click="InfoFamiliaDatabase_Click" Canvas.Left="18" Canvas.Top="312" HorizontalAlignment="Center" VerticalAlignment="Top" TabIndex="12"/>
@@ -63,7 +61,6 @@
             <Button x:Name="WriteSokrates" Content="Saksoversikt" Height="24" Width="100" Click="WriteSokrates_Click" Canvas.Left="18" Canvas.Top="341" TabIndex="13" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <CheckBox Content="Bruk Sokrates" x:Name="chkUseSokrates" IsChecked="True" TabIndex="5" Height="20" Canvas.Left="136" Canvas.Top="128" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <CheckBox Content="Kun filer (for føropplasting)" x:Name="chkOnlyWriteDocumentFiles" IsChecked="False" TabIndex="6" Height="20" Canvas.Left="263" Canvas.Top="128" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-            <Button x:Name="Tidstest" Content="Tidstest" Height="24" Width="100" Click="Tidstest_Click" Canvas.Left="18" Canvas.Top="370" TabIndex="14" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <Button x:Name="OneFilFamilia" Content="Enkeltfil Familia" Height="24" Width="100" Click="OneFileFamilia_Click" Canvas.Left="123" Canvas.Top="370" TabIndex="18" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <Label Content="Antall pr. Zip-fil:" Height="26" Canvas.Left="18" Canvas.Top="151" Width="112" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <TextBox x:Name="AntallPerZip" Canvas.Left="136" TextWrapping="NoWrap" TextAlignment="Right" Text="100" Canvas.Top="153" Width="113" Height="22" TabIndex="7" HorizontalAlignment="Center" VerticalAlignment="Top"/>
@@ -84,8 +81,6 @@
             <TextBox x:Name="TOMKlientNr" Canvas.Left="389" TextWrapping="NoWrap" TextAlignment="Right" Text="2147483647" Canvas.Top="414" Width="75" Height="22" TabIndex="7" HorizontalAlignment="Left" VerticalAlignment="Top"/>
             <Label Content="F.o.m:" Height="26" Canvas.Left="253" Canvas.Top="412" Width="43" HorizontalAlignment="Left" VerticalAlignment="Center" RenderTransformOrigin="0.718,4.474"/>
             <Label Content="T.o.m:" Height="26" Canvas.Left="346" Canvas.Top="411" Width="38" RenderTransformOrigin="0.718,4.474" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-            <Label Content="Før dato:" Height="26" Canvas.Left="289" Canvas.Top="441" Width="71" RenderTransformOrigin="0.718,4.474" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-            <DatePicker x:Name="BeforeDate" SelectedDate="2100-01-01" Canvas.Left="365" Canvas.Top="442" FirstDayOfWeek="Monday" HorizontalAlignment="Left" VerticalAlignment="Center" Width="99"/>
         </Canvas>
     </DockPanel>
 </Window>
