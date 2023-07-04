@@ -31,6 +31,8 @@ namespace UttrekkFamilia.Modulus
 
         public decimal dokLoepenr { get; set; }
         public string sakId { get; set; }
+        public decimal? dokumentNr { get; set; }
+
         public List<string> aktivitetIdListe { get; set; }
         public string tittel { get; set; }
         public DateTime? journalDato { get; set; }

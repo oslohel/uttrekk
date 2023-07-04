@@ -15,9 +15,11 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Xml;
 using UttrekkFamilia.Models;
 using UttrekkFamilia.ModelsBVV;
 using UttrekkFamilia.Modulus;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 using File = System.IO.File;
 #endregion
 
@@ -615,6 +617,46 @@ namespace UttrekkFamilia
                 {
                     message += $" Inner: {ex.InnerException.Message}";
                 }
+                MessageBox.Show(message, "Migrering uttrekk - exception", MessageBoxButton.OK, MessageBoxImage.Error);
+                throw;
+            }
+        }
+        #endregion
+
+        #region Information JSON
+        public void GetJsonInnholdAsync(BackgroundWorker worker)
+        {
+            try
+            {
+                worker.ReportProgress(0, "Starter telling innhold i JSON-filene...");
+
+                string result = $"Innhold i JSON-filene under folder {OutputFolderName}:" + Environment.NewLine;
+                var folders = from dir in Directory.EnumerateDirectories(OutputFolderName) select dir;
+
+                foreach (string folder in folders)
+                {
+                    string[] filer = Directory.GetFiles(folder, "*.json", SearchOption.TopDirectoryOnly).ToArray();
+                    int count = 0;
+                    foreach (string fil in filer)
+                    {
+                        string jsonString = File.ReadAllText(fil);
+                        using (JsonDocument document = JsonDocument.Parse(jsonString))
+                        {
+                            JsonElement root = document.RootElement;
+                            if (root.ValueKind == JsonValueKind.Array)
+                            {
+                                count += root.GetArrayLength();
+                            }
+                        }
+                    }
+                    result += Environment.NewLine + $"{folder}: {count}" ;
+                }
+                File.WriteAllText($"{OutputFolderName}JSON_{DateTime.Now:yyyyMMdd_HHmm_}.txt", result);
+                worker.ReportProgress(0, "Ferdig telling innhold i JSON-filene...");
+            }
+            catch (Exception ex)
+            {
+                string message = $"Exception ({ex.Source}): {ex.Message} Stack trace: {ex.StackTrace}";
                 MessageBox.Show(message, "Migrering uttrekk - exception", MessageBoxButton.OK, MessageBoxImage.Error);
                 throw;
             }
@@ -1334,6 +1376,12 @@ namespace UttrekkFamilia
                     {
                         innbygger.ensligMindreaarig = true;
                     }
+                }
+                if (!string.IsNullOrEmpty(person.Hnumber))
+                {
+                    innbygger.fodselsnummer = null;
+                    innbygger.dufNummer = null;
+                    innbygger.dufNavn = null;
                 }
                 innbyggere.Add(innbygger);
             }
@@ -2485,18 +2533,18 @@ namespace UttrekkFamilia
         #endregion
 
         #region Saker
-        public async Task<string> GetSakerAsync(BackgroundWorker worker, bool meldingerUtenSakIsChecked)
+        public async Task<string> GetSakerAsync(BackgroundWorker worker)
         {
             try
             {
                 worker.ReportProgress(0, "Starter uttrekk saker...");
                 string statusText = $"Antall barnevernsaker: {await GetBarnevernsakerAsync(worker)}" + Environment.NewLine;
-                if (meldingerUtenSakIsChecked && !OnlyActiveCases)
+                if (OnlyPassiveCases && FomKlientId == 0)
                 {
                     statusText += $"Antall barnevernsaker uten sak: {await GetBarnevernsakerUtenSakAsync(worker)}" + Environment.NewLine;
                 }
                 statusText += $"Antall tilsynssaker: {await GetTilsynssakerAsync(worker)}" + Environment.NewLine;
-                if (!OnlyPassiveCases)
+                if (OnlyPassiveCases && FomKlientId == 0)
                 {
                     statusText += $"Antall oppdragstakersaker: {await GetOppdragstakersakerAsync(worker)}" + Environment.NewLine;
                 }
@@ -2596,6 +2644,7 @@ namespace UttrekkFamilia
                     {
                         await GetDataTidligereBydelerAsync(worker, klient.KliFoedselsdato.Value, klient.KliPersonnr.Value, sak.sakId, sak.tidligereAvdelingListe);
                     }
+                    await GetMeldingerUtenSakForKlientAsync(worker, klient.KliLoepenr, sak.sakId, klient.KliFoedselsdato.Value, klient.KliPersonnr.Value);
                     migrertAntall += 1;
                 }
                 int toSkip = 0;
@@ -2944,13 +2993,13 @@ namespace UttrekkFamilia
         #endregion
 
         #region Innbyggere - Barn
-        public async Task<string> GetInnbyggereBarnAsync(BackgroundWorker worker, bool meldingerUtenSakIsChecked)
+        public async Task<string> GetInnbyggereBarnAsync(BackgroundWorker worker)
         {
             try
             {
                 worker.ReportProgress(0, "Starter uttrekk innbyggere - barn...");
                 string statusText = $"Antall innbyggere barn: {await GetInnbyggereBarnHovedAsync(worker)}" + Environment.NewLine;
-                if (meldingerUtenSakIsChecked && !OnlyActiveCases)
+                if (OnlyPassiveCases && FomKlientId == 0)
                 {
                     statusText += $"Antall innbyggere barn uten sak: {await GetInnbyggereBarnUtenSakAsync(worker)}" + Environment.NewLine;
                 }
@@ -3820,7 +3869,7 @@ namespace UttrekkFamilia
                 throw;
             }
         }
-        private async Task<int> UttrekkMeldingerAsync(bool utenSak, List<FaMeldinger> rawData, List<Melding> meldinger, List<DocumentToInclude> documentsIncluded, BackgroundWorker worker, int totalAntall, string title)
+        private async Task<int> UttrekkMeldingerAsync(bool utenSak, List<FaMeldinger> rawData, List<Melding> meldinger, List<DocumentToInclude> documentsIncluded, BackgroundWorker worker, int totalAntall, string title, string sakId = "")
         {
             int antall = 0;
             int migrertAntall = 0;
@@ -3846,32 +3895,35 @@ namespace UttrekkFamilia
                     };
                     if (utenSak)
                     {
-                        melding.sakId = GetSakId(meldingFamilia.MelLoepenr.ToString() + "__MUS");
-                        if (string.IsNullOrEmpty(meldingFamilia.MelGmlreferanse) && meldingFamilia.MelPersonnr.HasValue && meldingFamilia.MelFoedselsdato.HasValue && meldingFamilia.MelPersonnr.GetValueOrDefault() != 99999 && meldingFamilia.MelPersonnr.GetValueOrDefault() != 00100 && meldingFamilia.MelPersonnr.GetValueOrDefault() != 00200)
+                        if (!string.IsNullOrEmpty(sakId))
                         {
-                            using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                            melding.sakId = sakId;
+                        }
+                        else
+                        {
+                            melding.sakId = GetSakId(meldingFamilia.MelLoepenr.ToString() + "__MUS");
+                            if (string.IsNullOrEmpty(meldingFamilia.MelGmlreferanse) && meldingFamilia.MelPersonnr.HasValue && meldingFamilia.MelFoedselsdato.HasValue && meldingFamilia.MelPersonnr.GetValueOrDefault() != 99999 && meldingFamilia.MelPersonnr.GetValueOrDefault() != 00100 && meldingFamilia.MelPersonnr.GetValueOrDefault() != 00200)
                             {
-                                FaKlient klientSak = await context.FaKlients.Where(KlientFilter()).Where(k => k.KliFraannenkommune == 0 && k.KliFoedselsdato == meldingFamilia.MelFoedselsdato && k.KliPersonnr == meldingFamilia.MelPersonnr).FirstOrDefaultAsync();
-                                if (klientSak != null)
+                                using (var context = new FamiliaDBContext(ConnectionStringFamilia))
                                 {
-                                    if (!mappings.IsOwner(klientSak.KliLoepenr))
+                                    FaKlient klientSak = await context.FaKlients.Where(KlientFilter()).Where(k => k.KliFraannenkommune == 0 && k.KliFoedselsdato == meldingFamilia.MelFoedselsdato && k.KliPersonnr == meldingFamilia.MelPersonnr).FirstOrDefaultAsync();
+                                    if (klientSak != null)
                                     {
                                         continue;
                                     }
-                                    melding.sakId = GetSakId(klientSak.KliLoepenr.ToString());
-                                }
-                                else
-                                {
-                                    FaMeldinger firstMelding = await context.FaMeldingers.Where(m => !m.KliLoepenr.HasValue && m.MelMeldingstype != "UGR" && m.MelAvsluttetgjennomgang.HasValue && m.MelMottattdato >= FirstDateOfMigrationMeldingerUtenSak && m.MelFoedselsdato == meldingFamilia.MelFoedselsdato && m.MelPersonnr == meldingFamilia.MelPersonnr).OrderByDescending(m => m.MelLoepenr).FirstOrDefaultAsync();
-                                    if (firstMelding != null)
+                                    else
                                     {
-                                        if (meldingFamilia.MelLoepenr != firstMelding.MelLoepenr)
+                                        FaMeldinger firstMelding = await context.FaMeldingers.Where(m => !m.KliLoepenr.HasValue && m.MelMeldingstype != "UGR" && m.MelAvsluttetgjennomgang.HasValue && m.MelMottattdato >= FirstDateOfMigrationMeldingerUtenSak && m.MelFoedselsdato == meldingFamilia.MelFoedselsdato && m.MelPersonnr == meldingFamilia.MelPersonnr).OrderByDescending(m => m.MelLoepenr).FirstOrDefaultAsync();
+                                        if (firstMelding != null)
                                         {
-                                            melding.sakId = GetSakId(firstMelding.MelLoepenr.ToString() + "__MUS");
+                                            if (meldingFamilia.MelLoepenr != firstMelding.MelLoepenr)
+                                            {
+                                                melding.sakId = GetSakId(firstMelding.MelLoepenr.ToString() + "__MUS");
+                                            }
                                         }
                                     }
                                 }
-                            }
+                             }
                         };
                     }
                     else
@@ -3899,6 +3951,7 @@ namespace UttrekkFamilia
                             DocumentToInclude documentToInclude = new()
                             {
                                 dokLoepenr = dokument.DokLoepenr,
+                                dokumentNr = postJournal.PosDokumentnr,
                                 sakId = melding.sakId,
                                 tittel = "Meldingsdokument",
                                 journalDato = melding.mottattBekymringsmelding.mottattDato,
@@ -3928,6 +3981,7 @@ namespace UttrekkFamilia
                             DocumentToInclude documentToInclude = new()
                             {
                                 dokLoepenr = dokument.DokLoepenr,
+                                dokumentNr = meldingFamilia.MelDokumentnr,
                                 sakId = melding.sakId,
                                 tittel = "Meldingsgjennomgang",
                                 journalDato = melding.behandlingAvBekymringsmelding.konklusjonsdato,
@@ -3954,6 +4008,7 @@ namespace UttrekkFamilia
                             DocumentToInclude documentToInclude = new()
                             {
                                 dokLoepenr = dokument.DokLoepenr,
+                                dokumentNr = postJournal.PosDokumentnr,
                                 sakId = melding.sakId,
                                 tittel = "Tilbakemelding til melder",
                                 journalDato = melding.tilbakemeldingTilMelder.utfortDato,
@@ -3990,7 +4045,7 @@ namespace UttrekkFamilia
         {
             try
             {
-                if (OnlyActiveCases)
+                if (!(OnlyPassiveCases && FomKlientId == 0))
                 {
                     return null;
                 }
@@ -4003,7 +4058,6 @@ namespace UttrekkFamilia
                     rawData = await context.FaMeldingers.Where(m => !m.KliLoepenr.HasValue && m.MelMeldingstype != "UGR" && m.MelAvsluttetgjennomgang.HasValue && m.MelMottattdato >= FirstDateOfMigrationMeldingerUtenSak).ToListAsync();
                     totalAntall = rawData.Count;
                 }
-
                 List<Melding> meldinger = new();
                 List<DocumentToInclude> documentsIncluded = new();
                 int migrertAntall = await UttrekkMeldingerAsync(true, rawData, meldinger, documentsIncluded, worker, totalAntall, "meldinger uten sak"); ;
@@ -4020,6 +4074,44 @@ namespace UttrekkFamilia
                     toSkip += MaxAntallEntiteterPerFil;
                 }
                 return $"Antall meldinger uten sak: {migrertAntall}" + Environment.NewLine;
+            }
+            catch (Exception ex)
+            {
+                string message = $"Exception ({ex.Source}): {ex.Message} Stack trace: {ex.StackTrace}";
+                MessageBox.Show(message, "Migrering uttrekk - exception", MessageBoxButton.OK, MessageBoxImage.Error);
+                throw;
+            }
+        }
+        public async Task<string> GetMeldingerUtenSakForKlientAsync(BackgroundWorker worker, decimal kliLoepenr, string sakId, DateTime fodselsDato, decimal personNummer)
+        {
+            try
+            {
+                worker.ReportProgress(0, "Starter uttrekk meldinger uten sak for klient...");
+                List<FaMeldinger> rawData;
+                int totalAntall = 0;
+
+                using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                {
+                    rawData = await context.FaMeldingers.Where(m => !m.KliLoepenr.HasValue && m.MelMeldingstype != "UGR" && m.MelAvsluttetgjennomgang.HasValue && m.MelMottattdato >= FirstDateOfMigrationMeldingerUtenSak
+                        && m.MelFoedselsdato == fodselsDato && m.MelPersonnr == personNummer).ToListAsync();
+                    totalAntall = rawData.Count;
+                }
+                List<Melding> meldinger = new();
+                List<DocumentToInclude> documentsIncluded = new();
+                int migrertAntall = await UttrekkMeldingerAsync(true, rawData, meldinger, documentsIncluded, worker, totalAntall, "meldinger uten sak", sakId); ;
+                await GetDocumentsAsync(worker, "MeldingerUtensak", documentsIncluded);
+                int toSkip = 0;
+                int fileNumber = 1;
+                List<Melding> meldingerDistinct = meldinger.GroupBy(c => c.meldingId).Select(s => s.First()).ToList();
+                int antallEntiteter = meldingerDistinct.Count;
+                while (antallEntiteter > toSkip)
+                {
+                    List<Melding> meldingerPart = meldingerDistinct.OrderBy(o => o.meldingId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    await WriteFileAsync(meldingerPart, GetJsonFileName("melding", $"MeldingerUtenSakKlient{kliLoepenr}{fileNumber}"));
+                    fileNumber += 1;
+                    toSkip += MaxAntallEntiteterPerFil;
+                }
+                return $"Antall meldinger uten sak for klient: {migrertAntall}" + Environment.NewLine;
             }
             catch (Exception ex)
             {
@@ -4314,6 +4406,7 @@ namespace UttrekkFamilia
                             DocumentToInclude documentToInclude = new()
                             {
                                 dokLoepenr = dokument.DokLoepenr,
+                                dokumentNr = undersøkelse.UndDokumentnruplan,
                                 sakId = undersoekelse.sakId,
                                 tittel = undersøkelsesplanAktivitet.tittel,
                                 journalDato = undersøkelsesplanAktivitet.utfortDato,
@@ -4364,6 +4457,7 @@ namespace UttrekkFamilia
                             DocumentToInclude documentToInclude = new()
                             {
                                 dokLoepenr = dokument.DokLoepenr,
+                                dokumentNr = undersøkelse.UndDokumentnr,
                                 sakId = undersoekelse.sakId,
                                 tittel = undersøkelsesrapportAktivitet.tittel,
                                 journalDato = undersøkelsesrapportAktivitet.utfortDato,
@@ -4856,6 +4950,7 @@ namespace UttrekkFamilia
                             DocumentToInclude documentToInclude = new()
                             {
                                 dokLoepenr = postJournal.DokLoepenr.Value,
+                                dokumentNr = postJournal.PosDokumentnr,
                                 sakId = vedtak.sakId,
                                 tittel = vedtak.tittel,
                                 journalDato = vedtak.vedtaksdato,
@@ -5116,6 +5211,14 @@ namespace UttrekkFamilia
                     {
                         tiltak.ssbUnderkategoriSpesifisering = "Familia: Mangler presisering";
                     }
+                    if (tiltak.ssbUnderkategori == "ANDRE_FOSTERHJEMSTILTAK" && string.IsNullOrEmpty(tiltak.ssbUnderkategoriSpesifisering))
+                    {
+                        tiltak.ssbUnderkategoriSpesifisering = "Familia: Mangler presisering";
+                    }
+                    if (tiltak.ssbUnderkategori == "ANDRE_TILTAK_FOR_Å_STYRKE_BARNETS_UTVIKLING" && string.IsNullOrEmpty(tiltak.ssbUnderkategoriSpesifisering))
+                    {
+                        tiltak.ssbUnderkategoriSpesifisering = "Familia: Mangler presisering";
+                    }
                     if (tiltak.planlagtTilDato.HasValue && tiltak.planlagtTilDato < tiltak.planlagtFraDato)
                     {
                         tiltak.planlagtTilDato = tiltak.planlagtFraDato;
@@ -5242,7 +5345,7 @@ namespace UttrekkFamilia
                                 {
                                     tiltak.flyttingTil = mappings.GetÅrsaksFylttingTil(aarsak.Trim());
                                 }
-                                if (adresse.PahFraSpesifiser != null && string.IsNullOrEmpty(adresse.PahFraSpesifiser.Trim()))
+                                if (adresse.PahFraSpesifiser != null && !string.IsNullOrEmpty(adresse.PahFraSpesifiser.Trim()))
                                 {
                                     tiltak.arsakFlyttingFraPresisering = adresse.PahFraSpesifiser.Trim();
                                 }
@@ -5392,6 +5495,7 @@ namespace UttrekkFamilia
                         DocumentToInclude documentToInclude = new()
                         {
                             dokLoepenr = engasjementsavtale.DokLoepenr.Value,
+                            dokumentNr = engasjementsavtale.EngDokumentnr,
                             sakId = aktivitet.sakId,
                             tittel = aktivitet.tittel,
                             journalDato = aktivitet.utfortDato,
@@ -5403,7 +5507,6 @@ namespace UttrekkFamilia
                     tiltaksliste.Add(tiltak);
                     migrertAntall += 1;
                 }
-                //TODO Tiltak - Oppdragsavtaleaktiviteter på eksisterende Oppdragstakersaker ikke foreløpig støttet av Modulus Barn
                 await GetDocumentsAsync(worker, "Oppdragsavtaleaktiviteter", documentsIncluded);
                 int toSkip = 0;
                 int fileNumber = 1;
@@ -5701,6 +5804,7 @@ namespace UttrekkFamilia
                             DocumentToInclude documentToInclude = new()
                             {
                                 dokLoepenr = dokument.DokLoepenr,
+                                dokumentNr = planFamilia.TtpDokumentnr,
                                 sakId = aktivitet.sakId,
                                 tittel = aktivitet.tittel,
                                 journalDato = aktivitet.utfortDato
@@ -5762,6 +5866,7 @@ namespace UttrekkFamilia
                                     DocumentToInclude documentToInclude = new()
                                     {
                                         dokLoepenr = dokument.DokLoepenr,
+                                        dokumentNr = tiltaksEvaluering.EvaDokumentnr,
                                         sakId = aktivitet.sakId,
                                         tittel = aktivitet.tittel,
                                         journalDato = aktivitet.utfortDato
@@ -5926,6 +6031,7 @@ namespace UttrekkFamilia
                     DocumentToInclude documentToInclude = new()
                     {
                         dokLoepenr = postjournal.DokLoepenr.Value,
+                        dokumentNr = postjournal.PosDokumentnr,
                         sakId = aktivitet.sakId,
                         tittel = aktivitet.tittel,
                         journalDato = aktivitet.utfortDato,
@@ -6038,6 +6144,7 @@ namespace UttrekkFamilia
                     DocumentToInclude documentToInclude = new()
                     {
                         dokLoepenr = postjournal.DokLoepenr.Value,
+                        dokumentNr = postjournal.PosDokumentnr,
                         sakId = aktivitet.sakId,
                         tittel = aktivitet.tittel,
                         journalDato = aktivitet.utfortDato,
@@ -6227,6 +6334,11 @@ namespace UttrekkFamilia
                         {
                             aktivitet.tiltaksId = AddBydel(tiltak.TilLoepenr.ToString(), "TIL");
                         }
+                        else if (postjournal.KliLoepenrNavigation.KliFraannenkommune != 1)
+                        {
+                            aktivitet.aktivitetsType = "ØVRIG_DOKUMENT";
+                            aktivitet.aktivitetsUnderType = "NOTAT";
+                        }
                     }
                 }
                 aktiviteter.Add(aktivitet);
@@ -6236,6 +6348,7 @@ namespace UttrekkFamilia
                     DocumentToInclude documentToInclude = new()
                     {
                         dokLoepenr = postjournal.DokLoepenr.Value,
+                        dokumentNr = postjournal.PosDokumentnr,
                         sakId = aktivitet.sakId,
                         tittel = aktivitet.tittel,
                         journalDato = aktivitet.utfortDato,
@@ -6330,6 +6443,7 @@ namespace UttrekkFamilia
                     DocumentToInclude documentToInclude = new()
                     {
                         dokLoepenr = postjournal.DokLoepenr.Value,
+                        dokumentNr = postjournal.PosDokumentnr,
                         sakId = aktivitet.sakId,
                         tittel = aktivitet.tittel,
                         journalDato = aktivitet.utfortDato,
@@ -6470,6 +6584,7 @@ namespace UttrekkFamilia
                         DocumentToInclude documentToInclude = new()
                         {
                             dokLoepenr = dokument.DokLoepenr,
+                            dokumentNr = journal.JouDokumentnr,
                             sakId = aktivitet.sakId,
                             tittel = aktivitet.tittel,
                             journalDato = aktivitet.utfortDato,
@@ -6673,6 +6788,7 @@ namespace UttrekkFamilia
                         DocumentToInclude documentToInclude = new()
                         {
                             dokLoepenr = dokument.DokLoepenr,
+                            dokumentNr = plan.TtpDokumentnr,
                             sakId = aktivitet.sakId,
                             tittel = aktivitet.tittel,
                             journalDato = aktivitet.utfortDato,
@@ -6699,7 +6815,7 @@ namespace UttrekkFamilia
         #endregion
 
         #region Tidligere bydeler
-        private async Task GetDataTidligereBydelerAsync(BackgroundWorker worker, DateTime fodselsDato, Decimal personNummer, string sakId, List<TidligereAvdeling> tidligereAvdelinger)
+        private async Task GetDataTidligereBydelerAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, string sakId, List<TidligereAvdeling> tidligereAvdelinger)
         {
             try
             {
@@ -6767,6 +6883,7 @@ namespace UttrekkFamilia
                             DocumentToInclude documentToInclude = new()
                             {
                                 dokLoepenr = dokument.DokLoepenr,
+                                dokumentNr = postJournal.PosDokumentnr,
                                 sakId = melding.sakId,
                                 tittel = "Meldingsdokument",
                                 journalDato = melding.mottattBekymringsmelding.mottattDato,
@@ -6796,6 +6913,7 @@ namespace UttrekkFamilia
                             DocumentToInclude documentToInclude = new()
                             {
                                 dokLoepenr = dokument.DokLoepenr,
+                                dokumentNr = meldingFamilia.MelDokumentnr,
                                 sakId = melding.sakId,
                                 tittel = "Meldingsgjennomgang",
                                 journalDato = melding.behandlingAvBekymringsmelding.konklusjonsdato,
@@ -6822,6 +6940,7 @@ namespace UttrekkFamilia
                             DocumentToInclude documentToInclude = new()
                             {
                                 dokLoepenr = dokument.DokLoepenr,
+                                dokumentNr = postJournal.PosDokumentnr,
                                 sakId = melding.sakId,
                                 tittel = "Tilbakemelding til melder",
                                 journalDato = melding.tilbakemeldingTilMelder.utfortDato,
@@ -7105,6 +7224,7 @@ namespace UttrekkFamilia
                             DocumentToInclude documentToInclude = new()
                             {
                                 dokLoepenr = dokument.DokLoepenr,
+                                dokumentNr = planFamilia.TtpDokumentnr,
                                 sakId = aktivitet.sakId,
                                 tittel = aktivitet.tittel,
                                 journalDato = aktivitet.utfortDato
@@ -7166,6 +7286,7 @@ namespace UttrekkFamilia
                                     DocumentToInclude documentToInclude = new()
                                     {
                                         dokLoepenr = dokument.DokLoepenr,
+                                        dokumentNr = tiltaksEvaluering.EvaDokumentnr,
                                         sakId = aktivitet.sakId,
                                         tittel = aktivitet.tittel,
                                         journalDato = aktivitet.utfortDato
@@ -7478,6 +7599,7 @@ namespace UttrekkFamilia
                             DocumentToInclude documentToInclude = new()
                             {
                                 dokLoepenr = dokument.DokLoepenr,
+                                dokumentNr = undersøkelse.UndDokumentnruplan,
                                 sakId = undersoekelse.sakId,
                                 tittel = undersøkelsesplanAktivitet.tittel,
                                 journalDato = undersøkelsesplanAktivitet.utfortDato,
@@ -7528,6 +7650,7 @@ namespace UttrekkFamilia
                             DocumentToInclude documentToInclude = new()
                             {
                                 dokLoepenr = dokument.DokLoepenr,
+                                dokumentNr = undersøkelse.UndDokumentnr,
                                 sakId = undersoekelse.sakId,
                                 tittel = undersøkelsesrapportAktivitet.tittel,
                                 journalDato = undersøkelsesrapportAktivitet.utfortDato,
@@ -7731,6 +7854,7 @@ namespace UttrekkFamilia
                             DocumentToInclude documentToInclude = new()
                             {
                                 dokLoepenr = postJournal.DokLoepenr.Value,
+                                dokumentNr = postJournal.PosDokumentnr,
                                 sakId = vedtak.sakId,
                                 tittel = vedtak.tittel,
                                 journalDato = vedtak.vedtaksdato,
@@ -7808,6 +7932,14 @@ namespace UttrekkFamilia
                         tiltak.ssbUnderkategoriSpesifisering = "Familia: Mangler presisering";
                     }
                     if (tiltak.ssbUnderkategori == "ANDRE_HJEMMEBASERTE_TILTAK" && string.IsNullOrEmpty(tiltak.ssbUnderkategoriSpesifisering))
+                    {
+                        tiltak.ssbUnderkategoriSpesifisering = "Familia: Mangler presisering";
+                    }
+                    if (tiltak.ssbUnderkategori == "ANDRE_FOSTERHJEMSTILTAK" && string.IsNullOrEmpty(tiltak.ssbUnderkategoriSpesifisering))
+                    {
+                        tiltak.ssbUnderkategoriSpesifisering = "Familia: Mangler presisering";
+                    }
+                    if (tiltak.ssbUnderkategori == "ANDRE_TILTAK_FOR_Å_STYRKE_BARNETS_UTVIKLING" && string.IsNullOrEmpty(tiltak.ssbUnderkategoriSpesifisering))
                     {
                         tiltak.ssbUnderkategoriSpesifisering = "Familia: Mangler presisering";
                     }
@@ -7937,7 +8069,7 @@ namespace UttrekkFamilia
                                 {
                                     tiltak.flyttingTil = mappings.GetÅrsaksFylttingTil(aarsak.Trim());
                                 }
-                                if (adresse.PahFraSpesifiser != null && string.IsNullOrEmpty(adresse.PahFraSpesifiser.Trim()))
+                                if (adresse.PahFraSpesifiser != null && !string.IsNullOrEmpty(adresse.PahFraSpesifiser.Trim()))
                                 {
                                     tiltak.arsakFlyttingFraPresisering = adresse.PahFraSpesifiser.Trim();
                                 }
@@ -8087,6 +8219,7 @@ namespace UttrekkFamilia
                         DocumentToInclude documentToInclude = new()
                         {
                             dokLoepenr = engasjementsavtale.DokLoepenr.Value,
+                            dokumentNr = engasjementsavtale.EngDokumentnr,
                             sakId = aktivitet.sakId,
                             tittel = aktivitet.tittel,
                             journalDato = aktivitet.utfortDato,
@@ -8097,7 +8230,6 @@ namespace UttrekkFamilia
                     }
                     tiltaksliste.Add(tiltak);
                 }
-                //TODO Tiltak - Oppdragsavtaleaktiviteter på eksisterende Oppdragstakersaker ikke foreløpig støttet av Modulus Barn
                 await GetDocumentsAsync(worker, $"Oppdragsavtaleaktiviteter{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}", documentsIncluded, bydel: bydel);
                 int toSkip = 0;
                 int fileNumber = 1;
@@ -8240,6 +8372,7 @@ namespace UttrekkFamilia
                     DocumentToInclude documentToInclude = new()
                     {
                         dokLoepenr = postjournal.DokLoepenr.Value,
+                        dokumentNr = postjournal.PosDokumentnr,
                         sakId = aktivitet.sakId,
                         tittel = aktivitet.tittel,
                         journalDato = aktivitet.utfortDato,
@@ -8337,6 +8470,7 @@ namespace UttrekkFamilia
                     DocumentToInclude documentToInclude = new()
                     {
                         dokLoepenr = postjournal.DokLoepenr.Value,
+                        dokumentNr = postjournal.PosDokumentnr,
                         sakId = aktivitet.sakId,
                         tittel = aktivitet.tittel,
                         journalDato = aktivitet.utfortDato,
@@ -8496,6 +8630,11 @@ namespace UttrekkFamilia
                         {
                             aktivitet.tiltaksId = AddSpecificBydel(tiltak.TilLoepenr.ToString(), "TIL", bydel);
                         }
+                        else if (postjournal.KliLoepenrNavigation.KliFraannenkommune != 1)
+                        {
+                            aktivitet.aktivitetsType = "ØVRIG_DOKUMENT";
+                            aktivitet.aktivitetsUnderType = "NOTAT";
+                        }
                     }
                 }
                 aktiviteter.Add(aktivitet);
@@ -8504,6 +8643,7 @@ namespace UttrekkFamilia
                     DocumentToInclude documentToInclude = new()
                     {
                         dokLoepenr = postjournal.DokLoepenr.Value,
+                        dokumentNr = postjournal.PosDokumentnr,
                         sakId = aktivitet.sakId,
                         tittel = aktivitet.tittel,
                         journalDato = aktivitet.utfortDato,
@@ -8583,6 +8723,7 @@ namespace UttrekkFamilia
                     DocumentToInclude documentToInclude = new()
                     {
                         dokLoepenr = postjournal.DokLoepenr.Value,
+                        dokumentNr = postjournal.PosDokumentnr,
                         sakId = aktivitet.sakId,
                         tittel = aktivitet.tittel,
                         journalDato = aktivitet.utfortDato,
@@ -8709,6 +8850,7 @@ namespace UttrekkFamilia
                         DocumentToInclude documentToInclude = new()
                         {
                             dokLoepenr = dokument.DokLoepenr,
+                            dokumentNr = journal.JouDokumentnr,
                             sakId = aktivitet.sakId,
                             tittel = aktivitet.tittel,
                             journalDato = aktivitet.utfortDato,
@@ -8880,6 +9022,7 @@ namespace UttrekkFamilia
                         DocumentToInclude documentToInclude = new()
                         {
                             dokLoepenr = dokument.DokLoepenr,
+                            dokumentNr = plan.TtpDokumentnr,
                             sakId = aktivitet.sakId,
                             tittel = aktivitet.tittel,
                             journalDato = aktivitet.utfortDato,
@@ -8965,7 +9108,6 @@ namespace UttrekkFamilia
                             DocumentToInclude documentToInclude = documentsIncluded.Find(d => d.dokLoepenr == documentFamilia.dokLoepenr);
                             Document document = new()
                             {
-                                dokumentId = AddSpecificBydel(documentFamilia.dokLoepenr.ToString(), bydel),
                                 filId = AddSpecificBydel(documentFamilia.dokLoepenr.ToString(), bydel),
                                 ferdigstilt = true,
                                 opprettetAvId = documentToInclude.opprettetAvId,
@@ -8976,6 +9118,14 @@ namespace UttrekkFamilia
                                 merknadInnsyn = documentToInclude.merknadInnsyn,
                                 filFormat = "PDF"
                             };
+                            if (documentToInclude.dokumentNr.HasValue)
+                            {
+                                document.dokumentId = AddSpecificBydel(documentFamilia.dokLoepenr.ToString() + $"__Nr{documentToInclude.dokumentNr.Value}", bydel);
+                            }
+                            else
+                            {
+                                document.dokumentId = AddSpecificBydel(documentFamilia.dokLoepenr.ToString(), bydel);
+                            }
                             string fileExtension = ".doc";
                             string dokMimetype = documentFamilia.dokMimetype?.Trim();
                             if (!string.IsNullOrEmpty(dokMimetype))
@@ -9896,7 +10046,7 @@ namespace UttrekkFamilia
                 }
             }
         }
-        private static void GetGrunnlagForTiltak(FaUndersoekelser undersøkelse, Undersøkelse undersoekelse, bool henlegges)
+        private void GetGrunnlagForTiltak(FaUndersoekelser undersøkelse, Undersøkelse undersoekelse, bool henlegges)
         {
             if (!henlegges)
             {
@@ -10019,7 +10169,10 @@ namespace UttrekkFamilia
                 }
                 if (undersoekelse.grunnlagForTiltak.Count == 0)
                 {
-                    undersoekelse.grunnlagForTiltak.Add("MIGRERT_INGEN_KODE");
+                    if (undersøkelse.UndFerdigdato.HasValue && undersøkelse.UndFerdigdato.Value < FirstInYearOfMigration)
+                    {
+                        undersoekelse.grunnlagForTiltak.Add("MIGRERT_INGEN_KODE");
+                    }
                 }
             }
         }

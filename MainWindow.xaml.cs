@@ -24,7 +24,6 @@ namespace UttrekkFamilia
         private bool BarnetsNettverkBarnIsChecked;
         private bool BarnetsNettverkIsChecked;
         private bool MeldingerIsChecked;
-        private bool MeldingerUtenSakIsChecked;
         private bool UndersokelserIsChecked;
         private bool AvdelingsmappingIsChecked;
         private bool BrukereIsChecked;
@@ -72,6 +71,18 @@ namespace UttrekkFamilia
                 workerInfoDatabase.DoWork += WorkerOneFileFamilia_DoWork;
                 workerInfoDatabase.ProgressChanged += Worker_ProgressChanged;
                 workerInfoDatabase.RunWorkerAsync();
+            }
+        }
+        private void JsonInnhold_Click(object sender, RoutedEventArgs e)
+        {
+            SetParameters();
+
+            using (BackgroundWorker workerJsonInnhold = new())
+            {
+                workerJsonInnhold.WorkerReportsProgress = true;
+                workerJsonInnhold.DoWork += WorkerJsonInnhold_DoWork;
+                workerJsonInnhold.ProgressChanged += Worker_ProgressChanged;
+                workerJsonInnhold.RunWorkerAsync();
             }
         }
         private void InfoBVVDatabase_Click(object sender, RoutedEventArgs e)
@@ -234,6 +245,20 @@ namespace UttrekkFamilia
                 MessageBox.Show(message, "Migrering - Unhandled exception", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+        private void WorkerJsonInnhold_DoWork(object sender, DoWorkEventArgs e)
+        {
+            try
+            {
+                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip, OnlyActiveCases, OnlyPassiveCases, FomKlientId, TomKlientId);
+                var worker = sender as BackgroundWorker;
+                uttrekk.GetJsonInnholdAsync(worker);
+            }
+            catch (AggregateException ex)
+            {
+                string message = $"Unhandled exception ({ex.Source}): {ex.Message} Stack trace: {ex.StackTrace}";
+                MessageBox.Show(message, "Migrering - Unhandled exception", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
         private void WorkerAlleBrukere_DoWork(object sender, DoWorkEventArgs e)
         {
             try
@@ -315,7 +340,7 @@ namespace UttrekkFamilia
                 }
                 if (InnbyggereBarnIsChecked)
                 {
-                    var task = uttrekk.GetInnbyggereBarnAsync(worker, MeldingerUtenSakIsChecked);
+                    var task = uttrekk.GetInnbyggereBarnAsync(worker);
                     task.Wait();
                     information += task.Result;
                 }
@@ -333,7 +358,7 @@ namespace UttrekkFamilia
                 }
                 if (SakerIsChecked)
                 {
-                    var task = uttrekk.GetSakerAsync(worker, MeldingerUtenSakIsChecked);
+                    var task = uttrekk.GetSakerAsync(worker);
                     task.Wait();
                     information += task.Result;
                 }
@@ -354,10 +379,8 @@ namespace UttrekkFamilia
                     var task = uttrekk.GetMeldingerAsync(worker);
                     task.Wait();
                     information += task.Result;
-                }
-                if (MeldingerUtenSakIsChecked)
-                {
-                    var task = uttrekk.GetMeldingerUtenSakAsync(worker);
+
+                    task = uttrekk.GetMeldingerUtenSakAsync(worker);
                     task.Wait();
                     information += task.Result;
                 }
@@ -442,7 +465,7 @@ namespace UttrekkFamilia
                     }
                     if (InnbyggereBarnIsChecked)
                     {
-                        var task = uttrekk.GetInnbyggereBarnAsync(worker, MeldingerUtenSakIsChecked);
+                        var task = uttrekk.GetInnbyggereBarnAsync(worker);
                         task.Wait();
                         information += task.Result;
                     }
@@ -460,7 +483,7 @@ namespace UttrekkFamilia
                     }
                     if (SakerIsChecked)
                     {
-                        var task = uttrekk.GetSakerAsync(worker, MeldingerUtenSakIsChecked);
+                        var task = uttrekk.GetSakerAsync(worker);
                         task.Wait();
                         information += task.Result;
                     }
@@ -481,10 +504,8 @@ namespace UttrekkFamilia
                         var task = uttrekk.GetMeldingerAsync(worker);
                         task.Wait();
                         information += task.Result;
-                    }
-                    if (MeldingerUtenSakIsChecked)
-                    {
-                        var task = uttrekk.GetMeldingerUtenSakAsync(worker);
+                        
+                        task = uttrekk.GetMeldingerUtenSakAsync(worker);
                         task.Wait();
                         information += task.Result;
                     }
@@ -585,7 +606,6 @@ namespace UttrekkFamilia
             chkBarnetsNettverkBarn.IsChecked = true;
             chkBarnetsNettverk.IsChecked = true;
             chkMeldinger.IsChecked = true;
-            chkMeldingerUtenSak.IsChecked = true;
             chkUndersokelser.IsChecked = true;
             chkAvdelingsmapping.IsChecked = true;
             chkBrukere.IsChecked = true;
@@ -603,7 +623,6 @@ namespace UttrekkFamilia
             chkBarnetsNettverkBarn.IsChecked = false;
             chkBarnetsNettverk.IsChecked = false;
             chkMeldinger.IsChecked = false;
-            chkMeldingerUtenSak.IsChecked = false;
             chkUndersokelser.IsChecked = false;
             chkAvdelingsmapping.IsChecked = false;
             chkBrukere.IsChecked = false;
@@ -640,7 +659,6 @@ namespace UttrekkFamilia
             BarnetsNettverkBarnIsChecked = chkBarnetsNettverkBarn.IsChecked.Value;
             BarnetsNettverkIsChecked = chkBarnetsNettverk.IsChecked.Value;
             MeldingerIsChecked = chkMeldinger.IsChecked.Value;
-            MeldingerUtenSakIsChecked = chkMeldingerUtenSak.IsChecked.Value;
             UndersokelserIsChecked = chkUndersokelser.IsChecked.Value;
             AvdelingsmappingIsChecked = chkAvdelingsmapping.IsChecked.Value;
             BrukereIsChecked = chkBrukere.IsChecked.Value;
