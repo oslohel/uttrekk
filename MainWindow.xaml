@@ -76,11 +76,8 @@
             <TextBox x:Name="Doknumber" Canvas.Left="336" TextWrapping="NoWrap" Text="" Canvas.Top="153" Width="113" Height="22" TabIndex="8" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             <CheckBox Content="Kun akive saker" x:Name="chkOnlyActiveCases" IsChecked="False" TabIndex="26" Height="20" Canvas.Left="18" Canvas.Top="417" HorizontalAlignment="Left" VerticalAlignment="Top"/>
             <CheckBox Content="Kun passive saker" x:Name="chkOnlyPassiveCases" IsChecked="False" TabIndex="27" Height="20" Canvas.Left="133" Canvas.Top="417" HorizontalAlignment="Left" VerticalAlignment="Center" Width="149"/>
-            <TextBox x:Name="FOMKlientNr" Canvas.Left="294" TextWrapping="NoWrap" TextAlignment="Right" Text="0" Canvas.Top="414" Width="50" Height="22" TabIndex="7" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-            <TextBox x:Name="TOMKlientNr" Canvas.Left="389" TextWrapping="NoWrap" TextAlignment="Right" Text="2147483647" Canvas.Top="414" Width="75" Height="22" TabIndex="7" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-            <Label Content="F.o.m:" Height="26" Canvas.Left="253" Canvas.Top="412" Width="43" HorizontalAlignment="Left" VerticalAlignment="Center" RenderTransformOrigin="0.718,4.474"/>
-            <Label Content="T.o.m:" Height="26" Canvas.Left="346" Canvas.Top="411" Width="38" RenderTransformOrigin="0.718,4.474" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <Button x:Name="JsonInnhold" Content="Innhold JSON" Height="24" Width="100" Click="JsonInnhold_Click" Canvas.Left="18" Canvas.Top="370" TabIndex="18" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+            <CheckBox Content="Produksjon" x:Name="chkProduksjon" IsChecked="False" Height="20" Width="89" HorizontalAlignment="Left" Canvas.Left="363" Canvas.Top="71" VerticalAlignment="Center"/>
         </Canvas>
     </DockPanel>
 </Window>

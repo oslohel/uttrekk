@@ -422,6 +422,7 @@ namespace UttrekkFamilia
              {"1-6","Bvl._§_1-6_(gammel_lov)" },
              {"1-7","Bvl._§_1-7_(gammel_lov)" },
              {"2-1","Bvl._§_2-1_(gammel_lov)" },
+             {"2-2","Bvl._§_4-4._2.ledd_(gammel_lov)" },
              {"2-5","Bvl._§_2-5_(gammel_lov)" },
              {"3-1","Bvl._§_3-1_(gammel_lov)" },
              {"3-2 a","Bvl._§_3-2._bokstav_a_(gammel_lov)" },
@@ -861,7 +862,8 @@ namespace UttrekkFamilia
              {"43","Bl._§_43" },
              {"43a","Bl._§_43._bokstav_a" },
              {"fvl 2,1e","Fvl._§_2._bokstav_e" },
-             {"fvl. 19","Fvl._§_19" }
+             {"fvl. 19","Fvl._§_19" },
+             {"Freg10.4","Bvl._§_8-3" }
         };
 
         private readonly NameValueCollection HjemlerOversettelseNyTilGammelLov = new() {
@@ -882,7 +884,8 @@ namespace UttrekkFamilia
             {"§ 9-1","Bvl._§_4-22_(gammel_lov)" },
             {"§ 9-5","Bvl._§_4-22_(gammel_lov)" },
             {"43a","Bl._§_43._bokstav_a_(gammel_lov)" },
-            {"64,7.","Bl._§_64._7.ledd_(gammel_lov)" }
+            {"64,7.","Bl._§_64._7.ledd_(gammel_lov)" },
+            {"Freg10.4","Bvl._§_4-21_(gammel_lov)" }
         };
 
         private readonly NameValueCollection HjemlerEtterPlankodeGammelLov = new() {
@@ -936,7 +939,7 @@ namespace UttrekkFamilia
 
         private readonly NameValueCollection ÅrsakFlyttingFrakoder = new() {
             { "4.1","2.1_AVSLUTTET_I_HENHOLD_TIL_PLAN_VED_OPPSTART_AV_INSTITUSJONSOPPHOLDET" },
-            { "4.2","2.2_INSTITUSJONEN_BARNET_BOR_I_KLARER_IKKE_ÅDEKKE_BARNETS_BEHOV(MANGLENDE_KOMPETANSE_HOS_ANSATTE_BEBOERSAMMENSETNING_FYSISKE_FORHOLD_VED_INSTITUSJONEN_OSV)" },
+            { "4.2","2.2_INSTITUSJONEN_BARNET_BOR_I_KLARER_IKKE_Å_DEKKE_BARNETS_BEHOV_(MANGLENDE_KOMPETANSE_HOS_ANSATTE_BEBOERSAMMENSETNING_FYSISKE_FORHOLD_VED_INSTITUSJONEN_OSV)" },
             { "4.3","2.3_BARNET_HAR_BEHOV_FOR_ANNEN_TYPE_PLASSERINGSTILTAK_(ANNEN_TYPE_INSTITUSJON_TFCO_FOSTERHJEM_FORSTERKET_FOSTERHJEM_OSV.)" },
             { "4.4","2.4_BARNET_BLIR_MYNDIG_OG_VELGER_SELV_Å_FLYTTE_UT" },
             { "4.5","2.5_BARNET_TREKKER_SAMTYKKE" },
@@ -951,7 +954,7 @@ namespace UttrekkFamilia
             { "1.5","1.1.5_ANDRE_GRUNNER_(F.EKS._UENIGHET_OM_OPPDRAGETS_OMFANG,_ØKONOMI,_FORSTERKNINGSTILTAK_MV.)_(KREVER_PRESISERING)" },
             { "2.1","1.2.1_BARNET_HAR_BEHOV_FOSTERFORELDRE_IKKE_KAN_DEKKE\"" },
             { "2.2","1.2.2_ENDRING_I_FOSTERFORELDRES_LIVSSITUASJON_(SKILSMISSE_DØD_OSV.)" },
-            { "2,3","1.2.3_ANDRE_GRUNNER_(F.EKS.UENIGHET_OM_OPPDRAGETS_OMFANGØKONOMI_FORSTERKNINGSTILTAK_MANGLENDE_ELLER_LITE_EFFEKTIV_VEILEDNING_MV.)_(KREVER_PRESISERING)" }
+            { "2.3","1.2.3_ANDRE_GRUNNER_(F.EKS.UENIGHET_OM_OPPDRAGETS_OMFANGØKONOMI_FORSTERKNINGSTILTAK_MANGLENDE_ELLER_LITE_EFFEKTIV_VEILEDNING_MV.)_(KREVER_PRESISERING)" }
         };
 
         private readonly NameValueCollection ÅrsakFlyttingTilkoder = new() {
@@ -988,21 +991,21 @@ namespace UttrekkFamilia
 
         private readonly NameValueCollection BydelHovedsaksbehandlere = new() {
             { "BNS", "VISA" },
-            //TODO Mappings - BydelHovedsaksbehandlere - Legg inn hovedsaksbehandlere når dette blir avklart, mangler disse:
-            { "BUN", "KBER" },
+            { "BUN", "ANBE" },
             { "BNA", "AISO" },
             { "BSH", "ANIF" },
-            { "BAL", "MEKJ" },
-            { "BBJ", "BVKM" },
-            { "BFR", "BVMD" },
-            { "BGO", "TUJA" },
-            { "BGR", "LENE" },
-            { "BGA", "ARTA" },
-            { "BSA", "BVAI" },
-            { "BSR", "MLSK" },
-            { "BSN", "CAGR" },
-            { "BVA", "HEVA" },
-            { "BOS", "CETO" }
+            { "BAL", "GUOW" },
+            { "BBJ", "KIGR" },
+            { "BFR", "IELE" },
+            { "BGO", "INST" },
+            { "BGA", "MOAM" },
+            { "BSA", "MAHO" },
+            { "BSR", "ANBS" },
+            { "BSN", "SIGU" },
+            { "BOS", "MAOL" },
+            //TODO Mappings - BydelHovedsaksbehandlere - Legg inn hovedsaksbehandlere når dette blir avklart, mangler disse:
+            { "BVA", "HRA" },
+            { "BGR", "CHHV" }
         };
 
         private readonly List<string> Bydeler = new()

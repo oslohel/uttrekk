@@ -81,6 +81,10 @@ namespace UttrekkFamilia.Models
         public decimal UndInnhBarnAdferd { get; set; }
         public decimal UndInnhBarnKrim { get; set; }
         public decimal UndInnhBarnMennHandel { get; set; }
+        public decimal UndInnhPunkt28 { get; set; }
+        public decimal UndInnhPunkt29 { get; set; }
+        public decimal UndInnhPunkt30 { get; set; }
+        public decimal UndInnhPunkt31 { get; set; }
 
         public virtual FaDokumenter DokLoepenrNavigation { get; set; }
         public virtual FaDokumenter DokUplannrNavigation { get; set; }

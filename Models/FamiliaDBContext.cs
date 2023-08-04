@@ -8719,6 +8719,22 @@ namespace UttrekkFamilia.Models
                     .HasColumnType("numeric(1, 0)")
                     .HasColumnName("MEL_INNH_BARN_MENN_HANDEL");
 
+                entity.Property(e => e.MelInnhPunkt28)
+                    .HasColumnType("numeric(1, 0)")
+                    .HasColumnName("MEL_INNH_PUNKT28");
+
+                entity.Property(e => e.MelInnhPunkt29)
+                    .HasColumnType("numeric(1, 0)")
+                    .HasColumnName("MEL_INNH_PUNKT29");
+
+                entity.Property(e => e.MelInnhPunkt30)
+                    .HasColumnType("numeric(1, 0)")
+                    .HasColumnName("MEL_INNH_PUNKT30");
+
+                entity.Property(e => e.MelInnhPunkt31)
+                    .HasColumnType("numeric(1, 0)")
+                    .HasColumnName("MEL_INNH_PUNKT31");
+
                 entity.Property(e => e.MelInnhOmsorg)
                     .HasColumnType("numeric(1, 0)")
                     .HasColumnName("MEL_INNH_OMSORG");
@@ -19719,6 +19735,22 @@ namespace UttrekkFamilia.Models
                 entity.Property(e => e.UndInnhBarnMennHandel)
                     .HasColumnType("numeric(1, 0)")
                     .HasColumnName("UND_INNH_BARN_MENN_HANDEL");
+
+                entity.Property(e => e.UndInnhPunkt28)
+                    .HasColumnType("numeric(1, 0)")
+                    .HasColumnName("UND_INNH_PUNKT28");
+
+                entity.Property(e => e.UndInnhPunkt29)
+                    .HasColumnType("numeric(1, 0)")
+                    .HasColumnName("UND_INNH_PUNKT29");
+
+                entity.Property(e => e.UndInnhPunkt30)
+                    .HasColumnType("numeric(1, 0)")
+                    .HasColumnName("UND_INNH_PUNKT30");
+
+                entity.Property(e => e.UndInnhPunkt31)
+                    .HasColumnType("numeric(1, 0)")
+                    .HasColumnName("UND_INNH_PUNKT31");
 
                 entity.Property(e => e.UndInnhForeManglBeskyt)
                     .HasColumnType("numeric(1, 0)")

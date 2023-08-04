@@ -139,6 +139,10 @@ namespace UttrekkFamilia.Models
         public decimal MelInnhBarnAdferd { get; set; }
         public decimal MelInnhBarnKrim { get; set; }
         public decimal MelInnhBarnMennHandel { get; set; }
+        public decimal MelInnhPunkt28 { get; set; }
+        public decimal MelInnhPunkt29 { get; set; }
+        public decimal MelInnhPunkt30 { get; set; }
+        public decimal MelInnhPunkt31 { get; set; }
 
         public virtual FaDistrikt DisDistriktskodeNavigation { get; set; }
         public virtual FaDokumenter DokLoepenrNavigation { get; set; }
