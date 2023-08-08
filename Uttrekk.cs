@@ -1972,7 +1972,7 @@ namespace UttrekkFamilia
                             {
                                 while (reader.Read())
                                 {
-                                    await File.WriteAllBytesAsync(OutputFolderName + $"filer\\" + document.filId + ".pdf", (byte[])reader["FileDataBlob"]);
+                                    await File.WriteAllBytesAsync(OutputFolderName + $"filer\\" + document.filId, (byte[])reader["FileDataBlob"]);
                                 }
                                 commandMigrering = new($"Insert Into Filer{MigreringsdbPostfix} (FilNavn,Bydel,Dato) Values ('{document.filId}','{Bydelsforkortelse}',GETDATE())", connectionMigrering)
                                 {
@@ -2164,7 +2164,7 @@ namespace UttrekkFamilia
                             {
                                 while (reader.Read())
                                 {
-                                    await File.WriteAllBytesAsync(OutputFolderName + $"filer\\" + document.filId + ".pdf", (byte[])reader["FileDataBlob"]);
+                                    await File.WriteAllBytesAsync(OutputFolderName + $"filer\\" + document.filId, (byte[])reader["FileDataBlob"]);
                                 }
                                 commandMigrering = new($"Insert Into Filer{MigreringsdbPostfix} (FilNavn,Bydel,Dato) Values ('{document.filId}','{Bydelsforkortelse}',GETDATE())", connectionMigrering)
                                 {
@@ -2356,7 +2356,7 @@ namespace UttrekkFamilia
                             {
                                 while (reader.Read())
                                 {
-                                    await File.WriteAllBytesAsync(OutputFolderName + $"filer\\" + document.filId + ".pdf", (byte[])reader["FileDataBlob"]);
+                                    await File.WriteAllBytesAsync(OutputFolderName + $"filer\\" + document.filId, (byte[])reader["FileDataBlob"]);
                                 }
                                 commandMigrering = new($"Insert Into Filer{MigreringsdbPostfix} (FilNavn,Bydel,Dato) Values ('{document.filId}','{Bydelsforkortelse}',GETDATE())", connectionMigrering)
                                 {
@@ -2435,7 +2435,7 @@ namespace UttrekkFamilia
 
                                 if (!fileAlreadyWritten)
                                 {
-                                    await File.WriteAllBytesAsync(OutputFolderName + $"filer\\" + attachmentDocument.filId + ".pdf", attachment.FileDataBlob);
+                                    await File.WriteAllBytesAsync(OutputFolderName + $"filer\\" + attachmentDocument.filId, attachment.FileDataBlob);
                                     commandMigrering = new($"Insert Into Filer{MigreringsdbPostfix} (FilNavn,Bydel,Dato) Values ('{attachmentDocument.filId}','{Bydelsforkortelse}',GETDATE())", connectionMigrering)
                                     {
                                         CommandTimeout = 300
@@ -2705,7 +2705,7 @@ namespace UttrekkFamilia
                     };
                     if (melding.MelPersonnr.HasValue && melding.MelFoedselsdato.HasValue && melding.MelPersonnr.GetValueOrDefault() != 99999 && melding.MelPersonnr.GetValueOrDefault() != 00100 && melding.MelPersonnr.GetValueOrDefault() != 00200)
                     {
-                        sak.aktorId = await GetAktorIdFraBVVHvisFinnesAsync(sak.aktorId, melding.MelFoedselsdato.Value.ToString("ddMMyy") + melding.MelPersonnr);
+                        sak.aktorId = GetUnikActorId(null, melding.MelFoedselsdato.Value.ToString("ddMMyy") + melding.MelPersonnr, null, null);
                     }
                     if (sak.sluttDato.HasValue && sak.startDato.HasValue && sak.sluttDato.Value < sak.startDato.Value)
                     {
@@ -3007,7 +3007,7 @@ namespace UttrekkFamilia
                 {
                     worker.ReportProgress(0, $"Behandler uttrekk innbyggere - barn ({antall} av {totalAntall})...");
                 }
-                if (!mappings.IsOwner(klient.KliLoepenr))
+                if (!mappings.IsOwner(klient.KliLoepenr) && klient.KliFraannenkommune == 0)
                 {
                     continue;
                 }
@@ -3222,6 +3222,7 @@ namespace UttrekkFamilia
                         {
                             continue;
                         }
+                        innbygger.actorId = GetUnikActorId(null, innbygger.fodselsnummer, null, null);
                     }
                 }
                 if (melding.MelPersonnr.HasValue && melding.MelPersonnr.Value == 99999)
@@ -3676,7 +3677,7 @@ namespace UttrekkFamilia
                     {
                         worker.ReportProgress(0, $"Behandler uttrekk barnets nettverk - barnet ({antall} av {totalAntall})...");
                     }
-                    if (!mappings.IsOwner(klient.KliLoepenr))
+                    if (!mappings.IsOwner(klient.KliLoepenr) && klient.KliFraannenkommune == 0)
                     {
                         continue;
                     }
@@ -3744,7 +3745,7 @@ namespace UttrekkFamilia
                     {
                         worker.ReportProgress(0, $"Behandler uttrekk barnets nettverk ({antall} av {totalAntall})...");
                     }
-                    if (!mappings.IsOwner(klientTilknytning.KliLoepenr))
+                    if (!mappings.IsOwner(klientTilknytning.KliLoepenr) && klientTilknytning.KliLoepenrNavigation.KliFraannenkommune == 0)
                     {
                         continue;
                     }
@@ -4420,8 +4421,16 @@ namespace UttrekkFamilia
                                 }
                                 else
                                 {
-                                    undersøkelsesrapportAktivitet.saksbehandlerId = AddBydel(undersøkelse.MelLoepenrNavigation.KliLoepenrNavigation.SbhInitialer2);
-                                    undersøkelsesrapportAktivitet.utfortAvId = AddBydel(undersøkelse.MelLoepenrNavigation.KliLoepenrNavigation.SbhInitialer2);
+                                    if (!string.IsNullOrEmpty(undersøkelse.MelLoepenrNavigation.KliLoepenrNavigation.SbhInitialer2))
+                                    {
+                                        undersøkelsesrapportAktivitet.saksbehandlerId = AddBydel(undersøkelse.MelLoepenrNavigation.KliLoepenrNavigation.SbhInitialer2);
+                                        undersøkelsesrapportAktivitet.utfortAvId = AddBydel(undersøkelse.MelLoepenrNavigation.KliLoepenrNavigation.SbhInitialer2);
+                                    }
+                                    else
+                                    {
+                                        undersøkelsesrapportAktivitet.saksbehandlerId = AddBydel(mappings.GetHovedsaksbehandlerBydel(Bydelsforkortelse));
+                                        undersøkelsesrapportAktivitet.utfortAvId = AddBydel(mappings.GetHovedsaksbehandlerBydel(Bydelsforkortelse));
+                                    }
                                 }
                             }
                             DocumentToInclude documentToInclude = new()
@@ -4776,7 +4785,7 @@ namespace UttrekkFamilia
                     {
                         worker.ReportProgress(0, $"Behandler uttrekk vedtak ({antall} av {totalAntall})...");
                     }
-                    if (!mappings.IsOwner(saksJournal.KliLoepenr))
+                    if (!mappings.IsOwner(saksJournal.KliLoepenr) && saksJournal.KliLoepenrNavigation.KliFraannenkommune == 0)
                     {
                         continue;
                     }
@@ -5765,6 +5774,24 @@ namespace UttrekkFamilia
                                 utfortDato = planFamilia.TtpFerdigdato,
                                 utfortAvId = AddBydel(planFamilia.SbhInitialer)
                             };
+                            if (string.IsNullOrEmpty(planFamilia.SbhInitialer))
+                            {
+                                if (!string.IsNullOrEmpty(planFamilia.KliLoepenrNavigation.SbhInitialer))
+                                {
+                                    aktivitet.utfortAvId = AddBydel(planFamilia.KliLoepenrNavigation.SbhInitialer);
+                                }
+                                else
+                                {
+                                    if (!string.IsNullOrEmpty(planFamilia.KliLoepenrNavigation.SbhInitialer2))
+                                    {
+                                        aktivitet.utfortAvId = AddBydel(planFamilia.KliLoepenrNavigation.SbhInitialer2);
+                                    }
+                                    else
+                                    {
+                                        aktivitet.utfortAvId = AddBydel(mappings.GetHovedsaksbehandlerBydel(Bydelsforkortelse));
+                                    }
+                                }
+                            }
                             aktiviteter.Add(aktivitet);
 
                             DocumentToInclude documentToInclude = new()
@@ -5930,7 +5957,7 @@ namespace UttrekkFamilia
                 {
                     worker.ReportProgress(0, $"Behandler uttrekk tilsynsrapporter ({antall} av {totalAntall})...");
                 }
-                if (!mappings.IsOwner(postjournal.KliLoepenr.Value))
+                if (!mappings.IsOwner(postjournal.KliLoepenr.Value) && postjournal.KliLoepenrNavigation.KliFraannenkommune == 0)
                 {
                     continue;
                 }
@@ -5962,31 +5989,38 @@ namespace UttrekkFamilia
                     aktivitet.saksbehandlerId = AddBydel(postjournal.KliLoepenrNavigation.SbhInitialer);
                     aktivitet.utfortAvId = AddBydel(postjournal.KliLoepenrNavigation.SbhInitialer);
                 }
-                if (postjournal.PosDato.Year >= FirstInYearOfMigration.Year)
+                if (postjournal.KliLoepenrNavigation.KliFraannenkommune == 1)
                 {
-                    using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                    aktivitet.aktivitetsUnderType = "TILSYNSBESØK_I_TILSYNSKOMMUNE";
+                }
+                else
+                {
+                    if (postjournal.PosDato.Year >= FirstInYearOfMigration.Year)
                     {
-                        FaTiltak tiltak = await context.FaTiltaks
-                            .Where(m => m.KliLoepenr == postjournal.KliLoepenr
-                                && (
-                                m.TttTiltakstype == "14" ||
-                                m.TttTiltakstype == "15" ||
-                                m.TttTiltakstype == "16" ||
-                                m.TttTiltakstype == "17" ||
-                                m.TttTiltakstype == "18" ||
-                                m.TttTiltakstype == "103" ||
-                                m.TttTiltakstype == "104" ||
-                                m.TttTiltakstype == "105" ||
-                                m.TttTiltakstype == "106" ||
-                                m.TttTiltakstype == "107" ||
-                                m.TttTiltakstype == "108" ||
-                                m.TttTiltakstype == "109") &&
-                                (m.TilIverksattdato <= postjournal.PosDato))
-                            .OrderByDescending(b => b.TilIverksattdato)
-                            .FirstOrDefaultAsync();
-                        if (tiltak != null)
+                        using (var context = new FamiliaDBContext(ConnectionStringFamilia))
                         {
-                            aktivitet.tiltaksId = AddBydel(tiltak.TilLoepenr.ToString(), "TIL");
+                            FaTiltak tiltak = await context.FaTiltaks
+                                .Where(m => m.KliLoepenr == postjournal.KliLoepenr
+                                    && (
+                                    m.TttTiltakstype == "14" ||
+                                    m.TttTiltakstype == "15" ||
+                                    m.TttTiltakstype == "16" ||
+                                    m.TttTiltakstype == "17" ||
+                                    m.TttTiltakstype == "18" ||
+                                    m.TttTiltakstype == "103" ||
+                                    m.TttTiltakstype == "104" ||
+                                    m.TttTiltakstype == "105" ||
+                                    m.TttTiltakstype == "106" ||
+                                    m.TttTiltakstype == "107" ||
+                                    m.TttTiltakstype == "108" ||
+                                    m.TttTiltakstype == "109") &&
+                                    (m.TilIverksattdato <= postjournal.PosDato))
+                                .OrderByDescending(b => b.TilIverksattdato)
+                                .FirstOrDefaultAsync();
+                            if (tiltak != null)
+                            {
+                                aktivitet.tiltaksId = AddBydel(tiltak.TilLoepenr.ToString(), "TIL");
+                            }
                         }
                     }
                 }
@@ -6054,7 +6088,7 @@ namespace UttrekkFamilia
                 {
                     worker.ReportProgress(0, $"Behandler uttrekk postjournalaktiviteter ({antall} av {totalAntall})...");
                 }
-                if (!mappings.IsOwner(postjournal.KliLoepenr.Value))
+                if (!mappings.IsOwner(postjournal.KliLoepenr.Value) && postjournal.KliLoepenrNavigation.KliFraannenkommune == 0)
                 {
                     continue;
                 }
@@ -6069,6 +6103,15 @@ namespace UttrekkFamilia
                     notat = "Se dokument",
                     utfortDato = postjournal.PosFerdigdato
                 };
+                if (postjournal.PosDokumentnr.HasValue)
+                {
+                    string formattedDokumentNr = postjournal.PosDokumentnr.Value.ToString();
+                    if (formattedDokumentNr.Length < 5)
+                    {
+                        formattedDokumentNr = formattedDokumentNr.PadLeft(4, '0');
+                    }
+                    aktivitet.aktivitetId = $"{formattedDokumentNr}__" + aktivitet.aktivitetId;
+                }
                 if (!string.IsNullOrEmpty(postjournal.SbhInitialer))
                 {
                     aktivitet.saksbehandlerId = AddBydel(postjournal.SbhInitialer);
@@ -6153,7 +6196,7 @@ namespace UttrekkFamilia
                 rawData = await context.FaPostjournals.Include(x => x.KliLoepenrNavigation)
                     .Where(KlientPostJournalFilter())
                     .OrderBy(o => o.KliLoepenrNavigation.KliLoepenr)
-                    .Where(p => p.PosFerdigdato != null && p.PosSlettet == 1)
+                    .Where(p => p.PosFerdigdato != null && p.PosSlettet == 1 && p.KliLoepenrNavigation.KliFraannenkommune == 0)
                     .ToListAsync();
                 totalAntall = rawData.Count;
             }
@@ -6228,7 +6271,7 @@ namespace UttrekkFamilia
                 rawData = await context.FaPostjournals.Include(x => x.KliLoepenrNavigation)
                     .Where(KlientPostJournalFilter())
                     .OrderBy(o => o.KliLoepenrNavigation.KliLoepenr)
-                    .Where(p => p.PosSlettet != 1 && p.PosUnndrattinnsynIs == 0 && p.PosFerdigdato.HasValue && (p.PosBrevtype == "OB"))
+                    .Where(p => p.PosSlettet != 1 && p.PosUnndrattinnsynIs == 0 && p.PosFerdigdato.HasValue && (p.PosBrevtype == "OB") && p.KliLoepenrNavigation.KliFraannenkommune == 0)
                     .ToListAsync();
                 totalAntall = rawData.Count;
             }
@@ -6371,7 +6414,7 @@ namespace UttrekkFamilia
                 {
                     worker.ReportProgress(0, $"Behandler uttrekk interne saksforberedelser ({antall} av {totalAntall})...");
                 }
-                if (!mappings.IsOwner(postjournal.KliLoepenr.Value))
+                if (!mappings.IsOwner(postjournal.KliLoepenr.Value) && postjournal.KliLoepenrNavigation.KliFraannenkommune == 0)
                 {
                     continue;
                 }
@@ -6402,6 +6445,12 @@ namespace UttrekkFamilia
                     aktivitet.saksbehandlerId = AddBydel(postjournal.KliLoepenrNavigation.SbhInitialer);
                     aktivitet.utfortAvId = AddBydel(postjournal.KliLoepenrNavigation.SbhInitialer);
                 }
+                if (postjournal.KliLoepenrNavigation.KliFraannenkommune == 1)
+                {
+                    aktivitet.aktivitetsType = "ØVRIG_DOKUMENT";
+                    aktivitet.aktivitetsUnderType = "NOTAT";
+                }
+
                 aktiviteter.Add(aktivitet);
                 migrertAntall += 1;
                 if (postjournal.DokLoepenr.HasValue)
@@ -6459,7 +6508,7 @@ namespace UttrekkFamilia
                 {
                     worker.ReportProgress(0, $"Behandler uttrekk journaler ({antall} av {totalAntall})...");
                 }
-                if (!mappings.IsOwner(journal.KliLoepenr.Value))
+                if (!mappings.IsOwner(journal.KliLoepenr.Value) && journal.KliLoepenrNavigation.KliFraannenkommune == 0)
                 {
                     continue;
                 }
@@ -6537,6 +6586,11 @@ namespace UttrekkFamilia
                 else if (journal.JouVurderUnndratt == 1)
                 {
                     merknadInnsyn = "Vurder unndratt innsyn";
+                }
+                if (journal.KliLoepenrNavigation.KliFraannenkommune == 1 && aktivitet.aktivitetsType != "SAMLENOTAT")
+                {
+                    aktivitet.aktivitetsType = "ØVRIG_DOKUMENT";
+                    aktivitet.aktivitetsUnderType = "NOTAT";
                 }
                 if (journal.DokLoepenr.HasValue)
                 {
@@ -6653,7 +6707,7 @@ namespace UttrekkFamilia
                 {
                     worker.ReportProgress(0, $"Behandler uttrekk slettede journaler ({antall} av {totalAntall})...");
                 }
-                if (!mappings.IsOwner(journal.KliLoepenr.Value))
+                if (!mappings.IsOwner(journal.KliLoepenr.Value) && journal.KliLoepenrNavigation.KliFraannenkommune == 0)
                 {
                     continue;
                 }
@@ -7190,6 +7244,24 @@ namespace UttrekkFamilia
                                 utfortDato = planFamilia.TtpFerdigdato,
                                 utfortAvId = AddSpecificBydel(planFamilia.SbhInitialer, bydel)
                             };
+                            if (string.IsNullOrEmpty(planFamilia.SbhInitialer))
+                            {
+                                if (!string.IsNullOrEmpty(planFamilia.KliLoepenrNavigation.SbhInitialer))
+                                {
+                                    aktivitet.utfortAvId = AddSpecificBydel(planFamilia.KliLoepenrNavigation.SbhInitialer, bydel);
+                                }
+                                else
+                                {
+                                    if (!string.IsNullOrEmpty(planFamilia.KliLoepenrNavigation.SbhInitialer2))
+                                    {
+                                        aktivitet.utfortAvId = AddSpecificBydel(planFamilia.KliLoepenrNavigation.SbhInitialer2, bydel);
+                                    }
+                                    else
+                                    {
+                                        aktivitet.utfortAvId = AddSpecificBydel(mappings.GetHovedsaksbehandlerBydel(bydel), bydel);
+                                    }
+                                }
+                            }
                             aktiviteter.Add(aktivitet);
 
                             DocumentToInclude documentToInclude = new()
@@ -7614,8 +7686,16 @@ namespace UttrekkFamilia
                                 }
                                 else
                                 {
-                                    undersøkelsesrapportAktivitet.saksbehandlerId = AddSpecificBydel(undersøkelse.MelLoepenrNavigation.KliLoepenrNavigation.SbhInitialer2, bydel);
-                                    undersøkelsesrapportAktivitet.utfortAvId = AddSpecificBydel(undersøkelse.MelLoepenrNavigation.KliLoepenrNavigation.SbhInitialer2, bydel);
+                                    if (!string.IsNullOrEmpty(undersøkelse.MelLoepenrNavigation.KliLoepenrNavigation.SbhInitialer2))
+                                    {
+                                        undersøkelsesrapportAktivitet.saksbehandlerId = AddSpecificBydel(undersøkelse.MelLoepenrNavigation.KliLoepenrNavigation.SbhInitialer2, bydel);
+                                        undersøkelsesrapportAktivitet.utfortAvId = AddSpecificBydel(undersøkelse.MelLoepenrNavigation.KliLoepenrNavigation.SbhInitialer2, bydel);
+                                    }
+                                    else
+                                    {
+                                        undersøkelsesrapportAktivitet.saksbehandlerId = AddSpecificBydel(mappings.GetHovedsaksbehandlerBydel(bydel), bydel);
+                                        undersøkelsesrapportAktivitet.utfortAvId = AddSpecificBydel(mappings.GetHovedsaksbehandlerBydel(bydel), bydel);
+                                    }
                                 }
                             }
                             DocumentToInclude documentToInclude = new()
@@ -8277,6 +8357,10 @@ namespace UttrekkFamilia
             List<Aktivitet> aktiviteter = new();
             foreach (var postjournal in rawData)
             {
+                if (postjournal.KliLoepenrNavigation.KliFraannenkommune == 1)
+                {
+                    continue;
+                }
                 Aktivitet aktivitet = new()
                 {
                     aktivitetId = AddSpecificBydel(postjournal.PosAar.ToString() + postjournal.PosLoepenr.ToString(), "AKT", bydel),
@@ -8397,6 +8481,15 @@ namespace UttrekkFamilia
                     notat = "Se dokument",
                     utfortDato = postjournal.PosFerdigdato
                 };
+                if (postjournal.PosDokumentnr.HasValue)
+                {
+                    string formattedDokumentNr = postjournal.PosDokumentnr.Value.ToString();
+                    if (formattedDokumentNr.Length < 5)
+                    {
+                        formattedDokumentNr = formattedDokumentNr.PadLeft(4, '0');
+                    }
+                    aktivitet.aktivitetId = $"{formattedDokumentNr}__" + aktivitet.aktivitetId;
+                }
                 if (!string.IsNullOrEmpty(postjournal.SbhInitialer))
                 {
                     aktivitet.saksbehandlerId = AddSpecificBydel(postjournal.SbhInitialer, bydel);
@@ -9087,11 +9180,16 @@ namespace UttrekkFamilia
                             };
                             if (documentToInclude.dokumentNr.HasValue)
                             {
-                                document.dokumentId = AddSpecificBydel(documentFamilia.dokLoepenr.ToString() + $"__Nr{documentToInclude.dokumentNr.Value}", bydel);
+                                string formattedDokumentNr = documentToInclude.dokumentNr.Value.ToString();
+                                if (formattedDokumentNr.Length < 5)
+                                {
+                                    formattedDokumentNr = formattedDokumentNr.PadLeft(4, '0');
+                                }
+                                document.dokumentId = AddSpecificBydel($"{formattedDokumentNr}__" + documentFamilia.dokLoepenr.ToString(), bydel);
                             }
                             else
                             {
-                                document.dokumentId = AddSpecificBydel(documentFamilia.dokLoepenr.ToString(), bydel);
+                                document.dokumentId = AddSpecificBydel("INTE__" + documentFamilia.dokLoepenr.ToString(), bydel);
                             }
                             string fileExtension = ".doc";
                             string dokMimetype = documentFamilia.dokMimetype?.Trim();
@@ -10708,28 +10806,6 @@ namespace UttrekkFamilia
             }
             return exists;
         }
-        private async Task<string> GetAktorIdFraBVVHvisFinnesAsync(string aktorId, string fodselsnummer)
-        {
-            string newAktorId = aktorId;
-
-            using (var context = new BVVDBContext(ConnectionStringVFB))
-            {
-                PersonPerson person = await context.PersonPeople.Where(p => p.BirthNumber == fodselsnummer).FirstOrDefaultAsync();
-                if (person != null)
-                {
-                    ClientClient client = await context.ClientClients.Where(c => c.PersonId == person.PersonPersonId).FirstOrDefaultAsync();
-                    if (client is not null)
-                    {
-                        CaseCase caseCase = await context.CaseCases.Where(k => k.ClientId == client.ClientClientId && k.Type != 2 && k.Type != 3).FirstOrDefaultAsync();
-                        if (caseCase is not null)
-                        {
-                            newAktorId = GetActorId(person);
-                        }
-                    }
-                }
-            }
-            return newAktorId;
-        }
         private static bool IsValidMod11(string number)
         {
             string cleanNumber = new(number.Where(char.IsDigit).ToArray());
@@ -10908,17 +10984,17 @@ namespace UttrekkFamilia
             if (OnlyActiveCases)
             {
                 return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && !m.KliLoepenrNavigation.KliAvsluttetdato.HasValue
-                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+                    && m.KliLoepenrNavigation.KliFraannenkommune == 0;
             }
             else if (OnlyPassiveCases)
             {
                 return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && m.KliLoepenrNavigation.KliAvsluttetdato.HasValue
-                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+                    && m.KliLoepenrNavigation.KliFraannenkommune == 0;
             }
             else
             {
                 return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && (m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration || !m.KliLoepenrNavigation.KliAvsluttetdato.HasValue)
-                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+                    && m.KliLoepenrNavigation.KliFraannenkommune == 0;
             }
         }
         private Expression<Func<FaUndersoekelser, bool>> KlientUndersøkelseFilter()
@@ -10926,17 +11002,17 @@ namespace UttrekkFamilia
             if (OnlyActiveCases)
             {
                 return m => m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato.HasValue && !m.MelLoepenrNavigation.KliLoepenrNavigation.KliAvsluttetdato.HasValue
-                    && !(m.MelLoepenrNavigation.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.MelLoepenrNavigation.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+                    && m.MelLoepenrNavigation.KliLoepenrNavigation.KliFraannenkommune == 0;
             }
             else if (OnlyPassiveCases)
             {
                 return m => m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && m.MelLoepenrNavigation.KliLoepenrNavigation.KliAvsluttetdato.HasValue
-                    && !(m.MelLoepenrNavigation.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.MelLoepenrNavigation.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+                    && m.MelLoepenrNavigation.KliLoepenrNavigation.KliFraannenkommune == 0;
             }
             else
             {
                 return m => m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato.HasValue && (m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration || !m.MelLoepenrNavigation.KliLoepenrNavigation.KliAvsluttetdato.HasValue)
-                    && !(m.MelLoepenrNavigation.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.MelLoepenrNavigation.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.MelLoepenrNavigation.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+                    && m.MelLoepenrNavigation.KliLoepenrNavigation.KliFraannenkommune == 0;
             }
         }
         private Expression<Func<FaTiltak, bool>> KlientTiltakFilter()
@@ -10944,17 +11020,17 @@ namespace UttrekkFamilia
             if (OnlyActiveCases)
             {
                 return m => m.Sak != null && m.Sak.SakStatus != "BEH" && m.KliLoepenrNavigation.KliFoedselsdato.HasValue && !m.KliLoepenrNavigation.KliAvsluttetdato.HasValue
-                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+                    && m.KliLoepenrNavigation.KliFraannenkommune == 0;
             }
             else if (OnlyPassiveCases)
             {
                 return m => m.Sak != null && m.Sak.SakStatus != "BEH" && m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && m.KliLoepenrNavigation.KliAvsluttetdato.HasValue
-                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+                    && m.KliLoepenrNavigation.KliFraannenkommune == 0;
             }
             else
             {
                 return m => m.Sak != null && m.Sak.SakStatus != "BEH" && m.KliLoepenrNavigation.KliFoedselsdato.HasValue && (m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration || !m.KliLoepenrNavigation.KliAvsluttetdato.HasValue)
-                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+                    && m.KliLoepenrNavigation.KliFraannenkommune == 0;
             }
         }
         private Expression<Func<FaTiltaksplan, bool>> KlientPlanFilter()
@@ -10962,17 +11038,17 @@ namespace UttrekkFamilia
             if (OnlyActiveCases)
             {
                 return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && !m.KliLoepenrNavigation.KliAvsluttetdato.HasValue
-                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+                    && m.KliLoepenrNavigation.KliFraannenkommune == 0;
             }
             else if (OnlyPassiveCases)
             {
                 return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration && m.KliLoepenrNavigation.KliAvsluttetdato.HasValue
-                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+                    && m.KliLoepenrNavigation.KliFraannenkommune == 0;
             }
             else
             {
                 return m => m.KliLoepenrNavigation.KliFoedselsdato.HasValue && (m.KliLoepenrNavigation.KliFoedselsdato > LastDateNoMigration || !m.KliLoepenrNavigation.KliAvsluttetdato.HasValue)
-                    && !(m.KliLoepenrNavigation.KliFraannenkommune == 1 && (m.KliLoepenrNavigation.KliAvsluttetdato.HasValue || (m.KliLoepenrNavigation.KliFoedselsdato.HasValue && m.KliLoepenrNavigation.KliFoedselsdato <= FromDateMigrationTilsyn)));
+                    && m.KliLoepenrNavigation.KliFraannenkommune == 0;
             }
         }
         private Expression<Func<FaJournal, bool>> KlientJournalFilter()
