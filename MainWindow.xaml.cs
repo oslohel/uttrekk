@@ -84,6 +84,30 @@ namespace UttrekkFamilia
                 workerJsonInnhold.RunWorkerAsync();
             }
         }
+        private void OrgNoSjekk_Click(object sender, RoutedEventArgs e)
+        {
+            SetParameters();
+
+            using (BackgroundWorker workerJsonInnhold = new())
+            {
+                workerJsonInnhold.WorkerReportsProgress = true;
+                workerJsonInnhold.DoWork += WorkerOrgNoSjekk_DoWork;
+                workerJsonInnhold.ProgressChanged += Worker_ProgressChanged;
+                workerJsonInnhold.RunWorkerAsync();
+            }
+        }
+        private void AntallEntiteter_Click(object sender, RoutedEventArgs e)
+        {
+            SetParameters();
+
+            using (BackgroundWorker workerJsonInnhold = new())
+            {
+                workerJsonInnhold.WorkerReportsProgress = true;
+                workerJsonInnhold.DoWork += WorkerAntallEntiteter_DoWork;
+                workerJsonInnhold.ProgressChanged += Worker_ProgressChanged;
+                workerJsonInnhold.RunWorkerAsync();
+            }
+        }
         private void InfoBVVDatabase_Click(object sender, RoutedEventArgs e)
         {
             SetParameters();
@@ -251,6 +275,37 @@ namespace UttrekkFamilia
                 Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip, OnlyActiveCases, OnlyPassiveCases, ProduksjonIsChecked);
                 var worker = sender as BackgroundWorker;
                 uttrekk.GetJsonInnholdAsync(worker);
+            }
+            catch (AggregateException ex)
+            {
+                string message = $"Unhandled exception ({ex.Source}): {ex.Message} Stack trace: {ex.StackTrace}";
+                MessageBox.Show(message, "Migrering - Unhandled exception", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        private void WorkerOrgNoSjekk_DoWork(object sender, DoWorkEventArgs e)
+        {
+            try
+            {
+                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip, OnlyActiveCases, OnlyPassiveCases, ProduksjonIsChecked);
+                var worker = sender as BackgroundWorker;
+                var task = uttrekk.DoOrgNoSjekkAsync(worker);
+                task.Wait();
+            }
+            catch (AggregateException ex)
+            {
+                string message = $"Unhandled exception ({ex.Source}): {ex.Message} Stack trace: {ex.StackTrace}";
+                MessageBox.Show(message, "Migrering - Unhandled exception", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        private void WorkerAntallEntiteter_DoWork(object sender, DoWorkEventArgs e)
+        {
+            try
+            {
+                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip, OnlyActiveCases, OnlyPassiveCases, ProduksjonIsChecked);
+                var worker = sender as BackgroundWorker;
+                var task = uttrekk.GetInformationAntallEntiteterAsync(worker);
+                task.Wait();
+                worker.ReportProgress(0, "Telling antall entiteter alle bydeler ferdig.");
             }
             catch (AggregateException ex)
             {
