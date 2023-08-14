@@ -4956,7 +4956,7 @@ namespace UttrekkFamilia
                     try
                     {
                         connection.Open();
-                        SqlCommand command = new($"Select HRID,Fornavn,Etternavn,Epost From Brukere Where Upper(Virksomhet)='{Bydelsforkortelse}' And Upper(FamiliaID)='{initialer}'", connection)
+                        SqlCommand command = new($"Select PRKID,Fornavn,Etternavn,Epost From Brukere Where Upper(Virksomhet)='{Bydelsforkortelse}' And Upper(FamiliaID)='{initialer}'", connection)
                         {
                             CommandTimeout = 300
                         };
@@ -4965,7 +4965,10 @@ namespace UttrekkFamilia
                         {
                             while (reader.Read())
                             {
-                                bruker.okonomiEksternId = reader.GetString(0);
+                                if (!reader.IsDBNull(0))
+                                {
+                                    bruker.okonomiEksternId = GetModifisertPRKId(Convert.ToInt32(reader["PRKID"]));
+                                }
                                 if (!string.IsNullOrEmpty(reader.GetString(1)))
                                 {
                                     bruker.fulltNavn = reader.GetString(1).Trim();
@@ -10846,6 +10849,20 @@ namespace UttrekkFamilia
             {
                 return $"{bydel}{name.Trim()}";
             }
+        }
+        private static string GetModifisertPRKId(int prkId)
+        {
+            string modifisertPRKId = prkId.ToString();
+
+            if (modifisertPRKId.Length == 4)
+            {
+                modifisertPRKId = "90" + modifisertPRKId;
+            }
+            else if (modifisertPRKId.Length == 5)
+            {
+                modifisertPRKId = "9" + modifisertPRKId;
+            }
+            return modifisertPRKId;
         }
         private static string AddTextToStringIfNotEmpty(string original, string stringToAdd, string prefix)
         {
