@@ -755,6 +755,7 @@ namespace UttrekkFamilia
             OracleDataReader reader = null;
             try
             {
+                string originalBydelsforkortelse = Bydelsforkortelse;
                 worker.ReportProgress(0, "Innhenter informasjon fra Sokrates...");
                 string information = "INFORMASJON SOKRATES" + Environment.NewLine + Environment.NewLine;
                 worker.ReportProgress(0, "Teller antall rader alle tabeller i Sokrates...");
@@ -802,7 +803,7 @@ namespace UttrekkFamilia
                         {
                             clientId = reader.GetInt32(0);
                         }
-                        if (clientId==0)
+                        if (clientId == 0)
                         {
                             information += $"{bydel}: Klient: {klient.KliLoepenr} Fødselsnummer: {fodselsnummer}" + Environment.NewLine;
                         }
@@ -811,6 +812,33 @@ namespace UttrekkFamilia
                 fileName = $"{OutputFolderName}{DateTime.Now:yyyyMMdd_HHmm_}FamiliaIkkeSokrates.txt";
                 await File.WriteAllTextAsync(fileName, information);
                 worker.ReportProgress(0, $"Sjekk hvilke Familia-saker som ikke finnes i Sokrates lagret i filen {fileName}");
+
+                Bydelsforkortelse = originalBydelsforkortelse;
+                ConnectionStringFamilia = mappings.GetConnectionstring(Bydelsforkortelse, MainDBServer);
+                await ExtractSokratesAsync(worker, false);
+                worker.ReportProgress(0, "Sjekker hvilke Familia-saker som har flyttet fra bydelen i Sokrates...");
+                information = $"Utflyttet fra bydel {Bydelsforkortelse}" + Environment.NewLine + Environment.NewLine;
+                ConnectionStringFamilia = mappings.GetConnectionstring(Bydelsforkortelse, MainDBServer);
+                List<FaKlient> klienter;
+
+                using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                {
+                    klienter = await context.FaKlients
+                        .Where(KlientFilter())
+                        .OrderBy(o => o.KliLoepenr)
+                        .Where(k => k.KliFraannenkommune == 0)
+                        .ToListAsync();
+                }
+                foreach (var klient in klienter)
+                {
+                    if (!mappings.IsOwner(klient.KliLoepenr))
+                    {
+                        information += $"{klient.KliLoepenr}" + Environment.NewLine;
+                    }
+                }
+                fileName = $"{OutputFolderName}{DateTime.Now:yyyyMMdd_HHmm_}FamiliaUtflyttetSokrates.txt";
+                await File.WriteAllTextAsync(fileName, information);
+                worker.ReportProgress(0, $"Sjekk hvilke Familia-saker som har flyttet fra bydelen i Sokrates lagret i filen {fileName}");
             }
             catch (Exception ex)
             {
@@ -3341,6 +3369,7 @@ namespace UttrekkFamilia
                 if (klient.KliPersonnr.HasValue && klient.KliPersonnr.Value == 99999)
                 {
                     innbygger.ufodtBarn = true;
+                    innbygger.terminDato = klient.KliFoedselsdato;
                 }
                 bool hovetelefonBestemt = false;
                 if (!string.IsNullOrEmpty(klient.KliTelefonmobil))
@@ -3508,6 +3537,7 @@ namespace UttrekkFamilia
                 if (melding.MelPersonnr.HasValue && melding.MelPersonnr.Value == 99999)
                 {
                     innbygger.ufodtBarn = true;
+                    innbygger.terminDato = melding.MelFoedselsdato;
                 }
                 innbyggere.Add(innbygger);
             }
@@ -3693,6 +3723,10 @@ namespace UttrekkFamilia
                             }
                         }
                     }
+                    if (string.IsNullOrEmpty(innbygger.fodselsnummer))
+                    {
+                        innbygger.ukjentPerson = true;
+                    }
                     bool hovetelefonBestemt = false;
                     if (!string.IsNullOrEmpty(forbindelse.ForTelefonmobil))
                     {
@@ -3825,14 +3859,11 @@ namespace UttrekkFamilia
                         continue;
                     }
                     organisasjon.eksternId = organisasjon.actorId;
-                    if (forbindelse.FotIdents != null)
-                    {
-                        foreach (FaForbindelsestyper type in forbindelse.FotIdents)
-                        {
-                            GetOrganisasjonsKategori(organisasjon, type);
-                        }
-                    }
-                    if (forbindelse.ForBetalingsmaate == "L")
+
+                    GetOrganisasjonsKategori(organisasjon, forbindelse);
+
+                    string betalingsmåte = forbindelse.ForBetalingsmaate?.Trim().ToUpper();
+                    if (betalingsmåte == "L" || betalingsmåte == "I" || betalingsmåte == "F")
                     {
                         organisasjon.leverandørAvTiltak = "JA_ALM_TILTAK";
                     }
@@ -4219,7 +4250,7 @@ namespace UttrekkFamilia
                             documentsIncluded.Add(documentToInclude);
                         }
                     }
-                    if (meldingFamilia.PosGjennomdokAar.HasValue && meldingFamilia.PosGjennomdokLoepenr.HasValue)
+                    if ((meldingFamilia.PosGjennomdokAar.HasValue && meldingFamilia.PosGjennomdokLoepenr.HasValue) || meldingFamilia.DokLoepenr.HasValue)
                     {
                         FaPostjournal postJournal = null;
                         FaDokumenter dokument = null;
@@ -4230,18 +4261,25 @@ namespace UttrekkFamilia
                             {
                                 dokument = await context.FaDokumenters.Where(d => d.DokProdusert == 1 && d.DokDokument != null && postJournal.DokLoepenr.HasValue && d.DokLoepenr == postJournal.DokLoepenr.Value).FirstOrDefaultAsync();
                             }
+                            else
+                            {
+                                dokument = await context.FaDokumenters.Where(d => d.DokProdusert == 1 && d.DokDokument != null && meldingFamilia.DokLoepenr.HasValue && d.DokLoepenr == meldingFamilia.DokLoepenr).FirstOrDefaultAsync();
+                            }
                         }
                         if (dokument != null)
                         {
                             DocumentToInclude documentToInclude = new()
                             {
                                 dokLoepenr = dokument.DokLoepenr,
-                                dokumentNr = postJournal.PosDokumentnr,
                                 sakId = melding.sakId,
                                 tittel = "Meldingsgjennomgang",
                                 journalDato = melding.behandlingAvBekymringsmelding.konklusjonsdato,
                                 opprettetAvId = melding.behandlingAvBekymringsmelding.utfortAvId
                             };
+                            if (postJournal != null)
+                            {
+                                documentToInclude.dokumentNr = postJournal.PosDokumentnr;
+                            }
                             documentToInclude.aktivitetIdListe.Add(melding.behandlingAvBekymringsmelding.behandlingId);
                             documentsIncluded.Add(documentToInclude);
                         }
@@ -6358,7 +6396,7 @@ namespace UttrekkFamilia
                 rawData = await context.FaPostjournals.Include(x => x.KliLoepenrNavigation)
                     .Where(KlientPostJournalFilter())
                     .OrderBy(o => o.KliLoepenrNavigation.KliLoepenr)
-                    .Where(p => p.PosSlettet != 1 && p.PosUnndrattinnsynIs == 0 && p.PosFerdigdato.HasValue && (p.PosBrevtype == "KK" || p.PosBrevtype == "AS" || p.PosBrevtype == "AN" || p.PosBrevtype == "RF" || p.PosBrevtype == "RA" || p.PosBrevtype == "BR" || p.PosBrevtype == "TU" || p.PosBrevtype == "RS" || p.PosBrevtype == "RK" || p.PosBrevtype == "RM" || p.PosBrevtype == "RV" || p.PosBrevtype == "X"))
+                    .Where(p => p.PosSlettet != 1 && p.PosUnndrattinnsynIs == 0 && p.PosFerdigdato.HasValue && (p.PosBrevtype == "KK" || p.PosBrevtype == "AS" || p.PosBrevtype == "AN" || p.PosBrevtype == "RF" || p.PosBrevtype == "RA" || p.PosBrevtype == "BR" || p.PosBrevtype == "TU" || p.PosBrevtype == "RS" || p.PosBrevtype == "RK" || p.PosBrevtype == "RM" || p.PosBrevtype == "RV" || p.PosBrevtype == "X" || p.PosBrevtype == "TM"))
                     .ToListAsync();
                 totalAntall = rawData.Count;
             }
@@ -6387,6 +6425,19 @@ namespace UttrekkFamilia
                     notat = "Se dokument",
                     utfortDato = postjournal.PosFerdigdato
                 };
+                if (postjournal.PosBrevtype == "TM")
+                {
+                    using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                    {
+                        int antallMeldinger = await context.FaMeldingers
+                            .Where(p => p.PosSendtkonklAar == postjournal.PosAar && p.PosSendtkonklLoepenr == postjournal.PosLoepenr)
+                            .CountAsync();
+                        if (antallMeldinger > 0)
+                        {
+                            continue;
+                        }
+                    }
+                }
                 if (postjournal.PosDokumentnr.HasValue)
                 {
                     string formattedDokumentNr = postjournal.PosDokumentnr.Value.ToString();
@@ -7205,7 +7256,7 @@ namespace UttrekkFamilia
                             documentsIncluded.Add(documentToInclude);
                         }
                     }
-                    if (meldingFamilia.PosGjennomdokAar.HasValue && meldingFamilia.PosGjennomdokLoepenr.HasValue)
+                    if ((meldingFamilia.PosGjennomdokAar.HasValue && meldingFamilia.PosGjennomdokLoepenr.HasValue) || meldingFamilia.DokLoepenr.HasValue)
                     {
                         FaPostjournal postJournal = null;
                         FaDokumenter dokument = null;
@@ -7216,18 +7267,25 @@ namespace UttrekkFamilia
                             {
                                 dokument = await context.FaDokumenters.Where(d => d.DokProdusert == 1 && d.DokDokument != null && postJournal.DokLoepenr.HasValue && d.DokLoepenr == postJournal.DokLoepenr.Value).FirstOrDefaultAsync();
                             }
+                            else
+                            {
+                                dokument = await context.FaDokumenters.Where(d => d.DokProdusert == 1 && d.DokDokument != null && meldingFamilia.DokLoepenr.HasValue && d.DokLoepenr == meldingFamilia.DokLoepenr).FirstOrDefaultAsync();
+                            }
                         }
                         if (dokument != null)
                         {
                             DocumentToInclude documentToInclude = new()
                             {
                                 dokLoepenr = dokument.DokLoepenr,
-                                dokumentNr = postJournal.PosDokumentnr,
                                 sakId = melding.sakId,
                                 tittel = "Meldingsgjennomgang",
                                 journalDato = melding.behandlingAvBekymringsmelding.konklusjonsdato,
                                 opprettetAvId = melding.behandlingAvBekymringsmelding.utfortAvId
                             };
+                            if (postJournal != null)
+                            {
+                                documentToInclude.dokumentNr = postJournal.PosDokumentnr;
+                            }
                             documentToInclude.aktivitetIdListe.Add(melding.behandlingAvBekymringsmelding.behandlingId);
                             documentsIncluded.Add(documentToInclude);
                         }
@@ -8748,7 +8806,7 @@ namespace UttrekkFamilia
             {
                 rawData = await context.FaPostjournals.Include(x => x.KliLoepenrNavigation)
                     .Where(m => m.KliLoepenrNavigation.KliFoedselsdato == fodselsDato && m.KliLoepenrNavigation.KliPersonnr == personNummer)
-                    .Where(p => p.PosSlettet != 1 && p.PosUnndrattinnsynIs == 0 && p.PosFerdigdato.HasValue && (p.PosBrevtype == "KK" || p.PosBrevtype == "AS" || p.PosBrevtype == "AN" || p.PosBrevtype == "RF" || p.PosBrevtype == "RA" || p.PosBrevtype == "BR" || p.PosBrevtype == "TU" || p.PosBrevtype == "RS" || p.PosBrevtype == "RK" || p.PosBrevtype == "RM" || p.PosBrevtype == "RV" || p.PosBrevtype == "X"))
+                    .Where(p => p.PosSlettet != 1 && p.PosUnndrattinnsynIs == 0 && p.PosFerdigdato.HasValue && (p.PosBrevtype == "KK" || p.PosBrevtype == "AS" || p.PosBrevtype == "AN" || p.PosBrevtype == "RF" || p.PosBrevtype == "RA" || p.PosBrevtype == "BR" || p.PosBrevtype == "TU" || p.PosBrevtype == "RS" || p.PosBrevtype == "RK" || p.PosBrevtype == "RM" || p.PosBrevtype == "RV" || p.PosBrevtype == "X" || p.PosBrevtype == "TM"))
                     .ToListAsync();
             }
             List<Aktivitet> aktiviteter = new();
@@ -8765,6 +8823,19 @@ namespace UttrekkFamilia
                     notat = "Se dokument",
                     utfortDato = postjournal.PosFerdigdato
                 };
+                if (postjournal.PosBrevtype == "TM")
+                {
+                    using (var context = new FamiliaDBContext(mappings.GetConnectionstring(bydel, MainDBServer)))
+                    {
+                        int antallMeldinger = await context.FaMeldingers
+                            .Where(p => p.PosSendtkonklAar == postjournal.PosAar && p.PosSendtkonklLoepenr == postjournal.PosLoepenr)
+                            .CountAsync();
+                        if (antallMeldinger > 0)
+                        {
+                            continue;
+                        }
+                    }
+                }
                 if (postjournal.PosDokumentnr.HasValue)
                 {
                     string formattedDokumentNr = postjournal.PosDokumentnr.Value.ToString();
@@ -9729,102 +9800,129 @@ namespace UttrekkFamilia
                 throw;
             }
         }
-        private static void GetOrganisasjonsKategori(Organisasjon organisasjon, FaForbindelsestyper type)
+        private void GetOrganisasjonsKategori(Organisasjon organisasjon, FaForbindelser forbindelse)
         {
-            string typeCode = type.FotIdent?.Trim().ToUpper();
-            switch (typeCode)
+            SqlConnection connection = new(ConnectionStringFamilia);
+            SqlDataReader reader;
+
+            try
             {
-                case "ADV":
-                    organisasjon.kategori.Add("ADVOKAT");
-                    break;
-                case "AND":
-                case "VEI":
-                    organisasjon.kategori.Add("ANNET");
-                    break;
-                case "BHB":
-                    organisasjon.kategori.Add("BARNEHAGE");
-                    break;
-                case "INS":
-                    organisasjon.kategori.Add("BARNEVERNSINSTITUSJON");
-                    break;
-                case "BAR":
-                    organisasjon.kategori.Add("BARNEVERNSTJENESTE");
-                    break;
-                case "BER":
-                    organisasjon.kategori.Add("BEREDSKAPSHJEM");
-                    break;
-                case "BUP":
-                    organisasjon.kategori.Add("BUP");
-                    break;
-                case "DPS":
-                    organisasjon.kategori.Add("DPS");
-                    break;
-                case "FMR":
-                    organisasjon.kategori.Add("FAMILIERÅDSKOORDINATOR");
-                    break;
-                case "FVK":
-                    organisasjon.kategori.Add("FAMILIEVERNKONTOR");
-                    break;
-                case "FRI":
-                    organisasjon.kategori.Add("FRITIDSTILBUD");
-                    break;
-                case "HEL":
-                    organisasjon.kategori.Add("HELSESTASJON_SKOLEHELSETJENESTE");
-                    break;
-                case "KOM":
-                    organisasjon.kategori.Add("KOMMUNE_BYDEL");
-                    break;
-                case "KRS":
-                    organisasjon.kategori.Add("KRISESENTER");
-                    break;
-                case "LEG":
-                    organisasjon.kategori.Add("LEGE_LEGESENTER_LEGEVAKT");
-                    break;
-                case "SOS":
-                    organisasjon.kategori.Add("NAV");
-                    break;
-                case "POL":
-                    organisasjon.kategori.Add("POLITI");
-                    break;
-                case "PPT":
-                    organisasjon.kategori.Add("PPT");
-                    break;
-                case "PSY":
-                    organisasjon.kategori.Add("PSYKOLOG_PRIVAT");
-                    break;
-                case "RUS":
-                    organisasjon.kategori.Add("RUSBEHANDLING");
-                    break;
-                case "SAK":
-                    organisasjon.kategori.Add("SAKKYNDIG");
-                    break;
-                case "SFO":
-                    organisasjon.kategori.Add("SFO_AKTIVITETSSKOLE");
-                    break;
-                case "SKO":
-                    organisasjon.kategori.Add("SKOLE");
-                    break;
-                case "SYK":
-                    organisasjon.kategori.Add("SYKEHUS");
-                    break;
-                case "TAN":
-                    organisasjon.kategori.Add("TANNHELSE");
-                    break;
-                case "PRA":
-                    organisasjon.kategori.Add("TILTAKSUTFØRER");
-                    break;
-                case "TLK":
-                    organisasjon.kategori.Add("TOLK");
-                    break;
-                case "TRA":
-                    organisasjon.kategori.Add("TRANSPORT");
-                    break;
-                case "VEN":
-                    organisasjon.kategori.Add("VENTEHJEM");
-                    break;
-                case "MYN":
-                    organisasjon.kategori.Add("ØVRIGE_MYNDIGHETER");
-                    break;
+                connection.Open();
+                SqlCommand command = new($"Select Fot_Ident From FA_FORBINDELSESROLLER Where For_loepenr={forbindelse.ForLoepenr}", connection)
+                {
+                    CommandTimeout = 300
+                };
+                reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    string typeCode = null;
+                    if (!string.IsNullOrEmpty(reader[0].ToString()))
+                    {
+                        typeCode = reader.GetString(0);
+                        typeCode = typeCode?.Trim().ToUpper();
+
+                        switch (typeCode)
+                        {
+                            case "ADV":
+                                organisasjon.kategori.Add("ADVOKAT");
+                                break;
+                            case "AND":
+                            case "VEI":
+                                organisasjon.kategori.Add("ANNET");
+                                break;
+                            case "BHB":
+                                organisasjon.kategori.Add("BARNEHAGE");
+                                break;
+                            case "INS":
+                                organisasjon.kategori.Add("BARNEVERNSINSTITUSJON");
+                                break;
+                            case "BAR":
+                                organisasjon.kategori.Add("BARNEVERNSTJENESTE");
+                                break;
+                            case "BER":
+                                organisasjon.kategori.Add("BEREDSKAPSHJEM");
+                                break;
+                            case "BUP":
+                                organisasjon.kategori.Add("BUP");
+                                break;
+                            case "DPS":
+                                organisasjon.kategori.Add("DPS");
+                                break;
+                            case "FMR":
+                                organisasjon.kategori.Add("FAMILIERÅDSKOORDINATOR");
+                                break;
+                            case "FVK":
+                                organisasjon.kategori.Add("FAMILIEVERNKONTOR");
+                                break;
+                            case "FRI":
+                                organisasjon.kategori.Add("FRITIDSTILBUD");
+                                break;
+                            case "HEL":
+                                organisasjon.kategori.Add("HELSESTASJON_SKOLEHELSETJENESTE");
+                                break;
+                            case "KOM":
+                                organisasjon.kategori.Add("KOMMUNE_BYDEL");
+                                break;
+                            case "KRS":
+                                organisasjon.kategori.Add("KRISESENTER");
+                                break;
+                            case "LEG":
+                                organisasjon.kategori.Add("LEGE_LEGESENTER_LEGEVAKT");
+                                break;
+                            case "SOS":
+                                organisasjon.kategori.Add("NAV");
+                                break;
+                            case "POL":
+                                organisasjon.kategori.Add("POLITI");
+                                break;
+                            case "PPT":
+                                organisasjon.kategori.Add("PPT");
+                                break;
+                            case "PSY":
+                                organisasjon.kategori.Add("PSYKOLOG_PRIVAT");
+                                break;
+                            case "RUS":
+                                organisasjon.kategori.Add("RUSBEHANDLING");
+                                break;
+                            case "SAK":
+                                organisasjon.kategori.Add("SAKKYNDIG");
+                                break;
+                            case "SFO":
+                                organisasjon.kategori.Add("SFO_AKTIVITETSSKOLE");
+                                break;
+                            case "SKO":
+                                organisasjon.kategori.Add("SKOLE");
+                                break;
+                            case "SYK":
+                                organisasjon.kategori.Add("SYKEHUS");
+                                break;
+                            case "TAN":
+                                organisasjon.kategori.Add("TANNHELSE");
+                                break;
+                            case "PRA":
+                                organisasjon.kategori.Add("TILTAKSUTFØRER");
+                                break;
+                            case "TLK":
+                                organisasjon.kategori.Add("TOLK");
+                                break;
+                            case "TRA":
+                                organisasjon.kategori.Add("TRANSPORT");
+                                break;
+                            case "VEN":
+                                organisasjon.kategori.Add("VENTEHJEM");
+                                break;
+                            case "MYN":
+                                organisasjon.kategori.Add("ØVRIGE_MYNDIGHETER");
+                                break;
+                        }
+
+                    }
+                }
+                reader.Close();
+            }
+            finally
+            {
+                connection.Close();
             }
         }
         private static void GetNettverksRolle(FaKlienttilknytning klientTilknytning, BarnetsNettverk forbindelse)

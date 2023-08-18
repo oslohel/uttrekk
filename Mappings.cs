@@ -1003,7 +1003,6 @@ namespace UttrekkFamilia
             { "BSR", "ANBS" },
             { "BSN", "SIGU" },
             { "BOS", "MAOL" },
-            //TODO Mappings - BydelHovedsaksbehandlere - Legg inn hovedsaksbehandlere når dette blir avklart, mangler disse:
             { "BVA", "HRA" },
             { "BGR", "CHHV" }
         };
