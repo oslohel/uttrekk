@@ -48,7 +48,7 @@
                         <CheckBox Content="Vedtak" x:Name="chkVedtak" IsChecked="True" Height="19"/>
                         <CheckBox Content="Tiltak" x:Name="chkTiltak" IsChecked="True" Height="19"/>
                         <CheckBox Content="Planer" x:Name="chkPlaner" IsChecked="True" Height="19"/>
-                        <CheckBox Content="Aktivteter" x:Name="chkAktiviteter" IsChecked="True" Height="19"/>
+                        <CheckBox Content="Aktiviteter" x:Name="chkAktiviteter" IsChecked="True" Height="19"/>
                     </StackPanel>
                 </Grid>
             </GroupBox>

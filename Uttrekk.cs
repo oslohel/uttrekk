@@ -3527,10 +3527,6 @@ namespace UttrekkFamilia
                     if (string.IsNullOrEmpty(melding.MelGmlreferanse))
                     {
                         innbygger.fodselsnummer = melding.MelFoedselsdato.Value.ToString("ddMMyy") + melding.MelPersonnr;
-                        //if (await ExistsInBVVAsync(innbygger.fodselsnummer))
-                        //{
-                        //    continue;
-                        //}
                         innbygger.actorId = GetUnikActorId(null, innbygger.fodselsnummer, null, null);
                     }
                 }
@@ -3538,6 +3534,17 @@ namespace UttrekkFamilia
                 {
                     innbygger.ufodtBarn = true;
                     innbygger.terminDato = melding.MelFoedselsdato;
+                }
+                if (melding.MelPersonnr.GetValueOrDefault() == 00100)
+                {
+                    innbygger.kjonn = "MANN";
+                }
+                else
+                {
+                    if (melding.MelPersonnr.GetValueOrDefault() == 00200)
+                    {
+                        innbygger.kjonn = "KVINNE";
+                    }
                 }
                 innbyggere.Add(innbygger);
             }
@@ -3593,6 +3600,23 @@ namespace UttrekkFamilia
                     if (antall % 10 == 0)
                     {
                         worker.ReportProgress(0, $"Behandler uttrekk innbyggere ({antall} av {totalAntall})...");
+                    }
+                    bool inkludert = false;
+                    using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                    {
+                        List<FaKlienttilknytning> klienttilknytninger = await context.FaKlienttilknytnings.Where(f => f.ForLoepenr == forbindelse.ForLoepenr).ToListAsync();
+                        foreach (FaKlienttilknytning klienttilknytning in klienttilknytninger)
+                        { 
+                            if (mappings.IsOwner(klienttilknytning.KliLoepenr))
+                            {
+                                inkludert = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!inkludert)
+                    {
+                        continue;
                     }
                     Innbygger innbygger = new()
                     {
@@ -5187,7 +5211,7 @@ namespace UttrekkFamilia
                             }
                         }
                     }
-                    if (saksJournal.SakAvgjortdato.HasValue)
+                    if (saksJournal.SakAvgjortdato.HasValue || saksJournal.SakBortfaltdato.HasValue)
                     {
                         vedtak.status = "UTFØRT";
                     }
@@ -5235,8 +5259,9 @@ namespace UttrekkFamilia
                     if (saksJournal.SakStatus == "AVS")
                     {
                         vedtak.avsluttetStatusDato = saksJournal.SakAvgjortdato;
+                        vedtak.godkjentStatusDato = null;
                     }
-                    else if (saksJournal.SakStatus == "BOR")
+                    else if (saksJournal.SakStatus == "BOR" || saksJournal.SakStatus == "OHV")
                     {
                         vedtak.bortfaltStatusDato = saksJournal.SakBortfaltdato;
                     }
@@ -6140,7 +6165,10 @@ namespace UttrekkFamilia
                                 foreldresSynspunkt = "Se dokument",
                                 evaluering = "Se dokument"
                             };
-
+                            if (!tiltaksEvaluering.EvaUtfoertdato.HasValue)
+                            {
+                                continue;
+                            }
                             if (tiltaksEvaluering.EvaUtfoertdato.HasValue)
                             {
                                 planEvaluering.status = "UTFØRT";
@@ -7622,6 +7650,10 @@ namespace UttrekkFamilia
                     {
                         foreach (var tiltaksEvaluering in planFamilia.FaTiltaksplanevalueringers)
                         {
+                            if (!tiltaksEvaluering.EvaUtfoertdato.HasValue)
+                            {
+                                continue;
+                            }
                             PlanEvaluering planEvaluering = new()
                             {
                                 planlagtEvalueringsDato = tiltaksEvaluering.EvaPlanlagtdato,
@@ -7630,7 +7662,6 @@ namespace UttrekkFamilia
                                 foreldresSynspunkt = "Se dokument",
                                 evaluering = "Se dokument"
                             };
-
                             if (tiltaksEvaluering.EvaUtfoertdato.HasValue)
                             {
                                 planEvaluering.status = "UTFØRT";
@@ -8184,7 +8215,7 @@ namespace UttrekkFamilia
                             }
                         }
                     }
-                    if (saksJournal.SakAvgjortdato.HasValue)
+                    if (saksJournal.SakAvgjortdato.HasValue || saksJournal.SakBortfaltdato.HasValue)
                     {
                         vedtak.status = "UTFØRT";
                     }
@@ -8232,8 +8263,9 @@ namespace UttrekkFamilia
                     if (saksJournal.SakStatus == "AVS")
                     {
                         vedtak.avsluttetStatusDato = saksJournal.SakAvgjortdato;
+                        vedtak.godkjentStatusDato = null;
                     }
-                    else if (saksJournal.SakStatus == "BOR")
+                    else if (saksJournal.SakStatus == "BOR" || saksJournal.SakStatus == "OHV")
                     {
                         vedtak.bortfaltStatusDato = saksJournal.SakBortfaltdato;
                     }
