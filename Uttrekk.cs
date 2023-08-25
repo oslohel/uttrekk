@@ -322,9 +322,9 @@ namespace UttrekkFamilia
                             if (!string.IsNullOrEmpty(reader[0].ToString()))
                             {
                                 Int64 size = reader.GetInt64(0);
-                                Decimal sizeDecimal = Decimal.Divide(size, 1024);
-                                sizeDecimal = Decimal.Divide(sizeDecimal, 1024);
-                                sizeDecimal = Decimal.Divide(sizeDecimal, 1024);
+                                decimal sizeDecimal = decimal.Divide(size, 1024);
+                                sizeDecimal = decimal.Divide(sizeDecimal, 1024);
+                                sizeDecimal = decimal.Divide(sizeDecimal, 1024);
                                 information += Environment.NewLine + $"{sizeDecimal,10:0.0}: Totalt GB med dokumenter";
                             }
                             else
@@ -348,8 +348,8 @@ namespace UttrekkFamilia
                             if (!string.IsNullOrEmpty(reader[0].ToString()))
                             {
                                 Int64 size = reader.GetInt64(0);
-                                Decimal sizeDecimal = Decimal.Divide(size, 1024);
-                                sizeDecimal = Decimal.Divide(sizeDecimal, 1024);
+                                decimal sizeDecimal = decimal.Divide(size, 1024);
+                                sizeDecimal = decimal.Divide(sizeDecimal, 1024);
                                 information += Environment.NewLine + $"{sizeDecimal,10:0.0}: Antall MB for {counter}.største dokument";
                                 counter += 1;
                             }
@@ -2927,12 +2927,25 @@ namespace UttrekkFamilia
                     {
                         sak.status = "LUKKET";
                     }
-                    saker.Add(sak);
                     if (mappings.HarTidligereBydeler(klient.KliLoepenr))
                     {
-                        await GetDataTidligereBydelerAsync(worker, klient.KliFoedselsdato.Value, klient.KliPersonnr.Value, sak.sakId, sak.tidligereAvdelingListe);
+                        await GetDataTidligereBydelerAsync(worker, klient.KliFoedselsdato.Value, klient.KliPersonnr.Value, sak);
                     }
-                    await GetMeldingerUtenSakForKlientAsync(worker, klient.KliLoepenr, sak.sakId, klient.KliFoedselsdato.Value, klient.KliPersonnr.Value);
+                    await GetMeldingerUtenSakForKlientAsync(worker, klient.KliLoepenr, sak, klient.KliFoedselsdato.Value, klient.KliPersonnr.Value);
+                    using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                    {
+                        List<FaMeldinger> meldinger = await context.FaMeldingers
+                            .Where(m => m.KliLoepenr == klient.KliLoepenr && m.MelAvsluttetgjennomgang.HasValue && m.MelMeldingstype != "UGR")
+                            .ToListAsync();
+                        foreach (FaMeldinger melding in meldinger)
+                        {
+                            if (melding.MelMottattdato < sak.startDato)
+                            {
+                                sak.startDato = melding.MelMottattdato;
+                            }
+                        }
+                    }
+                    saker.Add(sak);
                     migrertAntall += 1;
                 }
                 int toSkip = 0;
@@ -3175,6 +3188,7 @@ namespace UttrekkFamilia
                     using (var context = new FamiliaDBContext(ConnectionStringFamilia))
                     {
                         numberOfActiveContracts = await context.FaEngasjementsavtales.Where(e => e.EngAvgjortdato.HasValue && e.EngStatus != "BOR" && e.EngStatus != "BEH" && e.EngStatus != "KLR"
+                            && medarbeider.ForLoepenr == e.ForLoepenr
                             && (e.EngTildato >= FirstInYearOfMigration)).CountAsync();
                     }
                     if (numberOfActiveContracts == 0)
@@ -3646,6 +3660,17 @@ namespace UttrekkFamilia
                     FaForbindelser medarbeider = rawDataMedarbeidere.Find(m => m.ForLoepenr == forbindelse.ForLoepenr);
                     if (medarbeider is not null)
                     {
+                        int numberOfActiveContracts = 0;
+                        using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                        {
+                            numberOfActiveContracts = await context.FaEngasjementsavtales.Where(e => e.EngAvgjortdato.HasValue && e.EngStatus != "BOR" && e.EngStatus != "BEH" && e.EngStatus != "KLR"
+                                && medarbeider.ForLoepenr == e.ForLoepenr
+                                && (e.EngTildato >= FirstInYearOfMigration)).CountAsync();
+                        }
+                        if (numberOfActiveContracts == 0)
+                        {
+                            continue;
+                        }
                         bool actorAlreadyWritten = false;
 
                         SqlConnection connectionMigrering = new(ConnectionStringMigrering);
@@ -4395,7 +4420,7 @@ namespace UttrekkFamilia
                 throw;
             }
         }
-        public async Task<string> GetMeldingerUtenSakForKlientAsync(BackgroundWorker worker, decimal kliLoepenr, string sakId, DateTime fodselsDato, decimal personNummer)
+        public async Task<string> GetMeldingerUtenSakForKlientAsync(BackgroundWorker worker, decimal kliLoepenr, Sak sak, DateTime fodselsDato, decimal personNummer)
         {
             try
             {
@@ -4411,12 +4436,19 @@ namespace UttrekkFamilia
                 }
                 List<Melding> meldinger = new();
                 List<DocumentToInclude> documentsIncluded = new();
-                int migrertAntall = await UttrekkMeldingerAsync(true, rawData, meldinger, documentsIncluded, worker, totalAntall, "meldinger uten sak", sakId); ;
+                int migrertAntall = await UttrekkMeldingerAsync(true, rawData, meldinger, documentsIncluded, worker, totalAntall, "meldinger uten sak", sak.sakId); ;
                 await GetDocumentsAsync(worker, "MeldingerUtensak", documentsIncluded);
                 int toSkip = 0;
                 int fileNumber = 1;
                 List<Melding> meldingerDistinct = meldinger.GroupBy(c => c.meldingId).Select(s => s.First()).ToList();
                 int antallEntiteter = meldingerDistinct.Count;
+                foreach (Melding melding in meldingerDistinct)
+                {
+                    if (melding.mottattBekymringsmelding.mottattDato < sak.startDato)
+                    {
+                        sak.startDato = melding.mottattBekymringsmelding.mottattDato;
+                    }
+                }
                 while (antallEntiteter > toSkip)
                 {
                     List<Melding> meldingerPart = meldingerDistinct.OrderBy(o => o.meldingId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
@@ -4618,6 +4650,11 @@ namespace UttrekkFamilia
                         {
                             undersøkelseUtvidelseFristAktivitet.saksbehandlerId = GetBrukerId(undersøkelse.MelLoepenrNavigation.KliLoepenrNavigation.SbhInitialer);
                             undersøkelseUtvidelseFristAktivitet.utfortAvId = GetBrukerId(undersøkelse.MelLoepenrNavigation.KliLoepenrNavigation.SbhInitialer);
+                            if (string.IsNullOrEmpty(undersøkelseUtvidelseFristAktivitet.utfortAvId))
+                            {
+                                undersøkelseUtvidelseFristAktivitet.saksbehandlerId = GetBrukerId(mappings.GetHovedsaksbehandlerBydel(Bydelsforkortelse));
+                                undersøkelseUtvidelseFristAktivitet.utfortAvId = GetBrukerId(mappings.GetHovedsaksbehandlerBydel(Bydelsforkortelse));
+                            }
                         }
                         if (string.IsNullOrEmpty(undersøkelseUtvidelseFristAktivitet.notat))
                         {
@@ -4715,6 +4752,11 @@ namespace UttrekkFamilia
                             {
                                 undersøkelsesplanAktivitet.saksbehandlerId = GetBrukerId(undersøkelse.MelLoepenrNavigation.KliLoepenrNavigation.SbhInitialer);
                                 undersøkelsesplanAktivitet.utfortAvId = GetBrukerId(undersøkelse.MelLoepenrNavigation.KliLoepenrNavigation.SbhInitialer);
+                                if (string.IsNullOrEmpty(undersøkelsesplanAktivitet.utfortAvId))
+                                {
+                                    undersøkelsesplanAktivitet.saksbehandlerId = GetBrukerId(mappings.GetHovedsaksbehandlerBydel(Bydelsforkortelse));
+                                    undersøkelsesplanAktivitet.utfortAvId = GetBrukerId(mappings.GetHovedsaksbehandlerBydel(Bydelsforkortelse));
+                                }
                             }
                             DocumentToInclude documentToInclude = new()
                             {
@@ -6200,6 +6242,10 @@ namespace UttrekkFamilia
                                         utfortDato = tiltaksEvaluering.EvaFerdigdato,
                                         utfortAvId = GetBrukerId(tiltaksEvaluering.SbhInitialer)
                                     };
+                                    if (string.IsNullOrEmpty(aktivitet.utfortAvId))
+                                    {
+                                        aktivitet.utfortAvId = GetBrukerId(planFamilia.SbhInitialer);
+                                    }
                                     if (aktivitet.hendelsesdato == null)
                                     {
                                         aktivitet.hendelsesdato = aktivitet.utfortDato;
@@ -6941,6 +6987,10 @@ namespace UttrekkFamilia
                         }
                     }
                 }
+                if (string.IsNullOrEmpty(aktivitet.utfortAvId))
+                {
+                    aktivitet.utfortAvId = GetBrukerId(journal.KliLoepenrNavigation.SbhInitialer);
+                }
                 string merknadInnsyn = "";
                 if (aktivitet.aktivitetsType == "INTERN_SAKSFORBEREDELSE(FVL_§_18.A)" || journal.JouUnndrattinnsyn == 1)
                 {
@@ -7198,21 +7248,21 @@ namespace UttrekkFamilia
         #endregion
 
         #region Tidligere bydeler
-        private async Task GetDataTidligereBydelerAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, string sakId, List<TidligereAvdeling> tidligereAvdelinger)
+        private async Task GetDataTidligereBydelerAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, Sak sak)
         {
             try
             {
-                List<string> avdelinger = tidligereAvdelinger.Select(r => r.avdelingId[..3]).Distinct().ToList();
+                List<string> avdelinger = sak.tidligereAvdelingListe.Select(r => r.avdelingId[..3]).Distinct().ToList();
                 foreach (var tidligereBydel in avdelinger)
                 {
                     if (tidligereBydel != Bydelsforkortelse)
                     {
-                        await GetMeldingerTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, tidligereBydel);
-                        await GetPlanerTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, tidligereBydel);
-                        await GetUndersokelserTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, tidligereBydel);
-                        await GetVedtakTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, tidligereBydel);
-                        await GetTiltakTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, tidligereBydel);
-                        await GetAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, tidligereBydel);
+                        await GetMeldingerTidligereBydelAsync(worker, fodselsDato, personNummer, sak, tidligereBydel);
+                        await GetPlanerTidligereBydelAsync(worker, fodselsDato, personNummer, sak.sakId, tidligereBydel);
+                        await GetUndersokelserTidligereBydelAsync(worker, fodselsDato, personNummer, sak.sakId, tidligereBydel);
+                        await GetVedtakTidligereBydelAsync(worker, fodselsDato, personNummer, sak.sakId, tidligereBydel);
+                        await GetTiltakTidligereBydelAsync(worker, fodselsDato, personNummer, sak.sakId, tidligereBydel);
+                        await GetAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sak.sakId, tidligereBydel);
                     }
                 }
             }
@@ -7223,7 +7273,7 @@ namespace UttrekkFamilia
                 throw;
             }
         }
-        private async Task GetMeldingerTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, Decimal personNummer, string sakId, string bydel)
+        private async Task GetMeldingerTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, Sak sak, string bydel)
         {
             try
             {
@@ -7243,7 +7293,7 @@ namespace UttrekkFamilia
                 {
                     Melding melding = new()
                     {
-                        sakId = sakId,
+                        sakId = sak.sakId,
                         meldingId = AddSpecificBydel(meldingFamilia.MelLoepenr.ToString(), "MEL", bydel),
                         mottattBekymringsmelding = GetMottattBekymringsmelding(meldingFamilia, bydel),
                         behandlingAvBekymringsmelding = GetBehandlingAvBekymringsmelding(meldingFamilia, bydel),
@@ -7360,6 +7410,13 @@ namespace UttrekkFamilia
                 int fileNumber = 1;
                 List<Melding> meldingerDistinct = meldinger.GroupBy(c => c.meldingId).Select(s => s.First()).ToList();
                 int migrertAntall = meldingerDistinct.Count;
+                foreach (Melding melding in meldingerDistinct)
+                {
+                    if (melding.mottattBekymringsmelding.mottattDato < sak.startDato)
+                    {
+                        sak.startDato = melding.mottattBekymringsmelding.mottattDato;
+                    }
+                }
                 string guid = Guid.NewGuid().ToString().Replace('-', '_');
                 while (migrertAntall > toSkip)
                 {
@@ -7376,7 +7433,7 @@ namespace UttrekkFamilia
                 throw;
             }
         }
-        public async Task GetPlanerTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, Decimal personNummer, string sakId, string bydel)
+        public async Task GetPlanerTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
         {
             try
             {
@@ -7693,6 +7750,10 @@ namespace UttrekkFamilia
                                         utfortDato = tiltaksEvaluering.EvaFerdigdato,
                                         utfortAvId = GetBrukerId(tiltaksEvaluering.SbhInitialer, bydel)
                                     };
+                                    if (string.IsNullOrEmpty(aktivitet.utfortAvId))
+                                    {
+                                        aktivitet.utfortAvId = GetBrukerId(planFamilia.SbhInitialer);
+                                    }
                                     if (aktivitet.hendelsesdato == null)
                                     {
                                         aktivitet.hendelsesdato = aktivitet.utfortDato;
@@ -7747,7 +7808,7 @@ namespace UttrekkFamilia
                 throw;
             }
         }
-        public async Task GetUndersokelserTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, Decimal personNummer, string sakId, string bydel)
+        public async Task GetUndersokelserTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
         {
             try
             {
@@ -7914,6 +7975,11 @@ namespace UttrekkFamilia
                         {
                             undersøkelseUtvidelseFristAktivitet.saksbehandlerId = GetBrukerId(undersøkelse.MelLoepenrNavigation.KliLoepenrNavigation.SbhInitialer, bydel);
                             undersøkelseUtvidelseFristAktivitet.utfortAvId = GetBrukerId(undersøkelse.MelLoepenrNavigation.KliLoepenrNavigation.SbhInitialer, bydel);
+                            if (string.IsNullOrEmpty(undersøkelseUtvidelseFristAktivitet.utfortAvId))
+                            {
+                                undersøkelseUtvidelseFristAktivitet.saksbehandlerId = GetBrukerId(mappings.GetHovedsaksbehandlerBydel(bydel));
+                                undersøkelseUtvidelseFristAktivitet.utfortAvId = GetBrukerId(mappings.GetHovedsaksbehandlerBydel(bydel));
+                            }
                         }
                         if (string.IsNullOrEmpty(undersøkelseUtvidelseFristAktivitet.notat))
                         {
@@ -8011,6 +8077,11 @@ namespace UttrekkFamilia
                             {
                                 undersøkelsesplanAktivitet.saksbehandlerId = GetBrukerId(undersøkelse.MelLoepenrNavigation.KliLoepenrNavigation.SbhInitialer, bydel);
                                 undersøkelsesplanAktivitet.utfortAvId = GetBrukerId(undersøkelse.MelLoepenrNavigation.KliLoepenrNavigation.SbhInitialer, bydel);
+                                if (string.IsNullOrEmpty(undersøkelsesplanAktivitet.utfortAvId))
+                                {
+                                    undersøkelsesplanAktivitet.saksbehandlerId = GetBrukerId(mappings.GetHovedsaksbehandlerBydel(bydel));
+                                    undersøkelsesplanAktivitet.utfortAvId = GetBrukerId(mappings.GetHovedsaksbehandlerBydel(bydel));
+                                }
                             }
                             DocumentToInclude documentToInclude = new()
                             {
@@ -8121,7 +8192,7 @@ namespace UttrekkFamilia
                 throw;
             }
         }
-        public async Task GetVedtakTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, Decimal personNummer, string sakId, string bydel)
+        public async Task GetVedtakTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
         {
             try
             {
@@ -8311,7 +8382,7 @@ namespace UttrekkFamilia
                 throw;
             }
         }
-        public async Task GetTiltakTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, Decimal personNummer, string sakId, string bydel)
+        public async Task GetTiltakTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
         {
             try
             {
@@ -8696,7 +8767,7 @@ namespace UttrekkFamilia
                 throw;
             }
         }
-        public async Task GetAktiviteterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, Decimal personNummer, string sakId, string bydel)
+        public async Task GetAktiviteterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
         {
             try
             {
@@ -8716,7 +8787,7 @@ namespace UttrekkFamilia
                 throw;
             }
         }
-        private async Task GetTilsynsrapporterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, Decimal personNummer, string sakId, string bydel)
+        private async Task GetTilsynsrapporterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
         {
             List<FaPostjournal> rawData;
             List<DocumentToInclude> documentsIncluded = new();
@@ -8829,7 +8900,7 @@ namespace UttrekkFamilia
                 toSkip += MaxAntallEntiteterPerFil;
             }
         }
-        private async Task GetPostjournalAktiviteterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, Decimal personNummer, string sakId, string bydel)
+        private async Task GetPostjournalAktiviteterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
         {
             List<FaPostjournal> rawData;
             List<DocumentToInclude> documentsIncluded = new();
@@ -8949,7 +9020,7 @@ namespace UttrekkFamilia
                 toSkip += MaxAntallEntiteterPerFil;
             }
         }
-        private async Task GetSlettedePostjournalAktiviteterTidligereBydelAsync(DateTime fodselsDato, Decimal personNummer, string sakId, string bydel)
+        private async Task GetSlettedePostjournalAktiviteterTidligereBydelAsync(DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
         {
             List<FaPostjournal> rawData;
 
@@ -9008,7 +9079,7 @@ namespace UttrekkFamilia
                 toSkip += MaxAntallEntiteterPerFil;
             }
         }
-        private async Task GetOppfølgingAktiviteterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, Decimal personNummer, string sakId, string bydel)
+        private async Task GetOppfølgingAktiviteterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
         {
             List<FaPostjournal> rawData;
             List<DocumentToInclude> documentsIncluded = new();
@@ -9122,7 +9193,7 @@ namespace UttrekkFamilia
                 toSkip += MaxAntallEntiteterPerFil;
             }
         }
-        private async Task GetInterneSaksforberedelserTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, Decimal personNummer, string sakId, string bydel)
+        private async Task GetInterneSaksforberedelserTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
         {
             List<FaPostjournal> rawData;
             List<DocumentToInclude> documentsIncluded = new();
@@ -9194,7 +9265,7 @@ namespace UttrekkFamilia
                 toSkip += MaxAntallEntiteterPerFil;
             }
         }
-        private async Task GetJournalAktiviteterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, Decimal personNummer, string sakId, string bydel)
+        private async Task GetJournalAktiviteterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
         {
             List<FaJournal> rawData;
             List<DocumentToInclude> documentsIncluded = new();
@@ -9275,6 +9346,10 @@ namespace UttrekkFamilia
                             aktivitet.lovPaalagt = true;
                         }
                     }
+                }
+                if (string.IsNullOrEmpty(aktivitet.utfortAvId))
+                {
+                    aktivitet.utfortAvId = GetBrukerId(journal.KliLoepenrNavigation.SbhInitialer, bydel);
                 }
                 string merknadInnsyn = "";
                 if (aktivitet.aktivitetsType == "INTERN_SAKSFORBEREDELSE(FVL_§_18.A)" || journal.JouUnndrattinnsyn == 1)
@@ -9374,7 +9449,7 @@ namespace UttrekkFamilia
                 toSkip += MaxAntallEntiteterPerFil;
             }
         }
-        private async Task GetSlettedeJournalAktiviteterTidligereBydelAsync(DateTime fodselsDato, Decimal personNummer, string sakId, string bydel)
+        private async Task GetSlettedeJournalAktiviteterTidligereBydelAsync(DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
         {
             List<FaJournal> rawData;
 
@@ -9417,7 +9492,7 @@ namespace UttrekkFamilia
                 toSkip += MaxAntallEntiteterPerFil;
             }
         }
-        private async Task GetIndividuellPlanAktiviteterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, Decimal personNummer, string sakId, string bydel)
+        private async Task GetIndividuellPlanAktiviteterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
         {
             List<FaTiltaksplan> rawData;
             List<DocumentToInclude> documentsIncluded = new();
