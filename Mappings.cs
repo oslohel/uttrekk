@@ -883,6 +883,7 @@ namespace UttrekkFamilia
             {"§ 7-2","Bvl._§_4-19_(gammel_lov)" },
             {"§ 9-1","Bvl._§_4-22_(gammel_lov)" },
             {"§ 9-5","Bvl._§_4-22_(gammel_lov)" },
+            {"§ 9-10","Bvl._§_4-22._5.ledd_(gammel_lov)" },
             {"43a","Bl._§_43._bokstav_a_(gammel_lov)" },
             {"64,7.","Bl._§_64._7.ledd_(gammel_lov)" },
             {"Freg10.4","Bvl._§_4-21_(gammel_lov)" }
@@ -903,7 +904,8 @@ namespace UttrekkFamilia
             { "3","Bvl._§_8-4" },
             { "4","Bvl._§_8-3._4.ledd" },
             { "5","Bvl._§_8-3._4.ledd" },
-            { "6","Bvl._§_8-5._2.ledd" }
+            { "6","Bvl._§_8-5._2.ledd" },
+            { "9","Bvl._§_7-6" }
         };
 
         private readonly NameValueCollection Årsakskoder = new() {

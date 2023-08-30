@@ -5587,6 +5587,10 @@ namespace UttrekkFamilia
                     {
                         tiltak.ssbUnderkategoriSpesifisering = "Familia: Mangler presisering";
                     }
+                    if (tiltak.ssbUnderkategori == "ANDRE_BOLIGTILTAK" && string.IsNullOrEmpty(tiltak.ssbUnderkategoriSpesifisering))
+                    {
+                        tiltak.ssbUnderkategoriSpesifisering = "Familia: Mangler presisering";
+                    }
                     if (tiltak.planlagtTilDato.HasValue && tiltak.planlagtTilDato < tiltak.planlagtFraDato)
                     {
                         tiltak.planlagtTilDato = tiltak.planlagtFraDato;
@@ -6072,6 +6076,19 @@ namespace UttrekkFamilia
                                 break;
                             case "7":
                                 plan.planType = "HANDLINGSPLAN";
+                                plan.varighetOgTilbakeforing = null;
+                                plan.plasseringsted = null;
+                                plan.intensjonForKontaktMedFamilie = null;
+                                plan.barnetsBehovOverTid = null;
+                                plan.bostedOgVarighet = null;
+                                plan.skolegangDagtilbud = null;
+                                plan.tjenesterHjelpeapparatet = null;
+                                plan.planForFlytting = null;
+                                plan.nettverk = null;
+                                plan.tidsperspektiv = null;
+                                break;
+                            case "9":
+                                plan.planType = "SAMVÆRSPLAN_ETTER_BVL_2021_7_6";
                                 plan.varighetOgTilbakeforing = null;
                                 plan.plasseringsted = null;
                                 plan.intensjonForKontaktMedFamilie = null;
@@ -7591,6 +7608,19 @@ namespace UttrekkFamilia
                                 plan.nettverk = null;
                                 plan.tidsperspektiv = null;
                                 break;
+                            case "9":
+                                plan.planType = "SAMVÆRSPLAN_ETTER_BVL_2021_7_6";
+                                plan.varighetOgTilbakeforing = null;
+                                plan.plasseringsted = null;
+                                plan.intensjonForKontaktMedFamilie = null;
+                                plan.barnetsBehovOverTid = null;
+                                plan.bostedOgVarighet = null;
+                                plan.skolegangDagtilbud = null;
+                                plan.tjenesterHjelpeapparatet = null;
+                                plan.planForFlytting = null;
+                                plan.nettverk = null;
+                                plan.tidsperspektiv = null;
+                                break;
                         }
                     }
                     else
@@ -8436,6 +8466,10 @@ namespace UttrekkFamilia
                         tiltak.ssbUnderkategoriSpesifisering = "Familia: Mangler presisering";
                     }
                     if (tiltak.ssbUnderkategori == "ANDRE_TILTAK_FOR_Å_STYRKE_BARNETS_UTVIKLING" && string.IsNullOrEmpty(tiltak.ssbUnderkategoriSpesifisering))
+                    {
+                        tiltak.ssbUnderkategoriSpesifisering = "Familia: Mangler presisering";
+                    }
+                    if (tiltak.ssbUnderkategori == "ANDRE_BOLIGTILTAK" && string.IsNullOrEmpty(tiltak.ssbUnderkategoriSpesifisering))
                     {
                         tiltak.ssbUnderkategoriSpesifisering = "Familia: Mangler presisering";
                     }
