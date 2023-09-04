@@ -3038,7 +3038,7 @@ namespace UttrekkFamilia
                     }
                     else
                     {
-                        sak.saksbehandlerId = AddBydel(mappings.GetHovedsaksbehandlerBydel(Bydelsforkortelse));
+                        sak.saksbehandlerId = GetBrukerId(mappings.GetHovedsaksbehandlerBydel(Bydelsforkortelse));
                     }
                     saker.Add(sak);
                 }
@@ -3127,7 +3127,7 @@ namespace UttrekkFamilia
                     }
                     if (string.IsNullOrEmpty(sak.saksbehandlerId))
                     {
-                        sak.saksbehandlerId = AddBydel(mappings.GetHovedsaksbehandlerBydel(Bydelsforkortelse));
+                        sak.saksbehandlerId = GetBrukerId(mappings.GetHovedsaksbehandlerBydel(Bydelsforkortelse));
                     }
                     if (!klient.KliAvsluttetdato.HasValue)
                     {
@@ -3364,7 +3364,7 @@ namespace UttrekkFamilia
                 }
                 innbygger.actorId = GetActorId(klient);
 
-                if (klient.KliFremmedkontrollnr.HasValue && klient.KliFremmedkontrollnr.Value.ToString().Length > 11)
+                if (klient.KliFremmedkontrollnr.HasValue && klient.KliFremmedkontrollnr.Value.ToString().Length > 11 && string.IsNullOrEmpty(klient.KliGmlreferanse))
                 {
                     innbygger.dufNummer = klient.KliFremmedkontrollnr.Value.ToString();
                     innbygger.dufNavn = klient.KliFornavn?.Trim() + " " + klient.KliEtternavn?.Trim();
@@ -3592,10 +3592,10 @@ namespace UttrekkFamilia
                 {
                     rawDataMedarbeidere = await context.FaMedarbeideres.Include(m => m.ForLoepenrNavigation).Where(f => string.IsNullOrEmpty(f.ForLoepenrNavigation.ForGmlreferanse) && (!string.IsNullOrEmpty(f.ForLoepenrNavigation.ForFoedselsnummer) || f.ForLoepenrNavigation.ForDnummer.HasValue)).Select(m => m.ForLoepenrNavigation).Distinct().ToListAsync();
                     var rollerInkludert = new string[] { "MOR", "FAR", "SØS", "FMO", "FFA", "FAM", "VRG", "BRH", "BSH", "FSA" };
-                    rawDataKlienttilknytninger = await context.FaKlienttilknytnings.Include(m => m.ForLoepenrNavigation)
+                    rawDataKlienttilknytninger = await context.FaKlienttilknytnings.Include(m => m.ForLoepenrNavigation).Include(n => n.KliLoepenrNavigation)
                         .Where(KlientTilknytningFilter())
                         .OrderBy(o => o.KliLoepenrNavigation.KliLoepenr)
-                        .Where(f => (!string.IsNullOrEmpty(f.ForLoepenrNavigation.ForFoedselsnummer) || f.ForLoepenrNavigation.ForDnummer.HasValue) || rollerInkludert.Contains(f.KtkRolle))
+                        .Where(f => string.IsNullOrEmpty(f.ForLoepenrNavigation.ForGmlreferanse) && ((!string.IsNullOrEmpty(f.ForLoepenrNavigation.ForFoedselsnummer) || f.ForLoepenrNavigation.ForDnummer.HasValue) || rollerInkludert.Contains(f.KtkRolle)))
                         .Select(m => m.ForLoepenrNavigation)
                         .Distinct()
                         .ToListAsync();
@@ -3615,22 +3615,35 @@ namespace UttrekkFamilia
                     {
                         worker.ReportProgress(0, $"Behandler uttrekk innbyggere ({antall} av {totalAntall})...");
                     }
-                    bool inkludert = false;
-                    using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                    FaForbindelser medarbeider = rawDataMedarbeidere.Find(m => m.ForLoepenr == forbindelse.ForLoepenr);
+                    if (medarbeider is null)
                     {
-                        List<FaKlienttilknytning> klienttilknytninger = await context.FaKlienttilknytnings.Where(f => f.ForLoepenr == forbindelse.ForLoepenr).ToListAsync();
-                        foreach (FaKlienttilknytning klienttilknytning in klienttilknytninger)
-                        { 
-                            if (mappings.IsOwner(klienttilknytning.KliLoepenr))
+                        bool inkludert = false;
+                        using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                        {
+                            List<FaKlienttilknytning> klienttilknytninger = await context.FaKlienttilknytnings.Where(f => f.ForLoepenr == forbindelse.ForLoepenr).ToListAsync();
+                            foreach (FaKlienttilknytning klienttilknytning in klienttilknytninger)
                             {
-                                inkludert = true;
-                                break;
+                                if (mappings.IsOwner(klienttilknytning.KliLoepenr))
+                                {
+                                    inkludert = true;
+                                    break;
+                                }
+                                else
+                                {
+                                    int tilsyn = await context.FaKlients.Where(k => k.KliLoepenr == klienttilknytning.KliLoepenr && k.KliFraannenkommune == 1).CountAsync();
+                                    if (tilsyn > 0)
+                                    {
+                                        inkludert = true;
+                                        break;
+                                    }
+                                }
                             }
                         }
-                    }
-                    if (!inkludert)
-                    {
-                        continue;
+                        if (!inkludert)
+                        {
+                            continue;
+                        }
                     }
                     Innbygger innbygger = new()
                     {
@@ -3657,7 +3670,6 @@ namespace UttrekkFamilia
                             }
                         }
                     }
-                    FaForbindelser medarbeider = rawDataMedarbeidere.Find(m => m.ForLoepenr == forbindelse.ForLoepenr);
                     if (medarbeider is not null)
                     {
                         int numberOfActiveContracts = 0;
@@ -3667,50 +3679,49 @@ namespace UttrekkFamilia
                                 && medarbeider.ForLoepenr == e.ForLoepenr
                                 && (e.EngTildato >= FirstInYearOfMigration)).CountAsync();
                         }
-                        if (numberOfActiveContracts == 0)
+                        if (numberOfActiveContracts > 0)
                         {
-                            continue;
-                        }
-                        bool actorAlreadyWritten = false;
+                            bool actorAlreadyWritten = false;
 
-                        SqlConnection connectionMigrering = new(ConnectionStringMigrering);
-                        SqlDataReader readerMigrering = null;
-                        try
-                        {
-                            connectionMigrering.Open();
+                            SqlConnection connectionMigrering = new(ConnectionStringMigrering);
+                            SqlDataReader readerMigrering = null;
+                            try
+                            {
+                                connectionMigrering.Open();
 
-                            SqlCommand commandMigrering = new($"Select Count(*) From Oppdragstakere{MigreringsdbPostfix} Where AktorId='{innbygger.actorId}'", connectionMigrering)
-                            {
-                                CommandTimeout = 300
-                            };
-                            readerMigrering = commandMigrering.ExecuteReader();
-                            while (readerMigrering.Read())
-                            {
-                                if (readerMigrering.GetInt32(0) > 0)
-                                {
-                                    actorAlreadyWritten = true;
-                                }
-                            }
-                            readerMigrering.Close();
-
-                            if (!actorAlreadyWritten)
-                            {
-                                commandMigrering = new($"Insert Into Oppdragstakere{MigreringsdbPostfix} (AktorId,Bydel,Dato) Values ('{innbygger.actorId}','{Bydelsforkortelse}',GETDATE())", connectionMigrering)
+                                SqlCommand commandMigrering = new($"Select Count(*) From Oppdragstakere{MigreringsdbPostfix} Where AktorId='{innbygger.actorId}'", connectionMigrering)
                                 {
                                     CommandTimeout = 300
                                 };
-                                commandMigrering.ExecuteNonQuery();
+                                readerMigrering = commandMigrering.ExecuteReader();
+                                while (readerMigrering.Read())
+                                {
+                                    if (readerMigrering.GetInt32(0) > 0)
+                                    {
+                                        actorAlreadyWritten = true;
+                                    }
+                                }
+                                readerMigrering.Close();
+
+                                if (!actorAlreadyWritten)
+                                {
+                                    commandMigrering = new($"Insert Into Oppdragstakere{MigreringsdbPostfix} (AktorId,Bydel,Dato) Values ('{innbygger.actorId}','{Bydelsforkortelse}',GETDATE())", connectionMigrering)
+                                    {
+                                        CommandTimeout = 300
+                                    };
+                                    commandMigrering.ExecuteNonQuery();
+                                }
                             }
+                            finally
+                            {
+                                connectionMigrering.Close();
+                            }
+                            if (actorAlreadyWritten)
+                            {
+                                continue;
+                            }
+                            innbygger.potensiellOppdragstaker = true;
                         }
-                        finally
-                        {
-                            connectionMigrering.Close();
-                        }
-                        if (actorAlreadyWritten)
-                        {
-                            continue;
-                        }
-                        innbygger.potensiellOppdragstaker = true;
                     }
                     else
                     {
@@ -3724,51 +3735,48 @@ namespace UttrekkFamilia
                     {
                         innbygger.registrertDato = LastDateNoMigration;
                     }
-                    if (string.IsNullOrEmpty(forbindelse.ForGmlreferanse))
+                    if (!string.IsNullOrEmpty(forbindelse.ForFoedselsnummer) && (forbindelse.ForFoedselsnummer.EndsWith("00000") || forbindelse.ForFoedselsnummer.EndsWith("00100") || forbindelse.ForFoedselsnummer.EndsWith("00200")))
                     {
-                        if (!string.IsNullOrEmpty(forbindelse.ForFoedselsnummer) && (forbindelse.ForFoedselsnummer.EndsWith("00000") || forbindelse.ForFoedselsnummer.EndsWith("00100") || forbindelse.ForFoedselsnummer.EndsWith("00200")))
+                        innbygger.fodselsnummer = null;
+                        if (forbindelse.ForDnummer.HasValue && forbindelse.ForDnummer.Value.ToString().Length == 11)
                         {
-                            innbygger.fodselsnummer = null;
-                            if (forbindelse.ForDnummer.HasValue && forbindelse.ForDnummer.Value.ToString().Length == 11)
-                            {
-                                innbygger.fodselsnummer = forbindelse.ForDnummer.Value.ToString();
-                            }
+                            innbygger.fodselsnummer = forbindelse.ForDnummer.Value.ToString();
                         }
-                        else
+                    }
+                    else
+                    {
+                        if (!string.IsNullOrEmpty(forbindelse.ForFoedselsnummer) && forbindelse.ForFoedselsnummer.Length == 11 && IsDigitsOnly(forbindelse.ForFoedselsnummer))
                         {
-                            if (!string.IsNullOrEmpty(forbindelse.ForFoedselsnummer) && forbindelse.ForFoedselsnummer.Length == 11 && IsDigitsOnly(forbindelse.ForFoedselsnummer))
+                            innbygger.fodselsnummer = forbindelse.ForFoedselsnummer;
+                            int kjonnsTall = int.Parse(forbindelse.ForFoedselsnummer[8].ToString());
+                            if (kjonnsTall % 2 == 0)
                             {
-                                innbygger.fodselsnummer = forbindelse.ForFoedselsnummer;
-                                int kjonnsTall = int.Parse(forbindelse.ForFoedselsnummer[8].ToString());
-                                if (kjonnsTall % 2 == 0)
-                                {
-                                    innbygger.kjonn = "KVINNE";
-                                }
-                                else
-                                {
-                                    innbygger.kjonn = "MANN";
-                                }
-                                int year = int.Parse(forbindelse.ForFoedselsnummer.Substring(4, 2));
-                                if (year < 24)
-                                {
-                                    year += 2000;
-                                }
-                                {
-                                    year += 1900;
-                                }
-                                int dag = int.Parse(forbindelse.ForFoedselsnummer[..2]);
-                                if (dag > 40)
-                                {
-                                    dag -= 40;
-                                }
-                                innbygger.fodselDato = new DateTime(year, int.Parse(forbindelse.ForFoedselsnummer.Substring(2, 2)), dag);
+                                innbygger.kjonn = "KVINNE";
                             }
                             else
                             {
-                                if (forbindelse.ForDnummer.HasValue && forbindelse.ForDnummer.Value.ToString().Length == 11)
-                                {
-                                    innbygger.fodselsnummer = forbindelse.ForDnummer.Value.ToString();
-                                }
+                                innbygger.kjonn = "MANN";
+                            }
+                            int year = int.Parse(forbindelse.ForFoedselsnummer.Substring(4, 2));
+                            if (year < 24)
+                            {
+                                year += 2000;
+                            }
+                            {
+                                year += 1900;
+                            }
+                            int dag = int.Parse(forbindelse.ForFoedselsnummer[..2]);
+                            if (dag > 40)
+                            {
+                                dag -= 40;
+                            }
+                            innbygger.fodselDato = new DateTime(year, int.Parse(forbindelse.ForFoedselsnummer.Substring(2, 2)), dag);
+                        }
+                        else
+                        {
+                            if (forbindelse.ForDnummer.HasValue && forbindelse.ForDnummer.Value.ToString().Length == 11)
+                            {
+                                innbygger.fodselsnummer = forbindelse.ForDnummer.Value.ToString();
                             }
                         }
                     }
@@ -5306,6 +5314,11 @@ namespace UttrekkFamilia
                     else if (saksJournal.SakStatus == "BOR" || saksJournal.SakStatus == "OHV")
                     {
                         vedtak.bortfaltStatusDato = saksJournal.SakBortfaltdato;
+                        //TODO Sjekk om dette blir riktig
+                        if (!vedtak.vedtaksdato.HasValue)
+                        {
+                            vedtak.vedtaksdato = vedtak.bortfaltStatusDato;
+                        }
                     }
                     vedtaksliste.Add(vedtak);
                     migrertAntall += 1;
@@ -6262,6 +6275,10 @@ namespace UttrekkFamilia
                                     if (string.IsNullOrEmpty(aktivitet.utfortAvId))
                                     {
                                         aktivitet.utfortAvId = GetBrukerId(planFamilia.SbhInitialer);
+                                        if (string.IsNullOrEmpty(aktivitet.utfortAvId))
+                                        {
+                                            aktivitet.utfortAvId = GetBrukerId(mappings.GetHovedsaksbehandlerBydel(Bydelsforkortelse));
+                                        }
                                     }
                                     if (aktivitet.hendelsesdato == null)
                                     {
@@ -7783,6 +7800,10 @@ namespace UttrekkFamilia
                                     if (string.IsNullOrEmpty(aktivitet.utfortAvId))
                                     {
                                         aktivitet.utfortAvId = GetBrukerId(planFamilia.SbhInitialer);
+                                        if (string.IsNullOrEmpty(aktivitet.utfortAvId))
+                                        {
+                                            aktivitet.utfortAvId = GetBrukerId(mappings.GetHovedsaksbehandlerBydel(bydel), bydel);
+                                        }
                                     }
                                     if (aktivitet.hendelsesdato == null)
                                     {
@@ -8319,6 +8340,7 @@ namespace UttrekkFamilia
                     if (saksJournal.SakAvgjortdato.HasValue || saksJournal.SakBortfaltdato.HasValue)
                     {
                         vedtak.status = "UTFØRT";
+
                     }
                     else
                     {
@@ -8369,6 +8391,11 @@ namespace UttrekkFamilia
                     else if (saksJournal.SakStatus == "BOR" || saksJournal.SakStatus == "OHV")
                     {
                         vedtak.bortfaltStatusDato = saksJournal.SakBortfaltdato;
+                        //TODO Sjekk om dette blir riktig
+                        if (!vedtak.vedtaksdato.HasValue)
+                        {
+                            vedtak.vedtaksdato = vedtak.bortfaltStatusDato;
+                        }
                     }
                     vedtaksliste.Add(vedtak);
 
