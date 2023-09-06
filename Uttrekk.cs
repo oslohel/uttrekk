@@ -1674,7 +1674,6 @@ namespace UttrekkFamilia
                     }
                     innbygger.telefonnummer.Add(aktørTelefonnummerPrivat);
                 }
-                bool hovedAdresseBestemt = false;
                 if (!string.IsNullOrEmpty(person.Address) || person.PostCodeRegistryId.HasValue || person.MunicipalityRegistryId.HasValue)
                 {
                     AktørAdresse adresse = new()
@@ -1684,13 +1683,12 @@ namespace UttrekkFamilia
                         linje1 = person.Address?.Trim(),
                         postnummer = await GetBVVBaseregistryValueAsync(person.PostCodeRegistryId, true),
                         poststed = await GetBVVBaseregistryValueAsync(person.MunicipalityRegistryId),
-                        hovedadresse = true
+                        hovedadresse = false
                     };
                     if (string.IsNullOrEmpty(adresse.postnummer))
                     {
                         adresse.adresseType = "UFULDSTÆNDIG_ADRESSE";
                     }
-                    hovedAdresseBestemt = true;
                     innbygger.adresse.Add(adresse);
                 }
                 if (!string.IsNullOrEmpty(person.VisitingAddress) || person.VisitingAddressPostCodeRegistryId.HasValue || person.VisitingAddressMunicipalityRegistryId.HasValue)
@@ -1706,10 +1704,6 @@ namespace UttrekkFamilia
                     if (string.IsNullOrEmpty(adresse.postnummer))
                     {
                         adresse.adresseType = "UFULDSTÆNDIG_ADRESSE";
-                    }
-                    if (!hovedAdresseBestemt)
-                    {
-                        adresse.hovedadresse = true;
                     }
                     innbygger.adresse.Add(adresse);
                 }
@@ -1901,7 +1895,6 @@ namespace UttrekkFamilia
                     }
                     innbygger.telefonnummer.Add(aktørTelefonnummerPrivat);
                 }
-                bool hovedAdresseBestemt = false;
                 if (!string.IsNullOrEmpty(person.Address) || person.PostCodeRegistryId.HasValue || person.MunicipalityRegistryId.HasValue)
                 {
                     AktørAdresse adresse = new()
@@ -1911,13 +1904,12 @@ namespace UttrekkFamilia
                         linje1 = person.Address?.Trim(),
                         postnummer = await GetBVVBaseregistryValueAsync(person.PostCodeRegistryId, true),
                         poststed = await GetBVVBaseregistryValueAsync(person.MunicipalityRegistryId),
-                        hovedadresse = true
+                        hovedadresse = false
                     };
                     if (string.IsNullOrEmpty(adresse.postnummer))
                     {
                         adresse.adresseType = "UFULDSTÆNDIG_ADRESSE";
                     }
-                    hovedAdresseBestemt = true;
                     innbygger.adresse.Add(adresse);
                 }
                 if (!string.IsNullOrEmpty(person.VisitingAddress) || person.VisitingAddressPostCodeRegistryId.HasValue || person.VisitingAddressMunicipalityRegistryId.HasValue)
@@ -1933,10 +1925,6 @@ namespace UttrekkFamilia
                     if (string.IsNullOrEmpty(adresse.postnummer))
                     {
                         adresse.adresseType = "UFULDSTÆNDIG_ADRESSE";
-                    }
-                    if (!hovedAdresseBestemt)
-                    {
-                        adresse.hovedadresse = true;
                     }
                     innbygger.adresse.Add(adresse);
                 }
@@ -3202,7 +3190,8 @@ namespace UttrekkFamilia
                         startDato = medarbeider.MedBegyntdato,
                         status = "ÅPEN",
                         arbeidsbelastning = "LAV",
-                        sakstype = "OPPDRAGSTAKER"
+                        sakstype = "OPPDRAGSTAKER",
+                        saksbehandlerId = GetBrukerId(mappings.GetHovedkontorfagligBydel(Bydelsforkortelse))
                     };
                     sak.sakId = $"{sak.aktorId}__OPP";
 
@@ -3244,22 +3233,6 @@ namespace UttrekkFamilia
                     if (caseAlreadyWritten)
                     {
                         continue;
-                    }
-                    if (!string.IsNullOrEmpty(medarbeider.SbhEndretav))
-                    {
-                        sak.saksbehandlerId = GetBrukerId(medarbeider.SbhEndretav);
-                    }
-                    else if (!string.IsNullOrEmpty(medarbeider.SbhRegistrertav))
-                    {
-                        sak.saksbehandlerId = GetBrukerId(medarbeider.SbhRegistrertav);
-                    }
-                    else if (!string.IsNullOrEmpty(medarbeider.ForLoepenrNavigation.SbhEndretav))
-                    {
-                        sak.saksbehandlerId = GetBrukerId(medarbeider.ForLoepenrNavigation.SbhEndretav);
-                    }
-                    else if (!string.IsNullOrEmpty(medarbeider.ForLoepenrNavigation.SbhRegistrertav))
-                    {
-                        sak.saksbehandlerId = GetBrukerId(medarbeider.ForLoepenrNavigation.SbhRegistrertav);
                     }
                     saker.Add(sak);
                     migrertAntall += 1;
@@ -3433,7 +3406,7 @@ namespace UttrekkFamilia
                         adresseType = "FORETRUKKET_KONTAKTADRESSE",
                         linje1 = klient.KliAdresse?.Trim(),
                         postnummer = klient.PnrPostnr?.Trim(),
-                        hovedadresse = true
+                        hovedadresse = false
                     };
                     if (string.IsNullOrEmpty(adresse.postnummer))
                     {
@@ -3831,7 +3804,7 @@ namespace UttrekkFamilia
                             adresseId = AddBydel(forbindelse.ForLoepenr.ToString(), "ADR"),
                             adresseType = "POSTADRESSE",
                             postnummer = forbindelse.PnrPostnr?.Trim(),
-                            hovedadresse = true
+                            hovedadresse = false
                         };
                         if (string.IsNullOrEmpty(adresse.postnummer))
                         {
@@ -3971,7 +3944,7 @@ namespace UttrekkFamilia
                             adresseId = AddBydel(forbindelse.ForLoepenr.ToString(), "ADR"),
                             adresseType = "POSTADRESSE",
                             postnummer = forbindelse.PnrPostnr?.Trim(),
-                            hovedadresse = true
+                            hovedadresse = false
                         };
                         if (string.IsNullOrEmpty(adresse.postnummer))
                         {
@@ -5314,10 +5287,13 @@ namespace UttrekkFamilia
                     else if (saksJournal.SakStatus == "BOR" || saksJournal.SakStatus == "OHV")
                     {
                         vedtak.bortfaltStatusDato = saksJournal.SakBortfaltdato;
-                        //TODO Sjekk om dette blir riktig
                         if (!vedtak.vedtaksdato.HasValue)
                         {
                             vedtak.vedtaksdato = vedtak.bortfaltStatusDato;
+                        }
+                        if (!vedtak.vedtaksdato.HasValue && !saksJournal.SakOpphevetdato.HasValue)
+                        {
+                            continue;
                         }
                     }
                     vedtaksliste.Add(vedtak);
@@ -7292,10 +7268,10 @@ namespace UttrekkFamilia
                     if (tidligereBydel != Bydelsforkortelse)
                     {
                         await GetMeldingerTidligereBydelAsync(worker, fodselsDato, personNummer, sak, tidligereBydel);
-                        await GetPlanerTidligereBydelAsync(worker, fodselsDato, personNummer, sak.sakId, tidligereBydel);
+                        await GetPlanerTidligereBydelAsync(worker, fodselsDato, personNummer, sak, tidligereBydel);
                         await GetUndersokelserTidligereBydelAsync(worker, fodselsDato, personNummer, sak.sakId, tidligereBydel);
                         await GetVedtakTidligereBydelAsync(worker, fodselsDato, personNummer, sak.sakId, tidligereBydel);
-                        await GetTiltakTidligereBydelAsync(worker, fodselsDato, personNummer, sak.sakId, tidligereBydel);
+                        await GetTiltakTidligereBydelAsync(worker, fodselsDato, personNummer, sak, tidligereBydel);
                         await GetAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sak.sakId, tidligereBydel);
                     }
                 }
@@ -7467,7 +7443,7 @@ namespace UttrekkFamilia
                 throw;
             }
         }
-        public async Task GetPlanerTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
+        public async Task GetPlanerTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, Sak sak, string bydel)
         {
             try
             {
@@ -7487,7 +7463,7 @@ namespace UttrekkFamilia
                     Plan plan = new()
                     {
                         planId = AddSpecificBydel(planFamilia.TtpLoepenr.ToString(), "PLA", bydel),
-                        sakId = sakId,
+                        sakId = sak.sakId,
                         situasjonsbeskrivelse = "Se dokument",
                         gyldigFraDato = planFamilia.TtpFradato,
                         gyldigTilDato = planFamilia.TtpTildato,
@@ -7844,6 +7820,13 @@ namespace UttrekkFamilia
                 fileNumber = 1;
                 migrertAntall = planer.Count;
                 guid = Guid.NewGuid().ToString().Replace('-', '_');
+                foreach (Plan plan in planer)
+                {
+                    if (plan.gyldigFraDato.HasValue && plan.gyldigFraDato < sak.startDato)
+                    {
+                        sak.startDato = plan.gyldigFraDato;
+                    }
+                }
                 while (migrertAntall > toSkip)
                 {
                     List<Plan> planerPart = planer.OrderBy(o => o.planId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
@@ -8391,10 +8374,13 @@ namespace UttrekkFamilia
                     else if (saksJournal.SakStatus == "BOR" || saksJournal.SakStatus == "OHV")
                     {
                         vedtak.bortfaltStatusDato = saksJournal.SakBortfaltdato;
-                        //TODO Sjekk om dette blir riktig
                         if (!vedtak.vedtaksdato.HasValue)
                         {
                             vedtak.vedtaksdato = vedtak.bortfaltStatusDato;
+                        }
+                        if (!vedtak.vedtaksdato.HasValue && !saksJournal.SakOpphevetdato.HasValue)
+                        {
+                            continue;
                         }
                     }
                     vedtaksliste.Add(vedtak);
@@ -8439,7 +8425,7 @@ namespace UttrekkFamilia
                 throw;
             }
         }
-        public async Task GetTiltakTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
+        public async Task GetTiltakTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, Sak sak, string bydel)
         {
             try
             {
@@ -8461,7 +8447,7 @@ namespace UttrekkFamilia
                     Tiltak tiltak = new()
                     {
                         tiltakId = AddSpecificBydel(tiltakFamilia.TilLoepenr.ToString(), "TIL", bydel),
-                        sakId = sakId,
+                        sakId = sak.sakId,
                         ssbHovedkategori = mappings.GetSSBHovedkategori(tiltakFamilia.TttTiltakstype),
                         ssbUnderkategori = mappings.GetSSBUnderkategori(tiltakFamilia.TttTiltakstype),
                         ssbUnderkategoriSpesifisering = tiltakFamilia.TilTiltakstypePres,
@@ -8812,6 +8798,17 @@ namespace UttrekkFamilia
                 fileNumber = 1;
                 List<Tiltak> tiltakslisteDistinct = tiltaksliste.GroupBy(c => c.tiltakId).Select(s => s.First()).ToList();
                 migrertAntall = tiltakslisteDistinct.Count;
+                foreach (Tiltak tiltak in tiltakslisteDistinct)
+                {
+                    if (tiltak.planlagtFraDato.HasValue && tiltak.planlagtFraDato < sak.startDato)
+                    {
+                        sak.startDato = tiltak.planlagtFraDato;
+                    }
+                    if (tiltak.iverksattDato.HasValue && tiltak.iverksattDato < sak.startDato)
+                    {
+                        sak.startDato = tiltak.iverksattDato;
+                    }
+                }
                 guid = Guid.NewGuid().ToString().Replace('-', '_');
                 while (migrertAntall > toSkip)
                 {

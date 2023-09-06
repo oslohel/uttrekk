@@ -1008,6 +1008,24 @@ namespace UttrekkFamilia
             { "BVA", "HRA" },
             { "BGR", "CHHV" }
         };
+        //TODO Sette inn de kontorfaglige
+        private readonly NameValueCollection BydelHovedkontorfaglig = new() {
+            { "BNS", "VISA" },
+            { "BUN", "ANBE" },
+            { "BNA", "AISO" },
+            { "BSH", "ANIF" },
+            { "BAL", "GUOW" },
+            { "BBJ", "KIGR" },
+            { "BFR", "IELE" },
+            { "BGO", "INST" },
+            { "BGA", "MOAM" },
+            { "BSA", "MAHO" },
+            { "BSR", "ANBS" },
+            { "BSN", "SIGU" },
+            { "BOS", "MAOL" },
+            { "BVA", "HRA" },
+            { "BGR", "CHHV" }
+        };
 
         private readonly List<string> Bydeler = new()
         {
@@ -1690,6 +1708,13 @@ namespace UttrekkFamilia
         public string GetHovedsaksbehandlerBydel(string bydel)
         {
             return BydelHovedsaksbehandlere[bydel];
+        }
+        #endregion
+
+        #region Hovedkontorfaglig bydel
+        public string GetHovedkontorfagligBydel(string bydel)
+        {
+            return BydelHovedkontorfaglig[bydel];
         }
         #endregion
 
