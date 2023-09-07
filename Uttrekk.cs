@@ -5296,6 +5296,10 @@ namespace UttrekkFamilia
                             continue;
                         }
                     }
+                    if (vedtak.startdato.HasValue && vedtak.avsluttetStatusDato.HasValue && vedtak.startdato.Value > vedtak.avsluttetStatusDato.Value)
+                    {
+                        vedtak.startdato = vedtak.avsluttetStatusDato;
+                    }
                     vedtaksliste.Add(vedtak);
                     migrertAntall += 1;
 
@@ -7269,7 +7273,7 @@ namespace UttrekkFamilia
                     {
                         await GetMeldingerTidligereBydelAsync(worker, fodselsDato, personNummer, sak, tidligereBydel);
                         await GetPlanerTidligereBydelAsync(worker, fodselsDato, personNummer, sak, tidligereBydel);
-                        await GetUndersokelserTidligereBydelAsync(worker, fodselsDato, personNummer, sak.sakId, tidligereBydel);
+                        await GetUndersokelserTidligereBydelAsync(worker, fodselsDato, personNummer, sak, tidligereBydel);
                         await GetVedtakTidligereBydelAsync(worker, fodselsDato, personNummer, sak.sakId, tidligereBydel);
                         await GetTiltakTidligereBydelAsync(worker, fodselsDato, personNummer, sak, tidligereBydel);
                         await GetAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sak.sakId, tidligereBydel);
@@ -7842,7 +7846,7 @@ namespace UttrekkFamilia
                 throw;
             }
         }
-        public async Task GetUndersokelserTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
+        public async Task GetUndersokelserTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, Sak sak, string bydel)
         {
             try
             {
@@ -7866,7 +7870,7 @@ namespace UttrekkFamilia
                     {
                         undersokelseId = AddSpecificBydel(undersøkelse.MelLoepenr.ToString(), "UND", bydel),
                         meldingId = AddSpecificBydel(undersøkelse.MelLoepenr.ToString(), "MEL", bydel),
-                        sakId = sakId,
+                        sakId = sak.sakId,
                         startDato = undersøkelse.UndStartdato
                     };
                     using (var context = new FamiliaDBContext(mappings.GetConnectionstring(bydel, MainDBServer)))
@@ -8210,6 +8214,13 @@ namespace UttrekkFamilia
                 toSkip = 0;
                 fileNumber = 1;
                 migrertAntall = undersøkelser.Count;
+                foreach (Undersøkelse undersøkelse in undersøkelser)
+                {
+                    if (undersøkelse.startDato.HasValue && undersøkelse.startDato < sak.startDato)
+                    {
+                        sak.startDato = undersøkelse.startDato;
+                    }
+                }
                 guid = Guid.NewGuid().ToString().Replace('-', '_');
                 while (migrertAntall > toSkip)
                 {
@@ -8382,6 +8393,10 @@ namespace UttrekkFamilia
                         {
                             continue;
                         }
+                    }
+                    if (vedtak.startdato.HasValue && vedtak.avsluttetStatusDato.HasValue && vedtak.startdato.Value > vedtak.avsluttetStatusDato.Value)
+                    {
+                        vedtak.startdato = vedtak.avsluttetStatusDato;
                     }
                     vedtaksliste.Add(vedtak);
 
