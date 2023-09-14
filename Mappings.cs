@@ -1008,23 +1008,23 @@ namespace UttrekkFamilia
             { "BVA", "HRA" },
             { "BGR", "CHHV" }
         };
-        //TODO Sette inn de kontorfaglige
+
         private readonly NameValueCollection BydelHovedkontorfaglig = new() {
-            { "BNS", "VISA" },
-            { "BUN", "ANBE" },
-            { "BNA", "AISO" },
-            { "BSH", "ANIF" },
-            { "BAL", "GUOW" },
-            { "BBJ", "KIGR" },
-            { "BFR", "IELE" },
-            { "BGO", "INST" },
-            { "BGA", "MOAM" },
-            { "BSA", "MAHO" },
-            { "BSR", "ANBS" },
-            { "BSN", "SIGU" },
-            { "BOS", "MAOL" },
-            { "BVA", "HRA" },
-            { "BGR", "CHHV" }
+            { "BNS", "ANST" },
+            { "BUN", "MBS" },
+            { "BNA", "BS" },
+            { "BSH", "ANKC" },
+            { "BAL", "LISU" },
+            { "BBJ", "MARE" },
+            { "BFR", "LISM" },
+            { "BGO", "ASDE" },
+            { "BGA", "SEOS" },
+            { "BSA", "AHUS" },
+            { "BSR", "TOBA" },
+            { "BSN", "JAAS" },
+            { "BOS", "HH" },
+            { "BVA", "MRA" },
+            { "BGR", "JUIZ" }
         };
 
         private readonly List<string> Bydeler = new()

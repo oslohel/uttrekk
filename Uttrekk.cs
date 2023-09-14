@@ -3014,7 +3014,10 @@ namespace UttrekkFamilia
                     };
                     if (melding.MelPersonnr.HasValue && melding.MelFoedselsdato.HasValue && melding.MelPersonnr.GetValueOrDefault() != 99999 && melding.MelPersonnr.GetValueOrDefault() != 00100 && melding.MelPersonnr.GetValueOrDefault() != 00200)
                     {
-                        sak.aktorId = GetUnikActorId(null, melding.MelFoedselsdato.Value.ToString("ddMMyy") + melding.MelPersonnr, null, null);
+                        if (string.IsNullOrEmpty(melding.MelGmlreferanse))
+                        {
+                            sak.aktorId = GetUnikActorId(null, melding.MelFoedselsdato.Value.ToString("ddMMyy") + melding.MelPersonnr, null, null);
+                        }
                     }
                     if (sak.sluttDato.HasValue && sak.startDato.HasValue && sak.sluttDato.Value < sak.startDato.Value)
                     {
@@ -4484,6 +4487,8 @@ namespace UttrekkFamilia
                     {
                         continue;
                     }
+                    string sakStatus = "";
+                    DateTime? sakSendtfylke  = null;
                     Undersøkelse undersoekelse = new()
                     {
                         undersokelseId = AddBydel(undersøkelse.MelLoepenr.ToString(), "UND"),
@@ -4505,6 +4510,8 @@ namespace UttrekkFamilia
                         if (saksJournal != null)
                         {
                             undersoekelse.vedtakAktivitetId = AddBydel(saksJournal.SakAar.ToString() + "-" + saksJournal.SakJournalnr.ToString(), "VED");
+                            sakStatus = saksJournal.SakStatus;
+                            sakSendtfylke = saksJournal.SakSendtfylke;
                         }
                     }
                     if (undersøkelse.UndRegistrertdato.HasValue)
@@ -4611,6 +4618,23 @@ namespace UttrekkFamilia
                         }
                     }
                     GetGrunnlagForTiltak(undersøkelse, undersoekelse, henlegges);
+                    if (undersoekelse.konklusjon == "BEGJÆRING_OM_TILTAK_FOR_BARNEVERNS_OG_HELSENEMNDA" && sakStatus == "BEH")
+                    {
+                        Aktivitet saksframleggAktivitet = new()
+                        {
+                            aktivitetId = AddBydel(undersøkelse.MelLoepenr.ToString(), "SAKFR"),
+                            sakId = undersoekelse.sakId,
+                            aktivitetsType = "BARNEVERNS-_OG_HELSENEMND_OG_RETTSPROSESSER",
+                            aktivitetsUnderType = "SAKSFREMLEGG",
+                            status = "AKTIV",
+                            saksbehandlerId = GetBrukerId(undersøkelse.SbhInitialer),
+                            tittel = "Saksframlegg",
+                            hendelsesdato = sakSendtfylke
+                        };
+                        undersoekelse.aktivitetIdListe.Add(saksframleggAktivitet.aktivitetId);
+                        undersoekelse.vedtakAktivitetId = null;
+                        undersøkelsesAktiviteter.Add(saksframleggAktivitet);
+                    }
                     if (undersøkelse.UndBehandlingstid == "2")
                     {
                         Aktivitet undersøkelseUtvidelseFristAktivitet = new()
@@ -5300,6 +5324,10 @@ namespace UttrekkFamilia
                     {
                         vedtak.startdato = vedtak.avsluttetStatusDato;
                     }
+                    if (vedtak.startdato.HasValue && vedtak.startdato.Value.Year < 1998)
+                    {
+                        vedtak.startdato = saksJournal.SakAvgjortdato;
+                    }
                     vedtaksliste.Add(vedtak);
                     migrertAntall += 1;
 
@@ -5865,6 +5893,18 @@ namespace UttrekkFamilia
                         documentToInclude.aktivitetIdListe.Add(aktivitet.aktivitetId);
                         documentsIncluded.Add(documentToInclude);
                     }
+                    if (tiltak.planlagtFraDato.HasValue && tiltak.planlagtFraDato.Value.Year < 1998)
+                    {
+                        tiltak.planlagtFraDato = null;
+                    }
+                    if (tiltak.iverksattDato.HasValue && tiltak.iverksattDato.Value.Year < 1998)
+                    {
+                        tiltak.iverksattDato = tiltakFamilia.TilRegistrertdato;
+                    }
+                    if (tiltak.avsluttetDato.HasValue && tiltak.avsluttetDato.Value.Year < 1998)
+                    {
+                        tiltak.avsluttetDato = tiltakFamilia.TilRegistrertdato;
+                    }
                     tiltaksliste.Add(tiltak);
                     migrertAntall += 1;
                 }
@@ -6141,9 +6181,16 @@ namespace UttrekkFamilia
                         }
                         else
                         {
-                            if (planFamilia.TtpFerdigdato.HasValue)
+                            if (planFamilia.TtpFradato.HasValue && planFamilia.TtpFradato <= DateTime.Now && planFamilia.TtpTildato.HasValue && planFamilia.TtpTildato >= DateTime.Now)
                             {
-                                plan.planStatus = "FERDIGSTILT";
+                                plan.planStatus = "AKTIV";
+                            }
+                            else
+                            {
+                                if (planFamilia.TtpFerdigdato.HasValue)
+                                {
+                                    plan.planStatus = "FERDIGSTILT";
+                                }
                             }
                         }
                     }
@@ -6279,6 +6326,10 @@ namespace UttrekkFamilia
                                 }
                             }
                         }
+                    }
+                    if (!plan.gyldigFraDato.HasValue)
+                    {
+                        plan.gyldigFraDato = planFamilia.TtpFerdigdato;
                     }
                     planer.Add(plan);
                     migrertAntall += 1;
@@ -6568,6 +6619,14 @@ namespace UttrekkFamilia
                         default:
                             break;
                     }
+                }
+                if (aktivitet.utfortDato.HasValue && aktivitet.utfortDato.Value.Year < 1998)
+                {
+                    aktivitet.utfortDato = postjournal.PosDato;
+                }
+                if (aktivitet.hendelsesdato.HasValue && aktivitet.hendelsesdato.Value.Year < 1998)
+                {
+                    aktivitet.hendelsesdato = postjournal.PosRegistrertdato;
                 }
                 aktiviteter.Add(aktivitet);
                 migrertAntall += 1;
@@ -7090,6 +7149,14 @@ namespace UttrekkFamilia
                         textDocumentsIncluded.Add(textDocumentToInclude);
                         aktivitet.notat = null;
                     }
+                }
+                if (aktivitet.hendelsesdato.HasValue && aktivitet.hendelsesdato.Value.Year < 1998)
+                {
+                    aktivitet.hendelsesdato = journal.JouRegistrertdato;
+                }
+                if (aktivitet.utfortDato.HasValue && aktivitet.utfortDato.Value.Year < 1998)
+                {
+                    aktivitet.utfortDato = journal.JouRegistrertdato;
                 }
                 aktiviteter.Add(aktivitet);
                 migrertAntall += 1;
@@ -7666,9 +7733,16 @@ namespace UttrekkFamilia
                         }
                         else
                         {
-                            if (planFamilia.TtpFerdigdato.HasValue)
+                            if (planFamilia.TtpFradato.HasValue && planFamilia.TtpFradato <= DateTime.Now && planFamilia.TtpTildato.HasValue && planFamilia.TtpTildato >= DateTime.Now)
                             {
-                                plan.planStatus = "FERDIGSTILT";
+                                plan.planStatus = "AKTIV";
+                            }
+                            else
+                            {
+                                if (planFamilia.TtpFerdigdato.HasValue)
+                                {
+                                    plan.planStatus = "FERDIGSTILT";
+                                }
                             }
                         }
                     }
@@ -7804,6 +7878,10 @@ namespace UttrekkFamilia
                                 }
                             }
                         }
+                    }
+                    if (!plan.gyldigFraDato.HasValue)
+                    {
+                        plan.gyldigFraDato = planFamilia.TtpFerdigdato;
                     }
                     planer.Add(plan);
                 }
@@ -8398,6 +8476,10 @@ namespace UttrekkFamilia
                     {
                         vedtak.startdato = vedtak.avsluttetStatusDato;
                     }
+                    if (vedtak.startdato.HasValue && vedtak.startdato.Value.Year < 1998)
+                    {
+                        vedtak.startdato = saksJournal.SakAvgjortdato;
+                    }
                     vedtaksliste.Add(vedtak);
 
                     if (saksJournal.PosAar.HasValue && saksJournal.PosLoepenr.HasValue)
@@ -8782,6 +8864,18 @@ namespace UttrekkFamilia
                         documentToInclude.aktivitetIdListe.Add(aktivitet.aktivitetId);
                         documentsIncluded.Add(documentToInclude);
                     }
+                    if (tiltak.planlagtFraDato.HasValue && tiltak.planlagtFraDato.Value.Year < 1998)
+                    {
+                        tiltak.planlagtFraDato = null;
+                    }
+                    if (tiltak.iverksattDato.HasValue && tiltak.iverksattDato.Value.Year < 1998)
+                    {
+                        tiltak.iverksattDato = tiltakFamilia.TilRegistrertdato;
+                    }
+                    if (tiltak.avsluttetDato.HasValue && tiltak.avsluttetDato.Value.Year < 1998)
+                    {
+                        tiltak.avsluttetDato = tiltakFamilia.TilRegistrertdato;
+                    }
                     tiltaksliste.Add(tiltak);
                 }
                 await GetDocumentsAsync(worker, $"Oppdragsavtaleaktiviteter{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}", documentsIncluded, bydel: bydel);
@@ -9054,6 +9148,14 @@ namespace UttrekkFamilia
                         default:
                             break;
                     }
+                }
+                if (aktivitet.utfortDato.HasValue && aktivitet.utfortDato.Value.Year < 1998)
+                {
+                    aktivitet.utfortDato = postjournal.PosDato;
+                }
+                if (aktivitet.hendelsesdato.HasValue && aktivitet.hendelsesdato.Value.Year < 1998)
+                {
+                    aktivitet.hendelsesdato = postjournal.PosRegistrertdato;
                 }
                 aktiviteter.Add(aktivitet);
                 if (postjournal.DokLoepenr.HasValue)
@@ -9504,6 +9606,14 @@ namespace UttrekkFamilia
                         textDocumentsIncluded.Add(textDocumentToInclude);
                         aktivitet.notat = null;
                     }
+                }
+                if (aktivitet.hendelsesdato.HasValue && aktivitet.hendelsesdato.Value.Year < 1998)
+                {
+                    aktivitet.hendelsesdato = journal.JouRegistrertdato;
+                }
+                if (aktivitet.utfortDato.HasValue && aktivitet.utfortDato.Value.Year < 1998)
+                {
+                    aktivitet.utfortDato = journal.JouRegistrertdato;
                 }
                 aktiviteter.Add(aktivitet);
             }
