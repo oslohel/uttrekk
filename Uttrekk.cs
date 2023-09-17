@@ -2933,6 +2933,38 @@ namespace UttrekkFamilia
                             }
                         }
                     }
+                    using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                    {
+                        FaPostjournal postjournal = await context.FaPostjournals.Where(p => p.KliLoepenr == klient.KliLoepenr).OrderBy(o => o.PosDato).FirstOrDefaultAsync();
+                        if (postjournal != null && postjournal.PosDato.Year > 1997 && sak.startDato > postjournal.PosDato)
+                        {
+                            sak.startDato = postjournal.PosDato;
+                        }
+                    }
+                    using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                    {
+                        FaJournal journal  = await context.FaJournals.Where(m => m.JouFerdigdato != null && m.KliLoepenr == klient.KliLoepenr).OrderBy(o => o.JouDatonotat).FirstOrDefaultAsync();
+                        if (journal != null && journal.JouDatonotat.Year > 1997 && sak.startDato > journal.JouDatonotat)
+                        {
+                            sak.startDato = journal.JouDatonotat;
+                        }
+                    }
+                    using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                    {
+                        FaTiltaksplan tiltaksplan = await context.FaTiltaksplans.Where(m => m.TtpSlettet == 0 && m.TtpFerdigdato.HasValue && m.KliLoepenr == klient.KliLoepenr).OrderBy(o => o.TtpFerdigdato).FirstOrDefaultAsync();
+                        if (tiltaksplan != null && tiltaksplan.TtpFerdigdato.HasValue && tiltaksplan.TtpFerdigdato.Value.Year > 1997 && sak.startDato > tiltaksplan.TtpFerdigdato)
+                        {
+                            sak.startDato = tiltaksplan.TtpFerdigdato;
+                        }
+                    }
+                    using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                    {
+                        FaTiltaksplanevalueringer evaluering = await context.FaTiltaksplanevalueringers.Where(m => m.EvaUtfoertdato.HasValue && m.TtpLoepenrNavigation.KliLoepenr == klient.KliLoepenr).OrderBy(o => o.EvaUtfoertdato).FirstOrDefaultAsync();
+                        if (evaluering != null && evaluering.EvaUtfoertdato.HasValue && evaluering.EvaUtfoertdato.Value.Year > 1997 && sak.startDato > evaluering.EvaUtfoertdato)
+                        {
+                            sak.startDato = evaluering.EvaUtfoertdato;
+                        }
+                    }
                     saker.Add(sak);
                     migrertAntall += 1;
                 }
@@ -4631,6 +4663,8 @@ namespace UttrekkFamilia
                             tittel = "Saksframlegg",
                             hendelsesdato = sakSendtfylke
                         };
+                        undersoekelse.status = "IVERKSATT_UNDERSØKELSE";
+                        undersoekelse.konklusjonsDato = null;
                         undersoekelse.aktivitetIdListe.Add(saksframleggAktivitet.aktivitetId);
                         undersoekelse.vedtakAktivitetId = null;
                         undersøkelsesAktiviteter.Add(saksframleggAktivitet);
@@ -7343,7 +7377,7 @@ namespace UttrekkFamilia
                         await GetUndersokelserTidligereBydelAsync(worker, fodselsDato, personNummer, sak, tidligereBydel);
                         await GetVedtakTidligereBydelAsync(worker, fodselsDato, personNummer, sak.sakId, tidligereBydel);
                         await GetTiltakTidligereBydelAsync(worker, fodselsDato, personNummer, sak, tidligereBydel);
-                        await GetAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sak.sakId, tidligereBydel);
+                        await GetAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sak, tidligereBydel);
                     }
                 }
             }
@@ -7790,6 +7824,10 @@ namespace UttrekkFamilia
                                     }
                                 }
                             }
+                            if (aktivitet.hendelsesdato.HasValue && aktivitet.hendelsesdato.Value.Year > 1997 && sak.startDato > aktivitet.hendelsesdato)
+                            {
+                                sak.startDato = aktivitet.hendelsesdato;
+                            }
                             aktiviteter.Add(aktivitet);
 
                             DocumentToInclude documentToInclude = new()
@@ -7862,6 +7900,10 @@ namespace UttrekkFamilia
                                     if (aktivitet.hendelsesdato == null)
                                     {
                                         aktivitet.hendelsesdato = aktivitet.utfortDato;
+                                    }
+                                    if (aktivitet.hendelsesdato.HasValue && aktivitet.hendelsesdato.Value.Year > 1997 && sak.startDato > aktivitet.hendelsesdato)
+                                    {
+                                        sak.startDato = aktivitet.hendelsesdato;
                                     }
                                     aktiviteter.Add(aktivitet);
 
@@ -8934,18 +8976,18 @@ namespace UttrekkFamilia
                 throw;
             }
         }
-        public async Task GetAktiviteterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
+        public async Task GetAktiviteterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, Sak sak, string bydel)
         {
             try
             {
-                await GetTilsynsrapporterTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
-                await GetInterneSaksforberedelserTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
-                await GetJournalAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
-                await GetSlettedeJournalAktiviteterTidligereBydelAsync(fodselsDato, personNummer, sakId, bydel);
-                await GetIndividuellPlanAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
-                await GetPostjournalAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
-                await GetSlettedePostjournalAktiviteterTidligereBydelAsync(fodselsDato, personNummer, sakId, bydel);
-                await GetOppfølgingAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sakId, bydel);
+                await GetTilsynsrapporterTidligereBydelAsync(worker, fodselsDato, personNummer, sak, bydel);
+                await GetInterneSaksforberedelserTidligereBydelAsync(worker, fodselsDato, personNummer, sak, bydel);
+                await GetJournalAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sak, bydel);
+                await GetSlettedeJournalAktiviteterTidligereBydelAsync(fodselsDato, personNummer, sak, bydel);
+                await GetIndividuellPlanAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sak, bydel);
+                await GetPostjournalAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sak, bydel);
+                await GetSlettedePostjournalAktiviteterTidligereBydelAsync(fodselsDato, personNummer, sak, bydel);
+                await GetOppfølgingAktiviteterTidligereBydelAsync(worker, fodselsDato, personNummer, sak, bydel);
             }
             catch (Exception ex)
             {
@@ -8954,7 +8996,7 @@ namespace UttrekkFamilia
                 throw;
             }
         }
-        private async Task GetTilsynsrapporterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
+        private async Task GetTilsynsrapporterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, Sak sak, string bydel)
         {
             List<FaPostjournal> rawData;
             List<DocumentToInclude> documentsIncluded = new();
@@ -8976,7 +9018,7 @@ namespace UttrekkFamilia
                 Aktivitet aktivitet = new()
                 {
                     aktivitetId = AddSpecificBydel(postjournal.PosAar.ToString() + postjournal.PosLoepenr.ToString(), "AKT", bydel),
-                    sakId = sakId,
+                    sakId = sak.sakId,
                     aktivitetsType = "TILSYN",
                     aktivitetsUnderType = "TILSYNSBESØK",
                     hendelsesdato = postjournal.PosDato,
@@ -9029,6 +9071,10 @@ namespace UttrekkFamilia
                         }
                     }
                 }
+                if (aktivitet.hendelsesdato.HasValue && aktivitet.hendelsesdato.Value.Year > 1997 && sak.startDato > aktivitet.hendelsesdato)
+                {
+                    sak.startDato = aktivitet.hendelsesdato;
+                }
                 aktiviteter.Add(aktivitet);
                 if (postjournal.DokLoepenr.HasValue)
                 {
@@ -9067,7 +9113,7 @@ namespace UttrekkFamilia
                 toSkip += MaxAntallEntiteterPerFil;
             }
         }
-        private async Task GetPostjournalAktiviteterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
+        private async Task GetPostjournalAktiviteterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, Sak sak, string bydel)
         {
             List<FaPostjournal> rawData;
             List<DocumentToInclude> documentsIncluded = new();
@@ -9085,7 +9131,7 @@ namespace UttrekkFamilia
                 Aktivitet aktivitet = new()
                 {
                     aktivitetId = AddSpecificBydel(postjournal.PosAar.ToString() + postjournal.PosLoepenr.ToString(), "AKT", bydel),
-                    sakId = sakId,
+                    sakId = sak.sakId,
                     aktivitetsType = "ØVRIG_DOKUMENT",
                     hendelsesdato = postjournal.PosDato,
                     status = "UTFØRT",
@@ -9157,6 +9203,10 @@ namespace UttrekkFamilia
                 {
                     aktivitet.hendelsesdato = postjournal.PosRegistrertdato;
                 }
+                if (aktivitet.hendelsesdato.HasValue && aktivitet.hendelsesdato.Value.Year > 1997 && sak.startDato > aktivitet.hendelsesdato)
+                {
+                    sak.startDato = aktivitet.hendelsesdato;
+                }
                 aktiviteter.Add(aktivitet);
                 if (postjournal.DokLoepenr.HasValue)
                 {
@@ -9195,7 +9245,7 @@ namespace UttrekkFamilia
                 toSkip += MaxAntallEntiteterPerFil;
             }
         }
-        private async Task GetSlettedePostjournalAktiviteterTidligereBydelAsync(DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
+        private async Task GetSlettedePostjournalAktiviteterTidligereBydelAsync(DateTime fodselsDato, decimal personNummer, Sak sak, string bydel)
         {
             List<FaPostjournal> rawData;
 
@@ -9212,7 +9262,7 @@ namespace UttrekkFamilia
                 Aktivitet aktivitet = new()
                 {
                     aktivitetId = AddSpecificBydel(postjournal.PosAar.ToString() + postjournal.PosLoepenr.ToString(), "AKT", bydel),
-                    sakId = sakId,
+                    sakId = sak.sakId,
                     aktivitetsType = "SLETTET",
                     aktivitetsUnderType = "SLETTET",
                     hendelsesdato = postjournal.PosDato,
@@ -9239,6 +9289,10 @@ namespace UttrekkFamilia
                 {
                     aktivitet.notat = $"Årsak: {postjournal.PosBegrSlettet}";
                 };
+                if (aktivitet.hendelsesdato.HasValue && aktivitet.hendelsesdato.Value.Year > 1997 && sak.startDato > aktivitet.hendelsesdato)
+                {
+                    sak.startDato = aktivitet.hendelsesdato;
+                }
                 aktiviteter.Add(aktivitet);
             }
             int toSkip = 0;
@@ -9254,7 +9308,7 @@ namespace UttrekkFamilia
                 toSkip += MaxAntallEntiteterPerFil;
             }
         }
-        private async Task GetOppfølgingAktiviteterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
+        private async Task GetOppfølgingAktiviteterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, Sak sak, string bydel)
         {
             List<FaPostjournal> rawData;
             List<DocumentToInclude> documentsIncluded = new();
@@ -9272,7 +9326,7 @@ namespace UttrekkFamilia
                 Aktivitet aktivitet = new()
                 {
                     aktivitetId = AddSpecificBydel(postjournal.PosAar.ToString() + postjournal.PosLoepenr.ToString(), "AKT", bydel),
-                    sakId = sakId,
+                    sakId = sak.sakId,
                     aktivitetsType = "OPPFØLGING",
                     aktivitetsUnderType = "OPPFØLGINGSBESØK",
                     hendelsesdato = postjournal.PosDato,
@@ -9330,6 +9384,10 @@ namespace UttrekkFamilia
                         }
                     }
                 }
+                if (aktivitet.hendelsesdato.HasValue && aktivitet.hendelsesdato.Value.Year > 1997 && sak.startDato > aktivitet.hendelsesdato)
+                {
+                    sak.startDato = aktivitet.hendelsesdato;
+                }
                 aktiviteter.Add(aktivitet);
                 if (postjournal.DokLoepenr.HasValue)
                 {
@@ -9368,7 +9426,7 @@ namespace UttrekkFamilia
                 toSkip += MaxAntallEntiteterPerFil;
             }
         }
-        private async Task GetInterneSaksforberedelserTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
+        private async Task GetInterneSaksforberedelserTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, Sak sak, string bydel)
         {
             List<FaPostjournal> rawData;
             List<DocumentToInclude> documentsIncluded = new();
@@ -9386,7 +9444,7 @@ namespace UttrekkFamilia
                 Aktivitet aktivitet = new()
                 {
                     aktivitetId = AddSpecificBydel(postjournal.PosAar.ToString() + postjournal.PosLoepenr.ToString(), "AKT", bydel),
-                    sakId = sakId,
+                    sakId = sak.sakId,
                     aktivitetsType = "INTERN_SAKSFORBEREDELSE(FVL_§_18.A)",
                     aktivitetsUnderType = "INGEN",
                     hendelsesdato = postjournal.PosDato,
@@ -9409,6 +9467,10 @@ namespace UttrekkFamilia
                 {
                     aktivitet.saksbehandlerId = GetBrukerId(postjournal.KliLoepenrNavigation.SbhInitialer, bydel);
                     aktivitet.utfortAvId = GetBrukerId(postjournal.KliLoepenrNavigation.SbhInitialer, bydel);
+                }
+                if (aktivitet.hendelsesdato.HasValue && aktivitet.hendelsesdato.Value.Year > 1997 && sak.startDato > aktivitet.hendelsesdato)
+                {
+                    sak.startDato = aktivitet.hendelsesdato;
                 }
                 aktiviteter.Add(aktivitet);
                 if (postjournal.DokLoepenr.HasValue)
@@ -9440,7 +9502,7 @@ namespace UttrekkFamilia
                 toSkip += MaxAntallEntiteterPerFil;
             }
         }
-        private async Task GetJournalAktiviteterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
+        private async Task GetJournalAktiviteterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, Sak sak, string bydel)
         {
             List<FaJournal> rawData;
             List<DocumentToInclude> documentsIncluded = new();
@@ -9459,7 +9521,7 @@ namespace UttrekkFamilia
                 Aktivitet aktivitet = new()
                 {
                     aktivitetId = AddSpecificBydel(journal.JouLoepenr.ToString(), "JOU", bydel),
-                    sakId = sakId,
+                    sakId = sak.sakId,
                     status = "UTFØRT",
                     hendelsesdato = journal.JouDatonotat,
                     saksbehandlerId = GetBrukerId(journal.SbhInitialer, bydel),
@@ -9615,6 +9677,10 @@ namespace UttrekkFamilia
                 {
                     aktivitet.utfortDato = journal.JouRegistrertdato;
                 }
+                if (aktivitet.hendelsesdato.HasValue && aktivitet.hendelsesdato.Value.Year > 1997 && sak.startDato > aktivitet.hendelsesdato)
+                {
+                    sak.startDato = aktivitet.hendelsesdato;
+                }
                 aktiviteter.Add(aktivitet);
             }
             await GetDocumentsAsync(worker, $"Journaler{bydel}_{Guid.NewGuid().ToString().Replace('-', '_')}", documentsIncluded, bydel: bydel);
@@ -9632,7 +9698,7 @@ namespace UttrekkFamilia
                 toSkip += MaxAntallEntiteterPerFil;
             }
         }
-        private async Task GetSlettedeJournalAktiviteterTidligereBydelAsync(DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
+        private async Task GetSlettedeJournalAktiviteterTidligereBydelAsync(DateTime fodselsDato, decimal personNummer, Sak sak, string bydel)
         {
             List<FaJournal> rawData;
 
@@ -9649,7 +9715,7 @@ namespace UttrekkFamilia
                 Aktivitet aktivitet = new()
                 {
                     aktivitetId = AddSpecificBydel(journal.JouLoepenr.ToString(), "JOU", bydel),
-                    sakId = sakId,
+                    sakId = sak.sakId,
                     aktivitetsType = "SLETTET",
                     aktivitetsUnderType = "SLETTET",
                     status = "UTFØRT",
@@ -9660,6 +9726,10 @@ namespace UttrekkFamilia
                     utfortDato = journal.JouFerdigdato,
                     notat = journal.JouNotat
                 };
+                if (aktivitet.hendelsesdato.HasValue && aktivitet.hendelsesdato.Value.Year > 1997 && sak.startDato > aktivitet.hendelsesdato)
+                {
+                    sak.startDato = aktivitet.hendelsesdato;
+                }
                 aktiviteter.Add(aktivitet);
             }
             int toSkip = 0;
@@ -9675,7 +9745,7 @@ namespace UttrekkFamilia
                 toSkip += MaxAntallEntiteterPerFil;
             }
         }
-        private async Task GetIndividuellPlanAktiviteterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, string sakId, string bydel)
+        private async Task GetIndividuellPlanAktiviteterTidligereBydelAsync(BackgroundWorker worker, DateTime fodselsDato, decimal personNummer, Sak sak, string bydel)
         {
             List<FaTiltaksplan> rawData;
             List<DocumentToInclude> documentsIncluded = new();
@@ -9694,7 +9764,7 @@ namespace UttrekkFamilia
                 Aktivitet aktivitet = new()
                 {
                     aktivitetId = AddSpecificBydel(plan.TtpLoepenr.ToString(), "IVP", bydel),
-                    sakId = sakId,
+                    sakId = sak.sakId,
                     status = "UTFØRT",
                     aktivitetsType = "ØVRIG_DOKUMENT",
                     aktivitetsUnderType = "INDIVIDUELL_PLAN",
@@ -9713,6 +9783,10 @@ namespace UttrekkFamilia
                 {
                     aktivitet.tittel += $" til {plan.TtpTildato.Value:dd.MM.yyyy}";
                 };
+                if (aktivitet.hendelsesdato.HasValue && aktivitet.hendelsesdato.Value.Year > 1997 && sak.startDato > aktivitet.hendelsesdato)
+                {
+                    sak.startDato = aktivitet.hendelsesdato;
+                }
                 aktiviteter.Add(aktivitet);
                 if (plan.DokLoepenr.HasValue)
                 {
