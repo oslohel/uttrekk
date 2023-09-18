@@ -7891,7 +7891,7 @@ namespace UttrekkFamilia
                                     };
                                     if (string.IsNullOrEmpty(aktivitet.utfortAvId))
                                     {
-                                        aktivitet.utfortAvId = GetBrukerId(planFamilia.SbhInitialer);
+                                        aktivitet.utfortAvId = GetBrukerId(planFamilia.SbhInitialer, bydel);
                                         if (string.IsNullOrEmpty(aktivitet.utfortAvId))
                                         {
                                             aktivitet.utfortAvId = GetBrukerId(mappings.GetHovedsaksbehandlerBydel(bydel), bydel);
