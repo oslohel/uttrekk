@@ -4665,7 +4665,6 @@ namespace UttrekkFamilia
                         };
                         undersoekelse.status = "IVERKSATT_UNDERSØKELSE";
                         undersoekelse.konklusjonsDato = null;
-                        undersoekelse.aktivitetIdListe.Add(saksframleggAktivitet.aktivitetId);
                         undersoekelse.vedtakAktivitetId = null;
                         undersøkelsesAktiviteter.Add(saksframleggAktivitet);
                     }
@@ -5354,6 +5353,10 @@ namespace UttrekkFamilia
                             continue;
                         }
                     }
+                    if (!vedtak.vedtaksdato.HasValue && vedtak.aktivitetsUndertype == "VEDTAK_FRA_RETTSINSTANSER" && (saksJournal.SakStatus == "BOR" || saksJournal.SakStatus == "OHV"))
+                    {
+                        vedtak.vedtaksdato = saksJournal.SakBortfaltdato;
+                    }
                     if (vedtak.startdato.HasValue && vedtak.avsluttetStatusDato.HasValue && vedtak.startdato.Value > vedtak.avsluttetStatusDato.Value)
                     {
                         vedtak.startdato = vedtak.avsluttetStatusDato;
@@ -5361,6 +5364,10 @@ namespace UttrekkFamilia
                     if (vedtak.startdato.HasValue && vedtak.startdato.Value.Year < 1998)
                     {
                         vedtak.startdato = saksJournal.SakAvgjortdato;
+                    }
+                    if (!vedtak.vedtaksdato.HasValue && vedtak.aktivitetsUndertype == "VEDTAK_FRA_RETTSINSTANSER")
+                    {
+                        vedtak.vedtaksdato = saksJournal.SakSlutningdato;
                     }
                     vedtaksliste.Add(vedtak);
                     migrertAntall += 1;
@@ -5855,36 +5862,7 @@ namespace UttrekkFamilia
                     {
                         if (tiltakFamilia.TilIverksattdato.HasValue)
                         {
-                            using (var context = new FamiliaDBContext(ConnectionStringFamilia))
-                            {
-                                List<FaKlientplassering> klientplasseringer = await context.FaKlientplasserings
-                                    .Where(m => m.KliLoepenr == tiltakFamilia.KliLoepenr && m.KplBorhos == "6").ToListAsync();
-                                FaKlientplassering klientplassering = klientplasseringer.OrderBy(o => Math.Abs((o.KplFradato - tiltakFamilia.TilIverksattdato.Value).TotalDays)).FirstOrDefault();
-                                if (klientplassering != null)
-                                {
-                                    string kommunenr = "";
-                                    if (klientplassering.KomKommunenr < 1000)
-                                    {
-                                        kommunenr = $"0{klientplassering.KomKommunenr}";
-                                    }
-                                    else
-                                    {
-                                        kommunenr = klientplassering.KomKommunenr.ToString();
-                                    }
-                                    if (mappings.IsValidKommunenummer(kommunenr))
-                                    {
-                                        tiltak.tilsynskommunenummer = kommunenr;
-                                    }
-                                    else
-                                    {
-                                        tiltak.tilsynskommunenummer = "0301";
-                                    }
-                                }
-                                else
-                                {
-                                    tiltak.tilsynskommunenummer = "0301";
-                                }
-                            }
+                            tiltak.tilsynskommunenummer = await GetTilsynsKommunenummerAsync(tiltakFamilia.KliLoepenr, tiltakFamilia.TilIverksattdato);
                         }
                     }
                     FaEngasjementsavtale engasjementsavtale = null;
@@ -6469,6 +6447,10 @@ namespace UttrekkFamilia
                     utfortDato = postjournal.PosFerdigdato,
                     lovPaalagt = true
                 };
+                if (aktivitet.hendelsesdato.HasValue)
+                {
+                    aktivitet.tilsynAnsvarligKommunenummer = await GetTilsynsKommunenummerAsync(postjournal.KliLoepenr.Value, aktivitet.hendelsesdato, false);
+                }
                 if (!string.IsNullOrEmpty(postjournal.SbhInitialer))
                 {
                     aktivitet.saksbehandlerId = GetBrukerId(postjournal.SbhInitialer);
@@ -6656,7 +6638,7 @@ namespace UttrekkFamilia
                 }
                 if (aktivitet.utfortDato.HasValue && aktivitet.utfortDato.Value.Year < 1998)
                 {
-                    aktivitet.utfortDato = postjournal.PosDato;
+                    aktivitet.utfortDato = postjournal.PosRegistrertdato;
                 }
                 if (aktivitet.hendelsesdato.HasValue && aktivitet.hendelsesdato.Value.Year < 1998)
                 {
@@ -8514,6 +8496,10 @@ namespace UttrekkFamilia
                             continue;
                         }
                     }
+                    if (!vedtak.vedtaksdato.HasValue && vedtak.aktivitetsUndertype == "VEDTAK_FRA_RETTSINSTANSER" && (saksJournal.SakStatus == "BOR" || saksJournal.SakStatus == "OHV"))
+                    {
+                        vedtak.vedtaksdato = saksJournal.SakBortfaltdato;
+                    }
                     if (vedtak.startdato.HasValue && vedtak.avsluttetStatusDato.HasValue && vedtak.startdato.Value > vedtak.avsluttetStatusDato.Value)
                     {
                         vedtak.startdato = vedtak.avsluttetStatusDato;
@@ -8521,6 +8507,10 @@ namespace UttrekkFamilia
                     if (vedtak.startdato.HasValue && vedtak.startdato.Value.Year < 1998)
                     {
                         vedtak.startdato = saksJournal.SakAvgjortdato;
+                    }
+                    if (!vedtak.vedtaksdato.HasValue && vedtak.aktivitetsUndertype == "VEDTAK_FRA_RETTSINSTANSER")
+                    {
+                        vedtak.vedtaksdato = saksJournal.SakSlutningdato;
                     }
                     vedtaksliste.Add(vedtak);
 
@@ -8834,36 +8824,7 @@ namespace UttrekkFamilia
                     {
                         if (tiltakFamilia.TilIverksattdato.HasValue)
                         {
-                            using (var context = new FamiliaDBContext(mappings.GetConnectionstring(bydel, MainDBServer)))
-                            {
-                                List<FaKlientplassering> klientplasseringer = await context.FaKlientplasserings
-                                    .Where(m => m.KliLoepenr == tiltakFamilia.KliLoepenr && m.KplBorhos == "6").ToListAsync();
-                                FaKlientplassering klientplassering = klientplasseringer.OrderBy(o => Math.Abs((o.KplFradato - tiltakFamilia.TilIverksattdato.Value).TotalDays)).FirstOrDefault();
-                                if (klientplassering != null)
-                                {
-                                    string kommunenr = "";
-                                    if (klientplassering.KomKommunenr < 1000)
-                                    {
-                                        kommunenr = $"0{klientplassering.KomKommunenr}";
-                                    }
-                                    else
-                                    {
-                                        kommunenr = klientplassering.KomKommunenr.ToString();
-                                    }
-                                    if (mappings.IsValidKommunenummer(kommunenr))
-                                    {
-                                        tiltak.tilsynskommunenummer = kommunenr;
-                                    }
-                                    else
-                                    {
-                                        tiltak.tilsynskommunenummer = "0301";
-                                    }
-                                }
-                                else
-                                {
-                                    tiltak.tilsynskommunenummer = "0301";
-                                }
-                            }
+                            tiltak.tilsynskommunenummer = await GetTilsynsKommunenummerSpecificBydelAsync(tiltakFamilia.KliLoepenr, bydel, tiltakFamilia.TilIverksattdato);
                         }
                     }
                     FaEngasjementsavtale engasjementsavtale = null;
@@ -9028,6 +8989,10 @@ namespace UttrekkFamilia
                     utfortDato = postjournal.PosFerdigdato,
                     lovPaalagt = true
                 };
+                if (aktivitet.hendelsesdato.HasValue)
+                {
+                    aktivitet.tilsynAnsvarligKommunenummer = await GetTilsynsKommunenummerSpecificBydelAsync(postjournal.KliLoepenr.Value, bydel, aktivitet.hendelsesdato, false);
+                }
                 if (!string.IsNullOrEmpty(postjournal.SbhInitialer))
                 {
                     aktivitet.saksbehandlerId = GetBrukerId(postjournal.SbhInitialer, bydel);
@@ -9197,7 +9162,7 @@ namespace UttrekkFamilia
                 }
                 if (aktivitet.utfortDato.HasValue && aktivitet.utfortDato.Value.Year < 1998)
                 {
-                    aktivitet.utfortDato = postjournal.PosDato;
+                    aktivitet.utfortDato = postjournal.PosRegistrertdato;
                 }
                 if (aktivitet.hendelsesdato.HasValue && aktivitet.hendelsesdato.Value.Year < 1998)
                 {
@@ -11171,6 +11136,88 @@ namespace UttrekkFamilia
             }
             return mynVedtakstype;
         }
+        private async Task<string> GetTilsynsKommunenummerAsync(Decimal kliLoepenr, DateTime? datoHendelse, bool brukOslo = true)
+        {
+            string kommunenr = "";
+            using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+            {
+                if (datoHendelse.HasValue)
+                {
+                    List<FaKlientplassering> klientplasseringer = await context.FaKlientplasserings
+                    .Where(m => m.KliLoepenr == kliLoepenr && m.KplBorhos == "6").ToListAsync();
+                    FaKlientplassering klientplassering = klientplasseringer.OrderBy(o => Math.Abs((o.KplFradato - datoHendelse.Value).TotalDays)).FirstOrDefault();
+                    if (klientplassering != null)
+                    {
+                        if (klientplassering.KomKommunenr < 1000)
+                        {
+                            kommunenr = $"0{klientplassering.KomKommunenr}";
+                        }
+                        else
+                        {
+                            kommunenr = klientplassering.KomKommunenr.ToString();
+                        }
+                        if (!mappings.IsValidKommunenummer(kommunenr))
+                        {
+                            kommunenr = "0301";
+                        }
+                    }
+                    else
+                    {
+                        kommunenr = "0301";
+                    }
+                }
+                else
+                {
+                    kommunenr = "0301";
+                }
+            }
+            if (!brukOslo && kommunenr == "0301")
+            {
+                kommunenr = null;
+            }
+            return kommunenr;
+        }
+        private async Task<string> GetTilsynsKommunenummerSpecificBydelAsync(Decimal kliLoepenr, string bydel, DateTime? datoHendelse, bool brukOslo = true)
+        {
+            string kommunenr = "";
+            using (var context = new FamiliaDBContext(mappings.GetConnectionstring(bydel, MainDBServer)))
+            {
+                if (datoHendelse.HasValue)
+                {
+                    List<FaKlientplassering> klientplasseringer = await context.FaKlientplasserings
+                        .Where(m => m.KliLoepenr == kliLoepenr && m.KplBorhos == "6").ToListAsync();
+                    FaKlientplassering klientplassering = klientplasseringer.OrderBy(o => Math.Abs((o.KplFradato - datoHendelse.Value).TotalDays)).FirstOrDefault();
+                    if (klientplassering != null)
+                    {
+                        if (klientplassering.KomKommunenr < 1000)
+                        {
+                            kommunenr = $"0{klientplassering.KomKommunenr}";
+                        }
+                        else
+                        {
+                            kommunenr = klientplassering.KomKommunenr.ToString();
+                        }
+                        if (!mappings.IsValidKommunenummer(kommunenr))
+                        {
+                            kommunenr = "0301";
+                        }
+                    }
+                    else
+                    {
+                        kommunenr = "0301";
+                    }
+                }
+                else
+                {
+                    kommunenr = "0301";
+                }
+            }
+            if (!brukOslo && kommunenr == "0301")
+            {
+                kommunenr = null;
+            }
+            return kommunenr;
+        }
         private async Task<FaPostjournal> GetPostJournalAsync(decimal? posAar, decimal? posLoepenr)
         {
             FaPostjournal postJournal;
@@ -11564,28 +11611,6 @@ namespace UttrekkFamilia
             }
             return oversattOrgnr;
         }
-        //private async Task<bool> ExistsInBVVAsync(string fodselsnummer)
-        //{
-        //    bool exists = false;
-
-        //    using (var context = new BVVDBContext(ConnectionStringVFB))
-        //    {
-        //        PersonPerson person = await context.PersonPeople.Where(p => p.BirthNumber == fodselsnummer).FirstOrDefaultAsync();
-        //        if (person != null)
-        //        {
-        //            ClientClient client = await context.ClientClients.Where(c => c.PersonId == person.PersonPersonId).FirstOrDefaultAsync();
-        //            if (client is not null)
-        //            {
-        //                CaseCase caseCase = await context.CaseCases.Where(k => k.ClientId == client.ClientClientId && k.Type != 2 && k.Type != 3).FirstOrDefaultAsync();
-        //                if (caseCase is not null)
-        //                {
-        //                    exists = true;
-        //                }
-        //            }
-        //        }
-        //    }
-        //    return exists;
-        //}
         private string GetBrukerId(string initialer, string bydel = "")
         {
             if (string.IsNullOrEmpty(initialer))
