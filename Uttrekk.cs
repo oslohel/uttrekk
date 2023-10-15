@@ -11173,7 +11173,10 @@ namespace UttrekkFamilia
             }
             if (!brukOslo && kommunenr == "0301")
             {
-                kommunenr = null;
+                if (datoHendelse.HasValue && datoHendelse.Value.Year < 2023)
+                {
+                    kommunenr = null;
+                }
             }
             return kommunenr;
         }
@@ -11214,7 +11217,10 @@ namespace UttrekkFamilia
             }
             if (!brukOslo && kommunenr == "0301")
             {
-                kommunenr = null;
+                if (datoHendelse.HasValue && datoHendelse.Value.Year < 2023)
+                {
+                    kommunenr = null;
+                }
             }
             return kommunenr;
         }
