@@ -3269,6 +3269,15 @@ namespace UttrekkFamilia
                     {
                         continue;
                     }
+                    using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                    {
+                        FaEngasjementsavtale engasjementsavtale = await context.FaEngasjementsavtales.Where(e => e.DokLoepenr.HasValue && e.EngAvgjortdato.HasValue && e.EngStatus != "BOR" && e.EngStatus != "BEH" && e.EngStatus != "KLR"
+                              && (e.EngTildato >= FirstInYearOfMigration)).OrderBy(o => o.EngFradato).FirstOrDefaultAsync();
+                        if (engasjementsavtale != null && engasjementsavtale.EngFradato < sak.startDato)
+                        {
+                            sak.startDato = engasjementsavtale.EngFradato;
+                        }
+                    }
                     saker.Add(sak);
                     migrertAntall += 1;
                 }
@@ -6469,6 +6478,7 @@ namespace UttrekkFamilia
                 if (postjournal.KliLoepenrNavigation.KliFraannenkommune == 1)
                 {
                     aktivitet.aktivitetsUnderType = "TILSYNSBESØK_I_TILSYNSKOMMUNE";
+                    aktivitet.tilsynAnsvarligKommunenummer = null;
                 }
                 else
                 {
