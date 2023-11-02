@@ -3468,7 +3468,18 @@ namespace UttrekkFamilia
                 {
                     innbygger.adressesperre = "SKJULT_ADRESSE";
                 }
-
+                using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                {
+                    FaMeldinger melding = await context.FaMeldingers.Where(k => k.KliLoepenr == klient.KliLoepenr && k.MelAvsluttetgjennomgang.HasValue && k.MelMeldingstype != "UGR")
+                        .OrderBy(o => o.MelRegistrertdato).FirstOrDefaultAsync();
+                    if (melding != null && melding.MelRegistrertdato.HasValue)
+                    {
+                        if (innbygger.registrertDato > melding.MelRegistrertdato.Value)
+                        {
+                            innbygger.registrertDato = melding.MelRegistrertdato.Value;
+                        }
+                    }
+                }
                 switch (klient.KliFlyktningestatus?.Trim())
                 {
                     case "ASYL":
@@ -5151,7 +5162,6 @@ namespace UttrekkFamilia
                                 }
                                 bruker.fulltNavn += saksbehandler.SbhEtternavn?.Trim();
                             }
-                            bruker.email = saksbehandler.SbhMailadresse?.Trim();
                             bruker.brukerNokkelModulusBarn = bruker.brukerId;
                         }
                         reader.Close();
@@ -5470,9 +5480,9 @@ namespace UttrekkFamilia
                     }
                     else if (lovHovedParagraf.StartsWith("4-4") || lovJmfParagraf1.StartsWith("4-4") || lovJmfParagraf2.StartsWith("4-4")
                         || lovHovedParagraf == "1-3" || lovJmfParagraf1 == "1-3" || lovJmfParagraf2 == "1-3"
-                        || lovHovedParagraf == "Bvl._§_3-1" || lovJmfParagraf1 == "Bvl._§_3-1" || lovJmfParagraf2 == "Bvl._§_3-1"
-                        || lovHovedParagraf == "Bvl._§_3-2" || lovJmfParagraf1 == "Bvl._§_3-2" || lovJmfParagraf2 == "Bvl._§_3-2"
-                        || lovHovedParagraf == "Bvl._§_3-6" || lovJmfParagraf1 == "Bvl._§_3-6" || lovJmfParagraf2 == "Bvl._§_3-6")
+                        || lovHovedParagraf == "§ 3-1" || lovJmfParagraf1 == "§ 3-1" || lovJmfParagraf2 == "§ 3-1"
+                        || lovHovedParagraf == "§ 3-2" || lovJmfParagraf1 == "§ 3-2" || lovJmfParagraf2 == "§ 3-2"
+                        || lovHovedParagraf == "§ 3-6" || lovJmfParagraf1 == "§ 3-6" || lovJmfParagraf2 == "§ 3-6")
                     {
                         if (sakStatus == "GOD" || sakStatus == "BOR" || sakStatus == "OHV")
                         {
@@ -5480,32 +5490,32 @@ namespace UttrekkFamilia
                         }
                     }
                     else if (lovHovedParagraf.StartsWith("4-19") || lovJmfParagraf1.StartsWith("4-19") || lovJmfParagraf2.StartsWith("4-19")
-                         || lovHovedParagraf == "Bvl._§_7-2._3.ledd" || lovJmfParagraf1 == "Bvl._§_7-2._3.ledd" || lovJmfParagraf2 == "Bvl._§_7-2._3.ledd")
+                         || lovHovedParagraf == "§ 7-2,3." || lovJmfParagraf1 == "§ 7-2,3." || lovJmfParagraf2 == "§ 7-2,3.")
                     {
                         aktivitetsUnderType = "ADRESSESPERRE";
                     }
-                    if (lovHovedParagraf == "Bvl._§_4-1")
+                    if (lovHovedParagraf == "§ 4-1")
                     {
                         aktivitetsUnderType = "AKUTTVEDTAK_BVL._§_4_1";
                     }
-                    else if (lovHovedParagraf.StartsWith("Bvl._§_4-2"))
+                    else if (lovHovedParagraf.StartsWith("§ 4-2"))
                     {
                         aktivitetsUnderType = "AKUTTVEDTAK_BVL._§_4_2_JF_§_14_22";
                     }
-                    else if (lovHovedParagraf == "Bvl._§_4-3")
+                    else if (lovHovedParagraf == "§ 4-3")
                     {
                         aktivitetsUnderType = "AKUTTVEDTAK_BVL._§_4_3_JF_§_14_22";
                     }
-                    else if (lovHovedParagraf == "Bvl._§_4-4")
+                    else if (lovHovedParagraf == "§ 4-4")
                     {
                         aktivitetsUnderType = "AKUTTVEDTAK_BVL._§_4_4_JF_§_6_2_14_22";
                     }
-                    else if (lovHovedParagraf == "Bvl._§_4-5")
+                    else if (lovHovedParagraf == "§ 4-5")
                     {
                         aktivitetsUnderType = "AKUTTVEDTAK_BVL._§_4_5_JF_§_14_22";
                     }
                     if (lovHovedParagraf == "4-17" || lovJmfParagraf1 == "4-17" || lovJmfParagraf2 == "4-17"
-                        || lovHovedParagraf == "Bvl._§_5-5" || lovJmfParagraf1 == "Bvl._§_5-5" || lovJmfParagraf2 == "Bvl._§_5-5")
+                        || lovHovedParagraf == "§ 5-5" || lovJmfParagraf1 == "§ 5-5" || lovJmfParagraf2 == "§ 5-5")
                     {
                         aktivitetsUnderType = "FLYTTING";
                     }
@@ -5544,23 +5554,23 @@ namespace UttrekkFamilia
                             aktivitetsUnderType = "AKUTTVEDTAK_BVL._§4-9_JF_§4-8_1.LEDD";
                         }
                     }
-                    if (lovHovedParagraf == "Bvl._§_4-1")
+                    if (lovHovedParagraf == "§ 4-1")
                     {
                         aktivitetsUnderType = "AKUTTVEDTAK_BVL._§_4_1";
                     }
-                    else if (lovHovedParagraf.StartsWith("Bvl._§_4-2"))
+                    else if (lovHovedParagraf.StartsWith("§ 4-2"))
                     {
                         aktivitetsUnderType = "AKUTTVEDTAK_BVL._§_4_2_JF_§_14_22";
                     }
-                    else if (lovHovedParagraf == "Bvl._§_4-3")
+                    else if (lovHovedParagraf == "§ 4-3")
                     {
                         aktivitetsUnderType = "AKUTTVEDTAK_BVL._§_4_3_JF_§_14_22";
                     }
-                    else if (lovHovedParagraf == "Bvl._§_4-4")
+                    else if (lovHovedParagraf == "§ 4-4")
                     {
                         aktivitetsUnderType = "AKUTTVEDTAK_BVL._§_4_4_JF_§_6_2_14_22";
                     }
-                    else if (lovHovedParagraf == "Bvl._§_4-5")
+                    else if (lovHovedParagraf == "§ 4-5")
                     {
                         aktivitetsUnderType = "AKUTTVEDTAK_BVL._§_4_5_JF_§_14_22";
                     }
