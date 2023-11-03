@@ -3748,12 +3748,12 @@ namespace UttrekkFamilia
                             {
                                 continue;
                             }
-                            innbygger.potensiellOppdragstaker = true;
+                            innbygger.oppdragstaker = true;
                         }
                     }
                     else
                     {
-                        innbygger.potensiellOppdragstaker = false;
+                        innbygger.oppdragstaker = false;
                     }
                     if (forbindelse.ForRegistrertdato.HasValue)
                     {
