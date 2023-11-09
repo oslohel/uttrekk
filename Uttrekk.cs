@@ -121,22 +121,6 @@ namespace UttrekkFamilia
         #endregion
 
         #region Sokrates
-        public async Task WriteSokratesAsync(BackgroundWorker worker)
-        {
-            try
-            {
-                await ExtractSokratesAsync(worker, true);
-                CreateFolderIfNotExist("saker");
-                await WriteFileAsync(mappings.GetSokratesList(), GetJsonFileName("saker", "Soktrates oversikt"));
-                worker.ReportProgress(0, $"Klar");
-            }
-            catch (Exception ex)
-            {
-                string message = $"Exception ({ex.Source}): {ex.Message} Stack trace: {ex.StackTrace}";
-                MessageBox.Show(message, "Migrering uttrekk - exception", MessageBoxButton.OK, MessageBoxImage.Error);
-                throw;
-            }
-        }
         public async Task<string> ExtractSokratesAsync(BackgroundWorker worker, bool showResult = false)
         {
             OracleConnection connection = new(ConnectionStringSokrates);
@@ -1033,7 +1017,7 @@ namespace UttrekkFamilia
         #endregion
 
         #region Zip
-        public void DoZipAsync(BackgroundWorker worker)
+        public void DoZip(BackgroundWorker worker)
         {
             try
             {
@@ -1073,6 +1057,59 @@ namespace UttrekkFamilia
                 {
                     worker.ReportProgress(0, $"Ingen dokumenter funnet for zipping.");
                 }
+            }
+            catch (Exception ex)
+            {
+                string message = $"Exception ({ex.Source}): {ex.Message} Stack trace: {ex.StackTrace}";
+                MessageBox.Show(message, "Migrering uttrekk - exception", MessageBoxButton.OK, MessageBoxImage.Error);
+                throw;
+            }
+        }
+        #endregion
+
+        #region Replace in files
+        public void DoReplaceInFiles(BackgroundWorker worker)
+        {
+            try
+            {
+                worker.ReportProgress(0, "Starter søk/ersatt av dokumenter...");
+                int antallFiler = 0;
+                string folderName = $"{OutputFolderName}";
+                string[] filer = Directory.GetFiles(folderName, "*.json", SearchOption.AllDirectories).ToArray();
+                string fileName = $"{OutputFolderName}T.txt";
+
+                IEnumerable<string> lines = File.ReadLines(fileName);
+
+                if (filer != null && filer.Length > 0)
+                {
+                    foreach (string fil in filer)
+                    {
+                        if (antallFiler % 10 == 0)
+                        {
+                            worker.ReportProgress(0, $"Søk/erstatter filer ({antallFiler} av {filer.Length})...");
+                        }
+
+                        string fileContents = File.ReadAllText(fil);
+
+                        foreach (string line in lines)
+                        {
+                            if (!string.IsNullOrEmpty(line))
+                            {
+                                string replaceString = "";
+
+                                int pos = line.IndexOf("__");
+                                if (pos >= 0)
+                                {
+                                    replaceString = line.Substring(0, pos) + "X__" + line.Substring(pos + 2);
+                                }
+                                fileContents = fileContents.Replace(line, replaceString);
+                            }
+                        }
+                        File.WriteAllText(fil, fileContents);
+                        antallFiler += 1;
+                    }
+                }
+                worker.ReportProgress(0, $"Erstattet {filer.Length} filer ferdig.");
             }
             catch (Exception ex)
             {
@@ -5888,7 +5925,7 @@ namespace UttrekkFamilia
                     using (var context = new FamiliaDBContext(ConnectionStringFamilia))
                     {
                         engasjementsavtale = await context.FaEngasjementsavtales.Include(m => m.ForLoepenrNavigation.ForLoepenrNavigation).Where(e => string.IsNullOrEmpty(e.ForLoepenrNavigation.ForLoepenrNavigation.ForGmlreferanse) && e.TilLoepenr == tiltakFamilia.TilLoepenr && e.DokLoepenr.HasValue && e.EngAvgjortdato.HasValue && e.EngStatus != "BOR" && e.EngStatus != "BEH" && e.EngStatus != "KLR"
-                              && (e.EngTildato >= FirstInYearOfMigration)).FirstOrDefaultAsync();
+                              && (e.EngTildato >= FirstInYearOfMigration)).OrderByDescending(o => o.EngTildato).FirstOrDefaultAsync();
                     }
                     if (engasjementsavtale != null)
                     {
@@ -8851,7 +8888,7 @@ namespace UttrekkFamilia
                     using (var context = new FamiliaDBContext(mappings.GetConnectionstring(bydel, MainDBServer)))
                     {
                         engasjementsavtale = await context.FaEngasjementsavtales.Include(m => m.ForLoepenrNavigation.ForLoepenrNavigation).Where(e => string.IsNullOrEmpty(e.ForLoepenrNavigation.ForLoepenrNavigation.ForGmlreferanse) && e.TilLoepenr == tiltakFamilia.TilLoepenr && e.DokLoepenr.HasValue && e.EngAvgjortdato.HasValue && e.EngStatus != "BOR" && e.EngStatus != "BEH" && e.EngStatus != "KLR"
-                              && (e.EngTildato >= FirstInYearOfMigration)).FirstOrDefaultAsync();
+                              && (e.EngTildato >= FirstInYearOfMigration)).OrderByDescending(o => o.EngTildato).FirstOrDefaultAsync();
                     }
                     if (engasjementsavtale != null)
                     {

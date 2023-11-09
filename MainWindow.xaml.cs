@@ -120,18 +120,6 @@ namespace UttrekkFamilia
                 workerInfoDatabase.RunWorkerAsync();
             }
         }
-        private void WriteSokrates_Click(object sender, RoutedEventArgs e)
-        {
-            SetParameters();
-
-            using (BackgroundWorker workerWriteSokrates = new())
-            {
-                workerWriteSokrates.WorkerReportsProgress = true;
-                workerWriteSokrates.DoWork += WorkerWriteSokrates_DoWork;
-                workerWriteSokrates.ProgressChanged += Worker_ProgressChanged;
-                workerWriteSokrates.RunWorkerAsync();
-            }
-        }
         private void UttrekkFamiliaButton_Click(object sender, RoutedEventArgs e)
         {
             MessageBoxResult answer = MessageBox.Show("Vil du starte uttrekket av data fra Familia?", "Start uttrekk", MessageBoxButton.YesNo, MessageBoxImage.Question);
@@ -224,13 +212,39 @@ namespace UttrekkFamilia
                 workerZip.RunWorkerAsync();
             }
         }
+        private void ReplaceInFilesButton_Click(object sender, RoutedEventArgs e)
+        {
+            SetParameters();
+
+            using (BackgroundWorker workerZip = new())
+            {
+                workerZip.WorkerReportsProgress = true;
+                workerZip.DoWork += WorkerReplaceInFiles_DoWork;
+                workerZip.ProgressChanged += Worker_ProgressChanged;
+                workerZip.RunWorkerAsync();
+            }
+        }
         private void WorkerZip_DoWork(object sender, DoWorkEventArgs e)
         {
             try
             {
                 Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip, OnlyActiveCases, OnlyPassiveCases, ProduksjonIsChecked);
                 var worker = sender as BackgroundWorker;
-                uttrekk.DoZipAsync(worker);
+                uttrekk.DoZip(worker);
+            }
+            catch (AggregateException ex)
+            {
+                string message = $"Unhandled exception ({ex.Source}): {ex.Message} Stack trace: {ex.StackTrace}";
+                MessageBox.Show(message, "Migrering - Unhandled exception", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        private void WorkerReplaceInFiles_DoWork(object sender, DoWorkEventArgs e)
+        {
+            try
+            {
+                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip, OnlyActiveCases, OnlyPassiveCases, ProduksjonIsChecked);
+                var worker = sender as BackgroundWorker;
+                uttrekk.DoReplaceInFiles(worker);
             }
             catch (AggregateException ex)
             {
@@ -337,21 +351,6 @@ namespace UttrekkFamilia
                 Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, "BVV", UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip, OnlyActiveCases, OnlyPassiveCases, ProduksjonIsChecked);
                 var worker = sender as BackgroundWorker;
                 var task = uttrekk.GetInformationBVVAsync(worker);
-                task.Wait();
-            }
-            catch (AggregateException ex)
-            {
-                string message = $"Unhandled exception ({ex.Source}): {ex.Message} Stack trace: {ex.StackTrace}";
-                MessageBox.Show(message, "Migrering - Unhandled exception", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-        private void WorkerWriteSokrates_DoWork(object sender, DoWorkEventArgs e)
-        {
-            try
-            {
-                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip, OnlyActiveCases, OnlyPassiveCases, ProduksjonIsChecked);
-                var worker = sender as BackgroundWorker;
-                var task = uttrekk.WriteSokratesAsync(worker);
                 task.Wait();
             }
             catch (AggregateException ex)
