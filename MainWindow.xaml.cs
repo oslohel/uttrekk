@@ -36,7 +36,6 @@ namespace UttrekkFamilia
         private bool OnlyActiveCases;
         private bool OnlyPassiveCases;
         private int AntallFilerPerZip;
-        private string DokumentNumber;
         private bool ProduksjonIsChecked;
         #endregion
 
@@ -224,6 +223,18 @@ namespace UttrekkFamilia
                 workerZip.RunWorkerAsync();
             }
         }
+        private void AktorIdButton_Click(object sender, RoutedEventArgs e)
+        {
+            SetParameters();
+
+            using (BackgroundWorker workerZip = new())
+            {
+                workerZip.WorkerReportsProgress = true;
+                workerZip.DoWork += WorkerAktorId_DoWork;
+                workerZip.ProgressChanged += Worker_ProgressChanged;
+                workerZip.RunWorkerAsync();
+            }
+        }
         private void WorkerZip_DoWork(object sender, DoWorkEventArgs e)
         {
             try
@@ -252,6 +263,20 @@ namespace UttrekkFamilia
                 MessageBox.Show(message, "Migrering - Unhandled exception", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+        private void WorkerAktorId_DoWork(object sender, DoWorkEventArgs e)
+        {
+            try
+            {
+                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip, OnlyActiveCases, OnlyPassiveCases, ProduksjonIsChecked);
+                var worker = sender as BackgroundWorker;
+                uttrekk.DoAktorIds(worker);
+            }
+            catch (AggregateException ex)
+            {
+                string message = $"Unhandled exception ({ex.Source}): {ex.Message} Stack trace: {ex.StackTrace}";
+                MessageBox.Show(message, "Migrering - Unhandled exception", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
         private void WorkerInfoFamiliaDatabase_DoWork(object sender, DoWorkEventArgs e)
         {
             try
@@ -273,7 +298,7 @@ namespace UttrekkFamilia
             {
                 Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip, OnlyActiveCases, OnlyPassiveCases, ProduksjonIsChecked);
                 var worker = sender as BackgroundWorker;
-                var task = uttrekk.GetOneFileFamiliaAsync(worker, Convert.ToDecimal(DokumentNumber));
+                var task = uttrekk.GetOneFileFamiliaAsync(worker);
                 task.Wait();
             }
             catch (AggregateException ex)
@@ -705,7 +730,6 @@ namespace UttrekkFamilia
             ConnSokrates = ConnSokratesBox.Password;
             OutputFolderName = GetFullFolderName(OutputFolder.Text);
             Bydelsidentifikator = BydelsidentifikatorBox.Text;
-            DokumentNumber = Doknumber.Text;
             SakerIsChecked = chkSaker.IsChecked.Value;
             InnbyggereBarnIsChecked = chkInnbyggereBarn.IsChecked.Value;
             InnbyggereIsChecked = chkInnbyggere.IsChecked.Value;

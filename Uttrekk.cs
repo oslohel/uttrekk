@@ -494,60 +494,77 @@ namespace UttrekkFamilia
                 throw;
             }
         }
-        public async Task GetOneFileFamiliaAsync(BackgroundWorker worker, decimal dokLoepenr)
+        public async Task GetOneFileFamiliaAsync(BackgroundWorker worker)
         {
             try
             {
                 CreateFolderIfNotExist("filer");
 
-                FaDokumenter dokument;
-                using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                worker.ReportProgress(0, "Starter uthenting dokumentfiler...");
+                string folderName = $"{OutputFolderName}";
+                string fileName = $"{OutputFolderName}Doks.txt";
+
+                if (!File.Exists(fileName))
                 {
-                    dokument = await context.FaDokumenters.Where(p => p.DokLoepenr == dokLoepenr).FirstOrDefaultAsync();
-                    if (dokument == null)
-                    {
-                        MessageBox.Show($"Dokumentet med løpenr {dokLoepenr} ble ikke funnet i {Bydelsforkortelse}", "Dokument ikke funnet", MessageBoxButton.OK, MessageBoxImage.Error);
-                        return;
-                    }
+                    MessageBox.Show($"Fil {fileName} eksisterer ikke.", "Migrering uttrekk - exception", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
                 }
-                SqlConnection connection = new(ConnectionStringFamilia);
-                SqlDataReader reader = null;
-                try
+                IEnumerable<string> lines = File.ReadLines(fileName);
+
+                foreach (string line in lines)
                 {
-                    connection.Open();
-                    string fileExtension = ".doc";
-                    string dokMimetype = dokument.DokMimetype?.Trim();
-                    if (!string.IsNullOrEmpty(dokMimetype))
+                    if (!string.IsNullOrEmpty(line))
                     {
-                        dokMimetype = dokMimetype.ToLower();
-                        if (dokMimetype == "application/pdf")
+                        decimal dokLoepenr = Convert.ToDecimal(line);
+                        FaDokumenter dokument;
+                        using (var context = new FamiliaDBContext(ConnectionStringFamilia))
                         {
-                            fileExtension = ".pdf";
-                        }
-                        else
-                        {
-                            if (dokMimetype == "text/html")
+                            dokument = await context.FaDokumenters.Where(p => p.DokLoepenr == dokLoepenr).FirstOrDefaultAsync();
+                            if (dokument == null)
                             {
-                                fileExtension = ".html";
+                                continue;
                             }
                         }
+                        SqlConnection connection = new(ConnectionStringFamilia);
+                        SqlDataReader reader = null;
+                        try
+                        {
+                            connection.Open();
+                            string fileExtension = ".doc";
+                            string dokMimetype = dokument.DokMimetype?.Trim();
+                            if (!string.IsNullOrEmpty(dokMimetype))
+                            {
+                                dokMimetype = dokMimetype.ToLower();
+                                if (dokMimetype == "application/pdf")
+                                {
+                                    fileExtension = ".pdf";
+                                }
+                                else
+                                {
+                                    if (dokMimetype == "text/html")
+                                    {
+                                        fileExtension = ".html";
+                                    }
+                                }
+                            }
+                            SqlCommand command = new($"Select Dok_Dokument From FA_DOKUMENTER Where DOK_Loepenr={dokLoepenr}", connection)
+                            {
+                                CommandTimeout = 300
+                            };
+                            reader = command.ExecuteReader();
+                            while (reader.Read())
+                            {
+                                await File.WriteAllBytesAsync(OutputFolderName + "filer\\" + dokLoepenr.ToString() + "__" + Bydelsforkortelse + fileExtension, (byte[])reader["Dok_Dokument"]);
+                            }
+                            reader.Close();
+                        }
+                        finally
+                        {
+                            connection.Close();
+                        }
                     }
-                    SqlCommand command = new($"Select Dok_Dokument From FA_DOKUMENTER Where DOK_Loepenr={dokLoepenr}", connection)
-                    {
-                        CommandTimeout = 300
-                    };
-                    reader = command.ExecuteReader();
-                    while (reader.Read())
-                    {
-                        await File.WriteAllBytesAsync(OutputFolderName + "filer\\" + dokLoepenr.ToString() + fileExtension, (byte[])reader["Dok_Dokument"]);
-                    }
-                    reader.Close();
-                    worker.ReportProgress(0, $"Hentet filen {dokLoepenr.ToString() + fileExtension}");
                 }
-                finally
-                {
-                    connection.Close();
-                }
+                worker.ReportProgress(0, $"Uthenting dokumentfiler ferdig.");
             }
             catch (Exception ex)
             {
@@ -1076,8 +1093,13 @@ namespace UttrekkFamilia
                 int antallFiler = 0;
                 string folderName = $"{OutputFolderName}";
                 string[] filer = Directory.GetFiles(folderName, "*.json", SearchOption.AllDirectories).ToArray();
-                string fileName = $"{OutputFolderName}T.txt";
+                string fileName = $"{OutputFolderName}Ids.txt";
 
+                if (!File.Exists(fileName))
+                {
+                    MessageBox.Show($"Fil {fileName} eksisterer ikke.", "Migrering uttrekk - exception", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
                 IEnumerable<string> lines = File.ReadLines(fileName);
 
                 if (filer != null && filer.Length > 0)
@@ -1100,7 +1122,7 @@ namespace UttrekkFamilia
                                 int pos = line.IndexOf("__");
                                 if (pos >= 0)
                                 {
-                                    replaceString = line.Substring(0, pos) + "X__" + line.Substring(pos + 2);
+                                    replaceString = line[..pos] + "X__" + line[(pos + 2)..];
                                 }
                                 fileContents = fileContents.Replace(line, replaceString);
                             }
@@ -1110,6 +1132,44 @@ namespace UttrekkFamilia
                     }
                 }
                 worker.ReportProgress(0, $"Erstattet {filer.Length} filer ferdig.");
+            }
+            catch (Exception ex)
+            {
+                string message = $"Exception ({ex.Source}): {ex.Message} Stack trace: {ex.StackTrace}";
+                MessageBox.Show(message, "Migrering uttrekk - exception", MessageBoxButton.OK, MessageBoxImage.Error);
+                throw;
+            }
+        }
+        #endregion
+
+        #region Aktor Id oversettelse
+        public void DoAktorIds(BackgroundWorker worker)
+        {
+            try
+            {
+                worker.ReportProgress(0, "Starter oversettelse aktor Id-er...");
+                string folderName = $"{OutputFolderName}";
+                string fileName = $"{OutputFolderName}BasisIds.txt";
+                string resultsFileName = $"{OutputFolderName}ResultBasisIds.txt";
+                string results = "";
+
+                if (!File.Exists(fileName))
+                {
+                    MessageBox.Show($"Fil {fileName} eksisterer ikke.", "Migrering uttrekk - exception", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+                IEnumerable<string> lines = File.ReadLines(fileName);
+
+                foreach (string line in lines)
+                {
+                    if (!string.IsNullOrEmpty(line))
+                    {
+                        string aktorId = GetStringFromByteArray(line);
+                        results += $"{line}   {aktorId}{Environment.NewLine}";
+                    }
+                }
+                File.WriteAllText(resultsFileName, results);
+                worker.ReportProgress(0, $"Oversettelse aktor Id-er ferdig.");
             }
             catch (Exception ex)
             {
@@ -3591,7 +3651,7 @@ namespace UttrekkFamilia
                 Innbygger innbygger = new()
                 {
                     actorId = AddBydel(melding.MelLoepenr.ToString()),
-                    registrertDato = melding.MelRegistrertdato.Value,
+                    registrertDato = melding.MelMottattdato,
                     fornavn = melding.MelFornavn?.Trim(),
                     etternavn = melding.MelEtternavn?.Trim(),
                     sivilstand = "UOPPGITT",
@@ -5967,11 +6027,17 @@ namespace UttrekkFamilia
                     }
                     if (tiltak.iverksattDato.HasValue && tiltak.iverksattDato.Value.Year < 1998)
                     {
-                        tiltak.iverksattDato = tiltakFamilia.TilRegistrertdato;
+                        if (tiltakFamilia.TilRegistrertdato.HasValue)
+                        {
+                            tiltak.iverksattDato = tiltakFamilia.TilRegistrertdato.Value.Date;
+                        }
                     }
                     if (tiltak.avsluttetDato.HasValue && tiltak.avsluttetDato.Value.Year < 1998)
                     {
-                        tiltak.avsluttetDato = tiltakFamilia.TilRegistrertdato;
+                        if (tiltakFamilia.TilRegistrertdato.HasValue)
+                        {
+                            tiltak.avsluttetDato = tiltakFamilia.TilRegistrertdato.Value.Date;
+                        }
                     }
                     tiltaksliste.Add(tiltak);
                     migrertAntall += 1;
@@ -8930,11 +8996,17 @@ namespace UttrekkFamilia
                     }
                     if (tiltak.iverksattDato.HasValue && tiltak.iverksattDato.Value.Year < 1998)
                     {
-                        tiltak.iverksattDato = tiltakFamilia.TilRegistrertdato;
+                        if (tiltakFamilia.TilRegistrertdato.HasValue)
+                        {
+                            tiltak.iverksattDato = tiltakFamilia.TilRegistrertdato.Value.Date;
+                        }
                     }
                     if (tiltak.avsluttetDato.HasValue && tiltak.avsluttetDato.Value.Year < 1998)
                     {
-                        tiltak.avsluttetDato = tiltakFamilia.TilRegistrertdato;
+                        if (tiltakFamilia.TilRegistrertdato.HasValue)
+                        {
+                            tiltak.avsluttetDato = tiltakFamilia.TilRegistrertdato.Value.Date;
+                        }
                     }
                     tiltaksliste.Add(tiltak);
                 }
@@ -10726,7 +10798,7 @@ namespace UttrekkFamilia
             }
             if (meldingFamilia.MelInnhBarnForeKonflikt == 1)
             {
-                mottattBekymringsmelding.saksinnhold.Add("HØY_GRAD_AV_KONFLIKT_HJEMME");
+                mottattBekymringsmelding.saksinnhold.Add("KONFLIKT_MELLOM_FORELDRE_SOM_IKKE_BOR_SAMMEN");
             }
             if (meldingFamilia.MelInnhBarnAdferd == 1)
             {

@@ -60,7 +60,7 @@
             <Button x:Name="ReplaceInFilesButton" Content="Erstatt i JSON" Height="24" Width="100" Click="ReplaceInFilesButton_Click" Canvas.Left="18" Canvas.Top="309" TabIndex="13" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <CheckBox Content="Bruk Sokrates" x:Name="chkUseSokrates" IsChecked="True" TabIndex="5" Height="20" Canvas.Left="136" Canvas.Top="128" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <CheckBox Content="Kun filer (for føropplasting)" x:Name="chkOnlyWriteDocumentFiles" IsChecked="False" TabIndex="6" Height="20" Canvas.Left="263" Canvas.Top="128" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-            <Button x:Name="OneFilFamilia" Content="Enkeltfil Familia" Height="24" Width="100" Click="OneFileFamilia_Click" Canvas.Left="123" Canvas.Top="338" TabIndex="18" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+            <Button x:Name="OneFilFamilia" Content="Enkeltfiler Familia" Height="24" Width="100" Click="OneFileFamilia_Click" Canvas.Left="123" Canvas.Top="338" TabIndex="18" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <Label Content="Antall pr. Zip-fil:" Height="26" Canvas.Left="18" Canvas.Top="151" Width="112" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <TextBox x:Name="AntallPerZip" Canvas.Left="136" TextWrapping="NoWrap" TextAlignment="Right" Text="100" Canvas.Top="153" Width="113" Height="22" TabIndex="7" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <StatusBar x:Name="StatusBar" Height="30" Canvas.Left="10" Canvas.Top="469" HorizontalAlignment="Center" VerticalAlignment="Top" Width="761">
@@ -70,16 +70,15 @@
             <Button x:Name="AlleBrukere" Content="Alle brukere" Height="24" Width="100" Click="AlleBrukere_Click" TabIndex="23" Canvas.Left="355" Canvas.Top="309" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <Label Content="DB server:" Height="26" Canvas.Left="18" Canvas.Top="182" Width="112" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <Label Content="Extra server:" Height="26" Canvas.Left="259" Canvas.Top="182" Width="82" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-            <Label Content="Dok.nr:" Height="26" Canvas.Left="259" Canvas.Top="151" Width="82" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             <TextBox x:Name="MainDBServerBox" Canvas.Left="136" TextWrapping="NoWrap" Text="" Canvas.Top="184" Width="113" Height="22" TabIndex="9" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             <TextBox x:Name="ExtraDBServerBox" Canvas.Left="336" TextWrapping="NoWrap" Text="" Canvas.Top="184" Width="113" Height="22" TabIndex="10" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-            <TextBox x:Name="Doknumber" Canvas.Left="336" TextWrapping="NoWrap" Text="" Canvas.Top="153" Width="113" Height="22" TabIndex="8" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             <CheckBox Content="Kun akive saker" x:Name="chkOnlyActiveCases" IsChecked="False" TabIndex="26" Height="20" Canvas.Left="18" Canvas.Top="417" HorizontalAlignment="Left" VerticalAlignment="Top"/>
             <CheckBox Content="Kun passive saker" x:Name="chkOnlyPassiveCases" IsChecked="False" TabIndex="27" Height="20" Canvas.Left="133" Canvas.Top="417" HorizontalAlignment="Left" VerticalAlignment="Center" Width="149"/>
             <Button x:Name="JsonInnhold" Content="Innhold JSON" Height="24" Width="100" Click="JsonInnhold_Click" Canvas.Left="18" Canvas.Top="338" TabIndex="18" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <CheckBox Content="Produksjon" x:Name="chkProduksjon" IsChecked="False" Height="20" Width="89" HorizontalAlignment="Left" Canvas.Left="363" Canvas.Top="71" VerticalAlignment="Center"/>
             <Button x:Name="AntallEntiteter" Content="Ant entiteter" Height="24" Width="100" Click="AntallEntiteter_Click" Canvas.Left="18" Canvas.Top="367" TabIndex="18" HorizontalAlignment="Center" VerticalAlignment="Top"/>
             <Button x:Name="OrgNoSjekk" Content="Org.no sjekk" Height="24" Width="100" Click="OrgNoSjekk_Click" Canvas.Left="123" Canvas.Top="367" TabIndex="18" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+            <Button x:Name="AktorIdButton" Content="AktorId-er" Height="24" Width="100" Click="AktorIdButton_Click" TabIndex="22" Canvas.Left="250" Canvas.Top="367" HorizontalAlignment="Left" VerticalAlignment="Center"/>
         </Canvas>
     </DockPanel>
 </Window>
