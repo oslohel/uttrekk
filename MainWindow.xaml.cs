@@ -87,12 +87,24 @@ namespace UttrekkFamilia
         {
             SetParameters();
 
-            using (BackgroundWorker workerJsonInnhold = new())
+            using (BackgroundWorker worker = new())
             {
-                workerJsonInnhold.WorkerReportsProgress = true;
-                workerJsonInnhold.DoWork += WorkerOrgNoSjekk_DoWork;
-                workerJsonInnhold.ProgressChanged += Worker_ProgressChanged;
-                workerJsonInnhold.RunWorkerAsync();
+                worker.WorkerReportsProgress = true;
+                worker.DoWork += WorkerOrgNoSjekk_DoWork;
+                worker.ProgressChanged += Worker_ProgressChanged;
+                worker.RunWorkerAsync();
+            }
+        }
+        private void TranslateBetweenFamilaAndModulusBarn_Click(object sender, RoutedEventArgs e)
+        {
+            SetParameters();
+
+            using (BackgroundWorker worker = new())
+            {
+                worker.WorkerReportsProgress = true;
+                worker.DoWork += WorkerTranslateBetweenFamilaAndModulusBarn_DoWork;
+                worker.ProgressChanged += Worker_ProgressChanged;
+                worker.RunWorkerAsync();
             }
         }
         private void AntallEntiteter_Click(object sender, RoutedEventArgs e)
@@ -328,6 +340,21 @@ namespace UttrekkFamilia
                 Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip, OnlyActiveCases, OnlyPassiveCases, ProduksjonIsChecked);
                 var worker = sender as BackgroundWorker;
                 var task = uttrekk.DoOrgNoSjekkAsync(worker);
+                task.Wait();
+            }
+            catch (AggregateException ex)
+            {
+                string message = $"Unhandled exception ({ex.Source}): {ex.Message} Stack trace: {ex.StackTrace}";
+                MessageBox.Show(message, "Migrering - Unhandled exception", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        private void WorkerTranslateBetweenFamilaAndModulusBarn_DoWork(object sender, DoWorkEventArgs e)
+        {
+            try
+            {
+                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip, OnlyActiveCases, OnlyPassiveCases, ProduksjonIsChecked);
+                var worker = sender as BackgroundWorker;
+                var task = uttrekk.DoTranslateBetweenFamilaAndModulusBarnAsync(worker);
                 task.Wait();
             }
             catch (AggregateException ex)

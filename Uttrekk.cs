@@ -5,6 +5,7 @@ using Oracle.ManagedDataAccess.Client;
 using Oracle.ManagedDataAccess.Types;
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Data;
 using System.IO;
@@ -1030,6 +1031,56 @@ namespace UttrekkFamilia
         public class UnderOrganisasjonerEnhetsregisteret
         {
             public List<OrganisasjonEnhetsregisteret> underenheter { get; set; }
+        }
+        #endregion
+
+        #region Translate Between Famila And ModulusBarn
+        public async Task DoTranslateBetweenFamilaAndModulusBarnAsync(BackgroundWorker worker)
+        {
+            try
+            {
+                worker.ReportProgress(0, "Start mapping saksnummer i Modulus Barn og Id i Familia...");
+                string result = "";
+                string fileNameRegister = $"{OutputFolderName}Register.txt";
+                string fileNameToTranslate = $"{OutputFolderName}Oversette.txt";
+
+                IEnumerable<string> linesRegister = File.ReadLines(fileNameRegister);
+                IEnumerable<string> lines = File.ReadLines(fileNameToTranslate);
+
+                NameValueCollection mappings = new NameValueCollection();
+
+                int index = 0;
+                foreach (string line in linesRegister)
+                {
+                    if (!string.IsNullOrEmpty(line))
+                    {
+                        index += 1;
+                        worker.ReportProgress(0, $"Leser inn mapping {index}");
+                        string[] verdier = line.Split("|");
+                        mappings.Add(verdier[0], verdier[1]);
+                    }
+                }
+
+                index = 0;
+                foreach (string line in lines)
+                {
+                    if (!string.IsNullOrEmpty(line))
+                    {
+                        index += 1;
+                        worker.ReportProgress(0, $"Oversetter {index}");
+                        result += line + "|" + mappings[line] + Environment.NewLine;
+                    }
+                }
+
+                File.WriteAllText($"{OutputFolderName}Mapping_{DateTime.Now:yyyyMMdd_HHmm_}.txt", result);
+                worker.ReportProgress(0, "Ferdig oversetting...");
+            }
+            catch (Exception ex)
+            {
+                string message = $"Exception ({ex.Source}): {ex.Message} Stack trace: {ex.StackTrace}";
+                MessageBox.Show(message, "Migrering uttrekk - exception", MessageBoxButton.OK, MessageBoxImage.Error);
+                throw;
+            }
         }
         #endregion
 
