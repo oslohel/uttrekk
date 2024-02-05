@@ -71,6 +71,18 @@ namespace UttrekkFamilia
                 workerInfoDatabase.RunWorkerAsync();
             }
         }
+        private void ExistsInFamilia_Click(object sender, RoutedEventArgs e)
+        {
+            SetParameters();
+
+            using (BackgroundWorker worker = new())
+            {
+                worker.WorkerReportsProgress = true;
+                worker.DoWork += WorkerExistsInFamilia_DoWork;
+                worker.ProgressChanged += Worker_ProgressChanged;
+                worker.RunWorkerAsync();
+            }
+        }
         private void JsonInnhold_Click(object sender, RoutedEventArgs e)
         {
             SetParameters();
@@ -311,6 +323,21 @@ namespace UttrekkFamilia
                 Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip, OnlyActiveCases, OnlyPassiveCases, ProduksjonIsChecked);
                 var worker = sender as BackgroundWorker;
                 var task = uttrekk.GetOneFileFamiliaAsync(worker);
+                task.Wait();
+            }
+            catch (AggregateException ex)
+            {
+                string message = $"Unhandled exception ({ex.Source}): {ex.Message} Stack trace: {ex.StackTrace}";
+                MessageBox.Show(message, "Migrering - Unhandled exception", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        private void WorkerExistsInFamilia_DoWork(object sender, DoWorkEventArgs e)
+        {
+            try
+            {
+                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip, OnlyActiveCases, OnlyPassiveCases, ProduksjonIsChecked);
+                var worker = sender as BackgroundWorker;
+                var task = uttrekk.ExistsInFamiliaAsync(worker);
                 task.Wait();
             }
             catch (AggregateException ex)

@@ -80,6 +80,7 @@
             <Button x:Name="OrgNoSjekk" Content="Org.no sjekk" Height="24" Width="100" Click="OrgNoSjekk_Click" Canvas.Left="123" Canvas.Top="367" TabIndex="18" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             <Button x:Name="AktorIdButton" Content="AktorId-er" Height="24" Width="100" Click="AktorIdButton_Click" TabIndex="22" Canvas.Left="250" Canvas.Top="367" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             <Button x:Name="TranslateBetweenFamilaAndModulusBarn" Content="Oversett Id-er" Height="24" Width="100" Click="TranslateBetweenFamilaAndModulusBarn_Click" Canvas.Left="674" Canvas.Top="367" TabIndex="18" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+            <Button x:Name="ExistsInFamilia" Content="Sak i Familia?" Height="24" Width="100" Click="ExistsInFamilia_Click" Canvas.Left="569" Canvas.Top="367" TabIndex="18" HorizontalAlignment="Left" VerticalAlignment="Center"/>
         </Canvas>
     </DockPanel>
 </Window>

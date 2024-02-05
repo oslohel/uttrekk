@@ -750,6 +750,82 @@ namespace UttrekkFamilia
         }
         #endregion
 
+        #region Finnes sak i Familia?
+        public async Task ExistsInFamiliaAsync(BackgroundWorker worker)
+        {
+            try
+            {
+                worker.ReportProgress(0, "Sjekker om personer har sak i Familia...");
+                string information = "";
+
+                DateTime FirstDayInYear = new(2023, 01, 01);
+                string fileName = $"{OutputFolderName}Tilsjekk.txt";
+                IEnumerable<string> tochecklist = File.ReadLines(fileName);
+
+                int totalt = tochecklist.Count();
+                int index = 0;
+                foreach (string tocheck in tochecklist)
+                {
+                    index += 1;
+                    if (!string.IsNullOrEmpty(tocheck))
+                    {
+                        worker.ReportProgress(0, $"Sjekker {index} av {totalt}...");
+                        int year = Convert.ToInt32(tocheck.Substring(4, 2));
+
+                        if (year < 24)
+                        {
+                            year += 2000;
+                        }
+                        else
+                        {
+                            year += 1900;
+                        }
+                        DateTime fodselsDato = new(year, Convert.ToInt32(tocheck.Substring(2,2)), Convert.ToInt32(tocheck.Substring(0, 2)));
+                        decimal personNummer = Convert.ToDecimal(tocheck.Substring(6));
+                        bool funnetSak = false;
+                        foreach (var bydel in mappings.GetAlleBydeler())
+                        {
+                            Bydelsforkortelse = bydel;
+                            ConnectionStringFamilia = mappings.GetConnectionstring(Bydelsforkortelse, MainDBServer);
+
+                            using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                            {
+                                int antallSaker = await context.FaKlients
+                                    .Where(k => (k.KliFraannenkommune == 0 && k.KliFoedselsdato.HasValue && 
+                                    (k.KliFoedselsdato == fodselsDato && k.KliPersonnr == personNummer)) &&
+                                    (!k.KliAvsluttetdato.HasValue || k.KliAvsluttetdato >= FirstDayInYear))
+                                    .CountAsync();
+                                if (antallSaker > 0)
+                                {
+                                    funnetSak = true;
+                                    information += $"{tocheck}: Sak i {bydel}" + Environment.NewLine;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!funnetSak)
+                        {
+                            information += $"{tocheck}: Sak ikke funnet" + Environment.NewLine;
+                        }
+                    }
+                }
+                string resultFileName = $"{OutputFolderName}{DateTime.Now:yyyyMMdd_HHmm_}StatusSakFamilia.txt";
+                await File.WriteAllTextAsync(resultFileName, information);
+                worker.ReportProgress(0, $"Ferdig sjekk om personer har sak i Familia, lagret i filen {fileName}");
+            }
+            catch (Exception ex)
+            {
+                string message = $"Exception ({ex.Source}): {ex.Message} Stack trace: {ex.StackTrace}";
+                if (ex.InnerException != null)
+                {
+                    message += $" Inner: {ex.InnerException.Message}";
+                }
+                MessageBox.Show(message, "Migrering uttrekk - exception", MessageBoxButton.OK, MessageBoxImage.Error);
+                throw;
+            }
+        }
+        #endregion
+
         #region Information Sokrates
         public async Task GetInformationSokratesAsync(BackgroundWorker worker)
         {
