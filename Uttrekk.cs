@@ -1,6 +1,7 @@
 ﻿#region Usings
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.VisualBasic;
 using Oracle.ManagedDataAccess.Client;
 using Oracle.ManagedDataAccess.Types;
 using System;
@@ -811,7 +812,7 @@ namespace UttrekkFamilia
                 }
                 string resultFileName = $"{OutputFolderName}{DateTime.Now:yyyyMMdd_HHmm_}StatusSakFamilia.txt";
                 await File.WriteAllTextAsync(resultFileName, information);
-                worker.ReportProgress(0, $"Ferdig sjekk om personer har sak i Familia, lagret i filen {fileName}");
+                worker.ReportProgress(0, $"Ferdig sjekk om personer har sak i Familia, lagret i filen {resultFileName}");
             }
             catch (Exception ex)
             {
@@ -941,6 +942,102 @@ namespace UttrekkFamilia
                 }
             }
 
+        }
+        #endregion
+
+        #region Uttrekk Sokrates
+        public async Task SokratesUttrekk(BackgroundWorker worker)
+        {
+            OracleConnection connection = new(ConnectionStringSokrates);
+            OracleDataReader reader = null;
+            OracleDataReader historyReader = null;
+            string information = "";
+            try
+            {
+                worker.ReportProgress(0, $"Uttrekk informasjon fra Sokrates starter...");
+                int antall = 0;
+                connection.Open();
+
+                OracleCommand command = new($"Select Client.Office_id, Client.id, Firstname, Lastname, Address, PersonalNumber from {SchemaSokrates}.Person, {SchemaSokrates}.Client Where Person.Id = Client.Person_id", connection)
+                {
+                    CommandType = System.Data.CommandType.Text
+                };
+                reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    antall += 1;
+                    if (antall % 10 == 0)
+                    {
+                        worker.ReportProgress(0, $"Hentet {antall} fra Sokrates...");
+                    }
+                    int officeId = reader.GetInt32(0);
+                    int clientId = reader.GetInt32(1);
+                    string firstName = "";
+                    if (!reader.IsDBNull(2))
+                    {
+                        firstName = reader.GetString(2);
+                    }
+                    string lastName = "";
+                    if (!reader.IsDBNull(3))
+                    {
+                        lastName = reader.GetString(3);
+                    }
+                    string address = "";
+                    if (!reader.IsDBNull(4))
+                    {
+                        address = reader.GetString(4);
+                    }
+                    string fødselsNummer = "";
+                    if (!reader.IsDBNull(5))
+                    {
+                        fødselsNummer = reader.GetString(5);
+                    }
+                    string history = "";
+
+                    OracleCommand historyCommand = new OracleCommand($"Select Office_Id_from, Office_Id_to, DTG from {SchemaSokrates}.transfer_history Where Transfer_Code_id = 12 And Client_id = {clientId} Order by Id", connection)
+                    {
+                        CommandType = System.Data.CommandType.Text
+                    };
+                    historyReader = historyCommand.ExecuteReader();
+                    while (historyReader.Read())
+                    {
+                        int fromOffice = historyReader.GetInt32(0);
+                        int toOffice = historyReader.GetInt32(1);
+                        DateTime tilDato = (DateTime)historyReader.GetOracleDate(2);
+                        if (!string.IsNullOrEmpty(history))
+                        {
+                            history += " ";
+                        }
+                        history += $"{mappings.GetBydelFraOffice(fromOffice)}->{mappings.GetBydelFraOffice(toOffice)} ({tilDato:yyyy-MM-dd})";
+                    }
+                    information += $"{fødselsNummer}|{mappings.GetBydelFraOffice(officeId)}|{firstName}|{lastName}|{address}|{history}" + Environment.NewLine;
+                }
+                string resultFileName = $"{OutputFolderName}UttrekkSokrates.txt";
+                await File.WriteAllTextAsync(resultFileName, information);
+                worker.ReportProgress(0, $"Ferdig uttrekk fra Sokrates, lagret i filen {resultFileName}");
+            }
+            catch (Exception ex)
+            {
+                string message = $"Exception ({ex.Source}): {ex.Message} Stack trace: {ex.StackTrace}";
+                MessageBox.Show(message, "Migrering uttrekk - exception", MessageBoxButton.OK, MessageBoxImage.Error);
+                throw;
+            }
+            finally
+            {
+                if (reader != null && !reader.IsClosed)
+                {
+                    reader.Close();
+                }
+                if (historyReader != null && !historyReader.IsClosed)
+                {
+                    historyReader.Close();
+                }
+                if (connection != null && connection.State == System.Data.ConnectionState.Open)
+                {
+                    connection.Close();
+                    connection.Dispose();
+                }
+            }
         }
         #endregion
 
