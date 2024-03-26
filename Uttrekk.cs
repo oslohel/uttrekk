@@ -1,7 +1,6 @@
 ﻿#region Usings
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.VisualBasic;
 using Oracle.ManagedDataAccess.Client;
 using Oracle.ManagedDataAccess.Types;
 using System;
@@ -781,8 +780,8 @@ namespace UttrekkFamilia
                         {
                             year += 1900;
                         }
-                        DateTime fodselsDato = new(year, Convert.ToInt32(tocheck.Substring(2,2)), Convert.ToInt32(tocheck.Substring(0, 2)));
-                        decimal personNummer = Convert.ToDecimal(tocheck.Substring(6));
+                        DateTime fodselsDato = new(year, Convert.ToInt32(tocheck.Substring(2, 2)), Convert.ToInt32(tocheck[..2]));
+                        decimal personNummer = Convert.ToDecimal(tocheck[6..]);
                         bool funnetSak = false;
                         foreach (var bydel in mappings.GetAlleBydeler())
                         {
@@ -791,15 +790,23 @@ namespace UttrekkFamilia
 
                             using (var context = new FamiliaDBContext(ConnectionStringFamilia))
                             {
-                                int antallSaker = await context.FaKlients
+                                FaKlient klient = await context.FaKlients
                                     .Where(k => (k.KliFraannenkommune == 0 && k.KliFoedselsdato.HasValue && 
                                     (k.KliFoedselsdato == fodselsDato && k.KliPersonnr == personNummer)) &&
                                     (!k.KliAvsluttetdato.HasValue || k.KliAvsluttetdato >= FirstDayInYear))
-                                    .CountAsync();
-                                if (antallSaker > 0)
+                                    .FirstOrDefaultAsync();
+                                if (klient != null)
                                 {
                                     funnetSak = true;
-                                    information += $"{tocheck}: Sak i {bydel}" + Environment.NewLine;
+                                    int antallUndersøkelser = await context.FaUndersoekelsers.Include(d=> d.MelLoepenrNavigation).Where(u => u.MelLoepenrNavigation.KliLoepenr == klient.KliLoepenr).CountAsync();
+                                    int antallUndersøkelser2023 = await context.FaUndersoekelsers.Include(d => d.MelLoepenrNavigation).Where(u => (u.UndStartdato.HasValue && u.UndStartdato >= FirstDayInYear) && u.MelLoepenrNavigation.KliLoepenr == klient.KliLoepenr).CountAsync();
+                                    string iEllerUtenforHjemmet = "I";
+                                    FaTiltak tiltak = await context.FaTiltaks.Where(t => t.KliLoepenr == klient.KliLoepenr).OrderByDescending(o => o.TilIverksattdato).FirstOrDefaultAsync();
+                                    if (tiltak != null && tiltak.TilUtenforhjemmet == 1)
+                                    {
+                                        iEllerUtenforHjemmet = "U";
+                                    }
+                                    information += $"{tocheck}: Sak i {bydel} I/U: {iEllerUtenforHjemmet} Undersøkelser: {antallUndersøkelser} US i 2023: {antallUndersøkelser2023}" + Environment.NewLine;
                                     break;
                                 }
                             }
@@ -994,7 +1001,7 @@ namespace UttrekkFamilia
                     }
                     string history = "";
 
-                    OracleCommand historyCommand = new OracleCommand($"Select Office_Id_from, Office_Id_to, DTG from {SchemaSokrates}.transfer_history Where Transfer_Code_id = 12 And Client_id = {clientId} Order by Id", connection)
+                    OracleCommand historyCommand = new($"Select Office_Id_from, Office_Id_to, DTG from {SchemaSokrates}.transfer_history Where Transfer_Code_id = 12 And Client_id = {clientId} Order by Id", connection)
                     {
                         CommandType = System.Data.CommandType.Text
                     };
@@ -1208,7 +1215,7 @@ namespace UttrekkFamilia
         #endregion
 
         #region Translate Between Famila And ModulusBarn
-        public async Task DoTranslateBetweenFamilaAndModulusBarnAsync(BackgroundWorker worker)
+        public void DoTranslateBetweenFamilaAndModulusBarnAsync(BackgroundWorker worker)
         {
             try
             {
@@ -1220,7 +1227,7 @@ namespace UttrekkFamilia
                 IEnumerable<string> linesRegister = File.ReadLines(fileNameRegister);
                 IEnumerable<string> lines = File.ReadLines(fileNameToTranslate);
 
-                NameValueCollection mappings = new NameValueCollection();
+                NameValueCollection mappings = [];
 
                 int index = 0;
                 foreach (string line in linesRegister)
@@ -1282,7 +1289,7 @@ namespace UttrekkFamilia
                         {
                             zip = ZipFile.Open($"{OutputFolderName}\\filer\\{Guid.NewGuid().ToString().Replace('-', '_')}.zip", ZipArchiveMode.Create);
                         }
-                        zip.CreateEntryFromFile(fil, fil[(fil.LastIndexOf("\\") + 1)..], CompressionLevel.SmallestSize);
+                        zip.CreateEntryFromFile(fil, fil[(fil.LastIndexOf('\\') + 1)..], CompressionLevel.SmallestSize);
                         File.Delete(fil);
                         antallFilerLagtTilDenneZip += 1;
                         antallFilerZippet += 1;
@@ -3624,6 +3631,215 @@ namespace UttrekkFamilia
         }
         #endregion
 
+        #region Lokal Oppdragstakersak
+        public async Task<string> LokalOppdragstakersak(BackgroundWorker worker)
+        {
+            try
+            {
+                worker.ReportProgress(0, "Starter uttrekk lokale oppdragstakersaker...");
+                await ExtractSokratesAsync(worker, false);
+
+                int antall = 0;
+                int migrertAntall = 0;
+                List<FaMedarbeidere> rawData;
+                int totalAntall = 0;
+                List<DocumentToInclude> documentsIncluded = new();
+                List<Aktivitet> oppdragstakeravtaleAktiviteter = new();
+
+                using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                {
+                    rawData = await context.FaMedarbeideres.Include(m => m.ForLoepenrNavigation).Where(f => string.IsNullOrEmpty(f.ForLoepenrNavigation.ForGmlreferanse) && (!string.IsNullOrEmpty(f.ForLoepenrNavigation.ForFoedselsnummer) || f.ForLoepenrNavigation.ForDnummer.HasValue)).ToListAsync();
+                    totalAntall = rawData.Count;
+                }
+
+                List<Sak> saker = new();
+
+                foreach (var medarbeider in rawData)
+                {
+                    antall += 1;
+                    if (antall % 10 == 0)
+                    {
+                        worker.ReportProgress(0, $"Behandler uttrekk lokale oppdragstakersaker ({antall} av {totalAntall})...");
+                    }
+                    int numberOfActiveContracts = 0;
+                    using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                    {
+                        numberOfActiveContracts = await context.FaEngasjementsavtales.Where(e => e.EngAvgjortdato.HasValue && e.EngStatus != "BOR" && e.EngStatus != "BEH" && e.EngStatus != "KLR"
+                            && medarbeider.ForLoepenr == e.ForLoepenr
+                            && (e.EngTildato >= FirstInYearOfMigration)).CountAsync();
+                    }
+                    if (numberOfActiveContracts == 0)
+                    {
+                        continue;
+                    }
+                    Sak sak = new()
+                    {
+                        //TODO: Skal hver bydel sin mottaksavdeling være eier?
+                        avdelingId = "SuppliersAndContractorsTeam",
+                        aktorId = GetActorId(medarbeider.ForLoepenrNavigation, false),
+                        startDato = medarbeider.MedBegyntdato,
+                        //TODO: Skal noen settes til LUKKET?
+                        status = "ÅPEN",
+                        arbeidsbelastning = "LAV",
+                        //TODO: Navn på sakstype?
+                        sakstype = "OPPDRAGSTAKER",
+                        //TODO: Få navn på hovedbruker i hver mottaksavdeling?
+                        saksbehandlerId = GetBrukerId(mappings.GetHovedkontorfagligBydel(Bydelsforkortelse))
+                    };
+                    sak.sakId = $"{sak.aktorId}__OPP";
+
+                    bool caseAlreadyWritten = false;
+
+                    SqlConnection connectionMigrering = new(ConnectionStringMigrering);
+                    SqlDataReader readerMigrering = null;
+                    try
+                    {
+                        connectionMigrering.Open();
+
+                        SqlCommand commandMigrering = new($"Select Count(*) From Oppdragstakere{MigreringsdbPostfix} Where SakId='{sak.sakId}'", connectionMigrering)
+                        {
+                            CommandTimeout = 300
+                        };
+                        readerMigrering = commandMigrering.ExecuteReader();
+                        while (readerMigrering.Read())
+                        {
+                            if (readerMigrering.GetInt32(0) > 0)
+                            {
+                                caseAlreadyWritten = true;
+                            }
+                        }
+                        readerMigrering.Close();
+
+                        if (!caseAlreadyWritten)
+                        {
+                            MessageBox.Show($"Fant ikke {sak.aktorId} i Migrering.Oppdragstakere{MigreringsdbPostfix}","OBS",MessageBoxButton.OK,MessageBoxImage.Error);
+                        }
+                    }
+                    finally
+                    {
+                        connectionMigrering.Close();
+                    }
+                    using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                    {
+                        FaEngasjementsavtale engasjementsavtale = await context.FaEngasjementsavtales.Where(e => e.EngAvgjortdato.HasValue && e.EngStatus != "BOR" && e.EngStatus != "BEH" && e.EngStatus != "KLR"
+                            && medarbeider.ForLoepenr == e.ForLoepenr && (e.EngTildato >= FirstInYearOfMigration)).OrderBy(c => c.EngFradato).FirstOrDefaultAsync();
+
+                        if (engasjementsavtale != null && engasjementsavtale.EngFradato < sak.startDato)
+                        {
+                            sak.startDato = engasjementsavtale.EngFradato;
+                        }
+                    }
+                    sak.sakId = $"{sak.aktorId}__OPP__{Bydelsforkortelse}";
+                    saker.Add(sak);
+                    migrertAntall += 1;
+                }
+
+                List<FaTiltak> tiltakRaw;
+
+                using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                {
+                    tiltakRaw = await context.FaTiltaks.Include(x => x.KliLoepenrNavigation).Include(x => x.Sak)
+                        .Where(KlientTiltakFilter())
+                        .OrderBy(o => o.KliLoepenrNavigation.KliLoepenr)
+                        .ToListAsync();
+                }
+
+                foreach (var tiltakFamilia in tiltakRaw)
+                {
+                    if (!mappings.IsOwner(tiltakFamilia.KliLoepenr))
+                    {
+                        continue;
+                    }
+
+                    string tiltakId = AddBydel(tiltakFamilia.TilLoepenr.ToString(), "TIL");
+                    string sakId = GetSakId(tiltakFamilia.KliLoepenr.ToString());
+
+                    List<FaEngasjementsavtale> engasjementsavtaler = null;
+                    using (var context = new FamiliaDBContext(ConnectionStringFamilia))
+                    {
+                        engasjementsavtaler = await context.FaEngasjementsavtales.Include(m => m.ForLoepenrNavigation.ForLoepenrNavigation).Where(e => string.IsNullOrEmpty(e.ForLoepenrNavigation.ForLoepenrNavigation.ForGmlreferanse) && e.TilLoepenr == tiltakFamilia.TilLoepenr && e.DokLoepenr.HasValue && e.EngAvgjortdato.HasValue && e.EngStatus != "BOR" && e.EngStatus != "BEH" && e.EngStatus != "KLR"
+                              && (e.EngTildato >= FirstInYearOfMigration)).OrderByDescending(o => o.ForLoepenrNavigation.ForLoepenrNavigation).ThenByDescending(o => o.EngTildato).ToListAsync();
+                    }
+                    if (engasjementsavtaler != null)
+                    {
+                        decimal lastForLoepenr = 0;
+                        foreach (FaEngasjementsavtale engasjementsavtale in engasjementsavtaler)
+                        {
+                            if (engasjementsavtale.ForLoepenrNavigation.ForLoepenrNavigation.ForLoepenr != lastForLoepenr)
+                            {
+                                Aktivitet aktivitet = new()
+                                {
+                                    aktivitetId = AddBydel(engasjementsavtale.EngLoepenr.ToString(), "ODA"),
+                                    sakId = $"{GetActorId(engasjementsavtale.ForLoepenrNavigation.ForLoepenrNavigation, false)}__OPP__{Bydelsforkortelse}",
+                                    aktivitetsType = "OPPDRAGSTAKER_AVTALE",
+                                    aktivitetsUnderType = "ANNET",
+                                    //TODO: Er EngFradato riktig felt her?
+                                    hendelsesdato = engasjementsavtale.EngFradato,
+                                    status = "UTFØRT",
+                                    tittel = "Oppdragstakeravtale",
+                                    notat = "Se dokument",
+                                    utfortDato = engasjementsavtale.EngAvgjortdato,
+                                    utlopsdato = engasjementsavtale.EngTildato,
+                                    tiltaksId = tiltakId
+                                };
+                                if (!string.IsNullOrEmpty(engasjementsavtale.SbhInitialer))
+                                {
+                                    aktivitet.saksbehandlerId = GetBrukerId(engasjementsavtale.SbhInitialer);
+                                    aktivitet.utfortAvId = GetBrukerId(engasjementsavtale.SbhInitialer);
+                                }
+                                oppdragstakeravtaleAktiviteter.Add(aktivitet);
+                                DocumentToInclude documentToInclude = new()
+                                {
+                                    dokLoepenr = engasjementsavtale.DokLoepenr.Value,
+                                    dokumentNr = engasjementsavtale.EngDokumentnr,
+                                    sakId = aktivitet.sakId,
+                                    tittel = aktivitet.tittel,
+                                    journalDato = aktivitet.utfortDato,
+                                    opprettetAvId = aktivitet.saksbehandlerId
+                                };
+                                documentToInclude.aktivitetIdListe.Add(aktivitet.aktivitetId);
+                                documentsIncluded.Add(documentToInclude);
+                                lastForLoepenr = engasjementsavtale.ForLoepenrNavigation.ForLoepenrNavigation.ForLoepenr;
+                            }
+                        }
+                    }
+                }
+
+                int toSkip = 0;
+                int fileNumber = 1;
+                List<Sak> sakerDistinct = saker.GroupBy(c => c.sakId).Select(s => s.First()).ToList();
+                int antallEntiteter = sakerDistinct.Count;
+                while (antallEntiteter > toSkip)
+                {
+                    List<Sak> sakerPart = sakerDistinct.OrderBy(o => o.sakId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    await WriteFileAsync(sakerPart, GetJsonFileName("saker", $"LokaleOppdragstakersaker{fileNumber}"));
+                    fileNumber += 1;
+                    toSkip += MaxAntallEntiteterPerFil;
+                }
+                await GetDocumentsAsync(worker, "LokaleOppdragsavtaleaktiviteter", documentsIncluded);
+                toSkip = 0;
+                fileNumber = 1;
+                List<Aktivitet> oppdragstakeravtaleAktiviteterDistinct = oppdragstakeravtaleAktiviteter.GroupBy(c => c.aktivitetId).Select(s => s.First()).ToList();
+                antallEntiteter = oppdragstakeravtaleAktiviteterDistinct.Count;
+                while (antallEntiteter > toSkip)
+                {
+                    List<Aktivitet> oppdragstakeravtaleAktiviteterPart = oppdragstakeravtaleAktiviteterDistinct.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                    await WriteFileAsync(oppdragstakeravtaleAktiviteterPart, GetJsonFileName("aktiviteter", $"LokaleOppdragsavtaleaktiviteter{fileNumber}"));
+                    fileNumber += 1;
+                    toSkip += MaxAntallEntiteterPerFil;
+                }
+                worker.ReportProgress(0, "Ferdig uttrekk lokale oppdragstakersaker...");
+                return $"Antall lokale oppdragstakersaker: {migrertAntall}";
+            }
+            catch (Exception ex)
+            {
+                string message = $"Exception ({ex.Source}): {ex.Message} Stack trace: {ex.StackTrace}";
+                MessageBox.Show(message, "Migrering uttrekk - exception", MessageBoxButton.OK, MessageBoxImage.Error);
+                throw;
+            }
+        }
+        #endregion
+
         #region Innbyggere - Barn
         public async Task<string> GetInnbyggereBarnAsync(BackgroundWorker worker)
         {
@@ -4238,7 +4454,7 @@ namespace UttrekkFamilia
                     rawData = await context.FaKlienttilknytnings.Include(m => m.ForLoepenrNavigation)
                         .Where(KlientTilknytningFilter())
                         .OrderBy(o => o.KliLoepenrNavigation.KliLoepenr)
-                        .Where(f => string.IsNullOrEmpty(f.ForLoepenrNavigation.ForGmlreferanse) && !string.IsNullOrEmpty(f.ForLoepenrNavigation.ForOrganisasjonsnr) && f.ForLoepenrNavigation.ForOrganisasjonsnr.Length == 9 && f.ForLoepenrNavigation.ForOrganisasjonsnr.IndexOf(" ") == -1)
+                        .Where(f => string.IsNullOrEmpty(f.ForLoepenrNavigation.ForGmlreferanse) && !string.IsNullOrEmpty(f.ForLoepenrNavigation.ForOrganisasjonsnr) && f.ForLoepenrNavigation.ForOrganisasjonsnr.Length == 9 && f.ForLoepenrNavigation.ForOrganisasjonsnr.IndexOf(' ') == -1)
                         .Select(m => m.ForLoepenrNavigation)
                         .Distinct()
                         .ToListAsync();
@@ -4447,7 +4663,7 @@ namespace UttrekkFamilia
                     rawData = await context.FaKlienttilknytnings.Include(m => m.ForLoepenrNavigation).Include(m => m.KliLoepenrNavigation)
                         .Where(KlientTilknytningFilter())
                         .OrderBy(o => o.KliLoepenrNavigation.KliLoepenr)
-                        .Where(k => string.IsNullOrEmpty(k.ForLoepenrNavigation.ForGmlreferanse) && ((!string.IsNullOrEmpty(k.ForLoepenrNavigation.ForFoedselsnummer) || k.ForLoepenrNavigation.ForDnummer.HasValue || (!string.IsNullOrEmpty(k.ForLoepenrNavigation.ForOrganisasjonsnr) && k.ForLoepenrNavigation.ForOrganisasjonsnr.Length == 9 && k.ForLoepenrNavigation.ForOrganisasjonsnr.IndexOf(" ") == -1)) || (rollerInkludert.Contains(k.KtkRolle))))
+                        .Where(k => string.IsNullOrEmpty(k.ForLoepenrNavigation.ForGmlreferanse) && ((!string.IsNullOrEmpty(k.ForLoepenrNavigation.ForFoedselsnummer) || k.ForLoepenrNavigation.ForDnummer.HasValue || (!string.IsNullOrEmpty(k.ForLoepenrNavigation.ForOrganisasjonsnr) && k.ForLoepenrNavigation.ForOrganisasjonsnr.Length == 9 && k.ForLoepenrNavigation.ForOrganisasjonsnr.IndexOf(' ') == -1)) || (rollerInkludert.Contains(k.KtkRolle))))
                         .ToListAsync();
                     totalAntall = rawData.Count;
                 }
@@ -11821,7 +12037,7 @@ namespace UttrekkFamilia
             try
             {
                 connection.Open();
-                List<string> tableNames = new();
+                List<string> tableNames = [];
                 OracleCommand command = new($"SELECT owner, table_name FROM all_tables Where owner = '{schema}'", connection)
                 {
                     CommandType = System.Data.CommandType.Text

@@ -95,6 +95,18 @@ namespace UttrekkFamilia
                 worker.RunWorkerAsync();
             }
         }
+        private void LokalOppdragstakersak_Click(object sender, RoutedEventArgs e)
+        {
+            SetParameters();
+
+            using (BackgroundWorker worker = new())
+            {
+                worker.WorkerReportsProgress = true;
+                worker.DoWork += LokalOppdragstakersak_DoWork;
+                worker.ProgressChanged += Worker_ProgressChanged;
+                worker.RunWorkerAsync();
+            }
+        }
         private void JsonInnhold_Click(object sender, RoutedEventArgs e)
         {
             SetParameters();
@@ -373,6 +385,22 @@ namespace UttrekkFamilia
                 MessageBox.Show(message, "Migrering - Unhandled exception", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+        private void LokalOppdragstakersak_DoWork(object sender, DoWorkEventArgs e)
+        {
+            try
+            {
+                Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip, OnlyActiveCases, OnlyPassiveCases, ProduksjonIsChecked);
+                var worker = sender as BackgroundWorker;
+                uttrekk.CreateAllfolders(OnlyWriteDocumentFiles);
+                var task = uttrekk.LokalOppdragstakersak(worker);
+                task.Wait();
+            }
+            catch (AggregateException ex)
+            {
+                string message = $"Unhandled exception ({ex.Source}): {ex.Message} Stack trace: {ex.StackTrace}";
+                MessageBox.Show(message, "Migrering - Unhandled exception", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
         private void WorkerJsonInnhold_DoWork(object sender, DoWorkEventArgs e)
         {
             try
@@ -408,8 +436,7 @@ namespace UttrekkFamilia
             {
                 Uttrekk uttrekk = new(ConnSokrates, MainDBServer, ExtraDBServer, OutputFolderName, Bydelsidentifikator, UseSokrates, OnlyWriteDocumentFiles, AntallFilerPerZip, OnlyActiveCases, OnlyPassiveCases, ProduksjonIsChecked);
                 var worker = sender as BackgroundWorker;
-                var task = uttrekk.DoTranslateBetweenFamilaAndModulusBarnAsync(worker);
-                task.Wait();
+                uttrekk.DoTranslateBetweenFamilaAndModulusBarnAsync(worker);
             }
             catch (AggregateException ex)
             {
@@ -796,7 +823,7 @@ namespace UttrekkFamilia
             string newFolderName = folderName;
             if (string.IsNullOrEmpty(newFolderName))
             {
-                throw new ArgumentNullException("Uttrekksfolder", "Uttrekksfolder ikke angitt.");
+                throw new ArgumentNullException("folderName", "Uttrekksfolder ikke angitt.");
             }
             if (!newFolderName.EndsWith("\\"))
             {

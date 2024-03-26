@@ -82,6 +82,7 @@
             <Button x:Name="TranslateBetweenFamilaAndModulusBarn" Content="Oversett Id-er" Height="24" Width="100" Click="TranslateBetweenFamilaAndModulusBarn_Click" Canvas.Left="674" Canvas.Top="367" TabIndex="18" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             <Button x:Name="ExistsInFamilia" Content="Sak i Familia?" Height="24" Width="100" Click="ExistsInFamilia_Click" Canvas.Left="569" Canvas.Top="367" TabIndex="18" HorizontalAlignment="Left" VerticalAlignment="Center"/>
             <Button x:Name="SokratesUttrekk" Content="Uttrekk Sokrates" Height="24" Width="100" Click="SokratesUttrekk_Click" Canvas.Left="673" Canvas.Top="338" TabIndex="18" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+            <Button x:Name="LokalOppdragstakersak" Content="Lokal oppd-sak" Height="24" Width="100" Click="LokalOppdragstakersak_Click" Canvas.Left="569" Canvas.Top="338" TabIndex="18" HorizontalAlignment="Center" VerticalAlignment="Top"/>
         </Canvas>
     </DockPanel>
 </Window>
