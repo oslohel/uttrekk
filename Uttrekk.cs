@@ -2526,7 +2526,7 @@ namespace UttrekkFamilia
                         }
                         if (string.IsNullOrEmpty(henvendelse.henvendelseMelderType))
                         {
-                            henvendelse.henvendelseMelderType = "30_HENVENDELSE_MELDERTYPE_ANDRE";
+                            henvendelse.henvendelseMelderType = "31_HENVENDELSE_MELDERTYPE_ANDRE";
                         }
                     }
                     if (!henvendelse.henvendelsesDato.HasValue)
