@@ -91,6 +91,7 @@ namespace UttrekkFamilia
                 CreateFolderIfNotExist("organisasjon");
                 CreateFolderIfNotExist("barnetsNettverk");
                 CreateFolderIfNotExist("melding");
+                CreateFolderIfNotExist("henvendelse");
                 CreateFolderIfNotExist("undersokelser");
                 CreateFolderIfNotExist("avdelingsmapping");
                 CreateFolderIfNotExist("brukere");
@@ -101,23 +102,6 @@ namespace UttrekkFamilia
                 CreateFolderIfNotExist("dokumenter");
                 CreateFolderIfNotExist("filer");
             }
-        }
-        public void CreateAllSubfolders(string subfolder)
-        {
-            CreateFolderIfNotExist($"{subfolder}saker");
-            CreateFolderIfNotExist($"{subfolder}innbygger");
-            CreateFolderIfNotExist($"{subfolder}organisasjon");
-            CreateFolderIfNotExist($"{subfolder}barnetsNettverk");
-            CreateFolderIfNotExist($"{subfolder}melding");
-            CreateFolderIfNotExist($"{subfolder}undersokelser");
-            CreateFolderIfNotExist($"{subfolder}avdelingsmapping");
-            CreateFolderIfNotExist($"{subfolder}brukere");
-            CreateFolderIfNotExist($"{subfolder}vedtak");
-            CreateFolderIfNotExist($"{subfolder}tiltak");
-            CreateFolderIfNotExist($"{subfolder}plan");
-            CreateFolderIfNotExist($"{subfolder}aktiviteter");
-            CreateFolderIfNotExist($"{subfolder}dokumenter");
-            CreateFolderIfNotExist($"{subfolder}filer");
         }
         #endregion
 
@@ -1639,20 +1623,7 @@ namespace UttrekkFamilia
                     {
                         sak.saksbehandlerId = GetBrukerId(BVVLeder);
                     }
-                    sak.typeBarnevernsvaktsak = mappings.GetBVVTypeBarnevernsvaktsak(caseCase.PersoncaseTypeRegistryId);
-                    sak.hovedkategori = mappings.GetBVVHovedkategori(caseCase.MainCategoryRegistryId);
-                    using (var context = new BVVDBContext(ConnectionStringVFB))
-                    {
-                        EnquiryEnquiry enquiry = await context.EnquiryEnquiries.Where(k => k.CaseId == caseCase.CaseCaseId).FirstOrDefaultAsync();
-                        if (enquiry != null)
-                        {
-                            sak.melder = mappings.GetBVVMelder(enquiry.ReporterTypeRegistryId);
-                        }
-                        if (string.IsNullOrEmpty(sak.melder))
-                        {
-                            sak.melder = "ANDRE";
-                        }
-                    }
+
                     using (var context = new BVVDBContext(ConnectionStringVFB))
                     {
                         List<CaseCasecaseworker> caseWorkers = await context.CaseCasecaseworkers.Where(k => k.CaseId == caseCase.CaseCaseId).ToListAsync();
@@ -2480,7 +2451,7 @@ namespace UttrekkFamilia
                 rawEnquiryDocuments = await context.EnquiryDocuments.ToListAsync();
                 totalAntall = rawEnquiryDocuments.Count;
             }
-            List<Aktivitet> aktiviteter = new();
+            List<Henvendelse> henvendelser = new();
             int antall = 0;
             SqlConnection connection = new(ConnectionStringVFB);
             SqlDataReader reader = null;
@@ -2496,58 +2467,76 @@ namespace UttrekkFamilia
                     {
                         worker.ReportProgress(0, $"Behandler uttrekk Visma Flyt Barnevernvakt henvendelser ({antall} av {totalAntall})...");
                     }
-                    EnquiryEnquiry henvendelse;
+                    EnquiryEnquiry vfbHenvendelse;
                     using (var context = new BVVDBContext(ConnectionStringVFB))
                     {
-                        henvendelse = await context.EnquiryEnquiries.Where(e => e.EnquiryEnquiryId == enquiryDocument.EnquiryId).FirstOrDefaultAsync();
-                        if (!henvendelse.CaseId.HasValue)
+                        vfbHenvendelse = await context.EnquiryEnquiries.Where(e => e.EnquiryEnquiryId == enquiryDocument.EnquiryId).FirstOrDefaultAsync();
+                        if (!vfbHenvendelse.CaseId.HasValue)
                         {
-                            if (!henvendelse.ClientId.HasValue)
+                            if (!vfbHenvendelse.ClientId.HasValue)
                             {
                                 continue;
                             }
-                            int numberOfCases = await context.CaseCases.Where(e => e.ClientId == henvendelse.ClientId && e.Type == 1).CountAsync();
+                            int numberOfCases = await context.CaseCases.Where(e => e.ClientId == vfbHenvendelse.ClientId && e.Type == 1).CountAsync();
                             if (numberOfCases != 1)
                             {
                                 continue;
                             }
                             else
                             {
-                                CaseCase singleCase = await context.CaseCases.Where(e => e.ClientId == henvendelse.ClientId && e.Type == 1).FirstOrDefaultAsync();
+                                CaseCase singleCase = await context.CaseCases.Where(e => e.ClientId == vfbHenvendelse.ClientId && e.Type == 1).FirstOrDefaultAsync();
                                 caseId = singleCase.CaseCaseId;
                             }
                         }
                         else
                         {
-                            int numberOfCases = await context.CaseCases.Where(e => e.CaseCaseId == henvendelse.CaseId && e.Type == 1).CountAsync();
+                            int numberOfCases = await context.CaseCases.Where(e => e.CaseCaseId == vfbHenvendelse.CaseId && e.Type == 1).CountAsync();
                             if (numberOfCases != 1)
                             {
                                 continue;
                             }
-                            caseId = henvendelse.CaseId;
+                            caseId = vfbHenvendelse.CaseId;
                         }
                     }
-                    Aktivitet aktivitet = new()
+                    Henvendelse henvendelse = new()
                     {
+                        // Skal stå blank: henvendelseKommuneBydel, henvendelseMelderPartId
                         aktivitetId = AddBydel(enquiryDocument.EnquiryDocumentId.ToString(), "HEN"),
-                        aktivitetsType = "BARNEVERNSVAKT",
-                        aktivitetsUnderType = "ANNEN_DOKUMENTASJON",
                         status = "UTFØRT",
-                        hendelsesdato = henvendelse.ReportedDate,
-                        saksbehandlerId = GetBrukerId(henvendelse.CreatedBy.ToString()),
-                        tittel = henvendelse.Subject,
-                        utfortAvId = GetBrukerId(henvendelse.CreatedBy.ToString()),
-                        utfortDato = henvendelse.FinishedDate,
-                        notat = "Se dokument"
+                        utfortAvId = GetBrukerId(vfbHenvendelse.CreatedBy.ToString()),
+                        henvendelsesDato = vfbHenvendelse.FinishedDate,
+                        henvendelseInnhold = "Se dokument",
+                        henvendelseKreverUmiddelbarInngripen = false,
+                        henvendelseKommunenummer = "9999",
+                        henvendelseMottaksmåte = "06_HENVENDELSE_MOTTAKSMÅTE_UKJENT"
                     };
-                    if (!aktivitet.utfortDato.HasValue)
+
+                    using (var context = new BVVDBContext(ConnectionStringVFB))
                     {
-                        aktivitet.utfortDato = aktivitet.hendelsesdato;
+                        EnquiryEnquiry enquiry = await context.EnquiryEnquiries.Where(k => k.EnquiryEnquiryId == enquiryDocument.EnquiryId).FirstOrDefaultAsync();
+                        if (enquiry != null)
+                        {
+                            henvendelse.henvendelseMelderType = mappings.GetBVVMelder(enquiry.ReporterTypeRegistryId);
+                            CaseCase caseCase = await context.CaseCases.Where(k => k.CaseCaseId == enquiry.CaseId).FirstOrDefaultAsync();
+                            if (caseCase != null)
+                            {
+                                henvendelse.henvendelseKategori = mappings.GetBVVHovedkategori(caseCase.MainCategoryRegistryId); ;
+                                henvendelse.aktivitetsUndertype = mappings.GetBVVTypeBarnevernsvaktsak(caseCase.PersoncaseTypeRegistryId);
+                            }
+                        }
+                        if (string.IsNullOrEmpty(henvendelse.henvendelseMelderType))
+                        {
+                            henvendelse.henvendelseMelderType = "30_HENVENDELSE_MELDERTYPE_ANDRE";
+                        }
+                    }
+                    if (!henvendelse.henvendelsesDato.HasValue)
+                    {
+                        henvendelse.henvendelsesDato = vfbHenvendelse.ReportedDate;
                     }
                     using (var context = new BVVDBContext(ConnectionStringVFB))
                     {
                         CaseCase rawCase = await context.CaseCases.Where(e => e.CaseCaseId == caseId).FirstOrDefaultAsync();
-                        aktivitet.sakId = AddBydel(rawCase.Number, "SAK");
+                        henvendelse.sakId = AddBydel(rawCase.Number, "SAK");
                     }
                     SqlCommand command = new($"Select FileDataBlob From Enquiry_Document Where Enquiry_DocumentId={enquiryDocument.EnquiryDocumentId} And FileDataBlob Is Not Null", connection)
                     {
@@ -2559,16 +2548,16 @@ namespace UttrekkFamilia
                     {
                         Document document = new()
                         {
-                            dokumentId = aktivitet.aktivitetId,
-                            filId = aktivitet.aktivitetId,
+                            dokumentId = henvendelse.aktivitetId,
+                            filId = henvendelse.aktivitetId,
                             ferdigstilt = true,
-                            opprettetAvId = aktivitet.utfortAvId,
-                            sakId = aktivitet.sakId,
-                            tittel = aktivitet.tittel,
-                            journalDato = aktivitet.utfortDato,
+                            opprettetAvId = henvendelse.utfortAvId,
+                            sakId = henvendelse.sakId,
+                            tittel = vfbHenvendelse.Subject,
+                            journalDato = henvendelse.henvendelsesDato,
                             filFormat = "PDF"
                         };
-                        document.aktivitetIdListe.Add(aktivitet.aktivitetId);
+                        document.aktivitetIdListe.Add(henvendelse.aktivitetId);
                         document.filId += ".pdf";
                         documents.Add(document);
 
@@ -2617,18 +2606,18 @@ namespace UttrekkFamilia
                             HtmlDocumentToInclude htmlDocumentToInclude = new()
                             {
                                 dokLoepenr = enquiryDocument.EnquiryDocumentId.ToString(),
-                                sakId = aktivitet.sakId,
-                                tittel = aktivitet.tittel,
-                                journalDato = aktivitet.utfortDato,
-                                opprettetAvId = aktivitet.utfortAvId,
+                                sakId = henvendelse.sakId,
+                                tittel = vfbHenvendelse.Subject,
+                                journalDato = henvendelse.henvendelsesDato,
+                                opprettetAvId = henvendelse.utfortAvId,
                                 innhold = enquiryDocument.DocumentText
                             };
-                            htmlDocumentToInclude.aktivitetIdListe.Add(aktivitet.aktivitetId);
+                            htmlDocumentToInclude.aktivitetIdListe.Add(henvendelse.aktivitetId);
                             htmlDocumentsIncluded.Add(htmlDocumentToInclude);
                         }
                     }
                     reader.Close();
-                    aktiviteter.Add(aktivitet);
+                    henvendelser.Add(henvendelse);
                 }
             }
             finally
@@ -2649,11 +2638,11 @@ namespace UttrekkFamilia
             }
             toSkip = 0;
             fileNumber = 1;
-            migrertAntall = aktiviteter.Count;
+            migrertAntall = henvendelser.Count;
             while (migrertAntall > toSkip)
             {
-                List<Aktivitet> aktiviteterPart = aktiviteter.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
-                await WriteFileAsync(aktiviteterPart, GetJsonFileName("aktiviteter", $"BVVHenvendelser{fileNumber}"));
+                List<Henvendelse> henvendelsePart = henvendelser.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                await WriteFileAsync(henvendelsePart, GetJsonFileName("henvendelse", $"BVVHenvendelser{fileNumber}"));
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
             }
@@ -3674,16 +3663,16 @@ namespace UttrekkFamilia
                     }
                     Sak sak = new()
                     {
-                        //TODO: Skal hver bydel sin mottaksavdeling være eier?
+                        //TODO: Avtaler - Skal hver bydel sin mottaksavdeling være eier?
                         avdelingId = "SuppliersAndContractorsTeam",
                         aktorId = GetActorId(medarbeider.ForLoepenrNavigation, false),
                         startDato = medarbeider.MedBegyntdato,
-                        //TODO: Skal noen settes til LUKKET?
+                        //TODO: Avtaler - Skal noen settes til LUKKET?
                         status = "ÅPEN",
                         arbeidsbelastning = "LAV",
-                        //TODO: Navn på sakstype?
+                        //TODO: Avtaler - Navn på sakstype?
                         sakstype = "OPPDRAGSTAKER",
-                        //TODO: Få navn på hovedbruker i hver mottaksavdeling?
+                        //TODO: Avtaler - Få navn på hovedbruker i hver mottaksavdeling?
                         saksbehandlerId = GetBrukerId(mappings.GetHovedkontorfagligBydel(Bydelsforkortelse))
                     };
                     sak.sakId = $"{sak.aktorId}__OPP";
@@ -3773,7 +3762,7 @@ namespace UttrekkFamilia
                                     sakId = $"{GetActorId(engasjementsavtale.ForLoepenrNavigation.ForLoepenrNavigation, false)}__OPP__{Bydelsforkortelse}",
                                     aktivitetsType = "OPPDRAGSTAKER_AVTALE",
                                     aktivitetsUnderType = "ANNET",
-                                    //TODO: Er EngFradato riktig felt her?
+                                    //TODO: Avtaler - Er EngFradato riktig felt her?
                                     hendelsesdato = engasjementsavtale.EngFradato,
                                     status = "UTFØRT",
                                     tittel = "Oppdragstakeravtale",
