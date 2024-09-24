@@ -9,6 +9,7 @@ namespace UttrekkFamilia.Modulus
         public string henvendelseMottaksmåte { get; set; }
         public string henvendelseMelderType { get; set; }
         public string henvendelseMelderPartId { get; set; }
+        public bool? henvendelseMelderPartErAnonym { get; set; }
         public string henvendelseKategori { get; set; }
         public string henvendelseKommunenummer { get; set; }
         public string henvendelseKommuneBydel { get; set; }

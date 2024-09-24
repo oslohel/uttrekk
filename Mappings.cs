@@ -1141,7 +1141,8 @@ namespace UttrekkFamilia
             { "6575", "SAVNETSKJEMA" },
             { "6661", "MØTE_PÅ_KONTORET" },
             { "7189", "EPOST" },
-            { "8367", "SØK" }
+            { "8367", "SØK" },
+            { "12425", "NOTAT" }
         };
 
         private readonly NameValueCollection BVVCorrespondenceCategories = new() {

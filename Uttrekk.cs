@@ -31,6 +31,7 @@ namespace UttrekkFamilia
         private readonly DateTime LastDateNoMigration = new(1997, 12, 31);
         private readonly DateTime FromDateMigrationTilsyn = new(2004, 12, 31);
         private readonly DateTime FirstInYearOfMigration = new(2023, 1, 1);
+        private readonly DateTime FirstInYearOfNewLaw = new(2023, 1, 1);
         private readonly DateTime FirstDateOfMigrationMeldingerUtenSak = new(2018, 1, 1);
         private string ConnectionStringFamilia = "";
         private readonly string ConnectionStringSokrates = "";
@@ -1592,10 +1593,12 @@ namespace UttrekkFamilia
 
                 using (var context = new BVVDBContext(ConnectionStringVFB))
                 {
-                    rawData = await context.CaseCases.Where(k => k.Type != 2 && k.Type != 3).ToListAsync();
+                    rawData = await context.CaseCases.Where(k => k.Type != 2 && k.Type != 3).OrderBy(k => k.ClientId).ThenBy(k => k.CaseCaseId).ToListAsync();
                     totalAntall = rawData.Count;
                 }
                 List<Sak> saker = new();
+
+                int? lastClientId = 0;
 
                 foreach (var caseCase in rawData)
                 {
@@ -1604,75 +1607,131 @@ namespace UttrekkFamilia
                     {
                         worker.ReportProgress(0, $"Behandler uttrekk Visma Flyt Barnevernvakt barnevernvaktsaker ({antall} av {totalAntall})...");
                     }
-                    Sak sak = new()
+                    if (caseCase.ClientId != lastClientId)
                     {
-                        sakId = AddBydel(caseCase.Number, "SAK"),
-                        aktorId = GetActorId(await GetBVVPersonFromClientAsync(caseCase.ClientId)),
-                        avdelingId = "BVV1",
-                        startDato = caseCase.CreatedDate,
-                        sluttDato = caseCase.StatusClosedDate,
-                        merknad = caseCase.Description?.Trim(),
-                        arbeidsbelastning = "LAV",
-                        sakstype = "BARNEVERNSVAKT"
-                    };
-                    if (caseCase.OwnedBy.HasValue)
-                    {
-                        sak.saksbehandlerId = GetBrukerId(caseCase.OwnedBy.ToString());
-                    }
-                    else
-                    {
-                        sak.saksbehandlerId = GetBrukerId(BVVLeder);
-                    }
-
-                    using (var context = new BVVDBContext(ConnectionStringVFB))
-                    {
-                        List<CaseCasecaseworker> caseWorkers = await context.CaseCasecaseworkers.Where(k => k.CaseId == caseCase.CaseCaseId).ToListAsync();
-                        foreach (var caseWorker in caseWorkers)
+                        Sak sak = new()
                         {
-                            sak.sekunderSaksbehandlerId.Add(GetBrukerId(caseWorker.CaseworkerId.ToString()));
+                            sakId = AddBydel(caseCase.Number, "SAK"),
+                            aktorId = GetActorId(await GetBVVPersonFromClientAsync(caseCase.ClientId)),
+                            avdelingId = "BVV1",
+                            arbeidsbelastning = "LAV",
+                            sakstype = "BARNEVERNSVAKT"
+                        };
+                        using (var context = new BVVDBContext(ConnectionStringVFB))
+                        {
+                            DateTime startDato = DateTime.MaxValue;
+                            DateTime? sluttDato = null;
+
+                            List<CaseCase> casesThisClient = await context.CaseCases.Where(k => k.ClientId == caseCase.ClientId && k.Type != 2 && k.Type != 3).ToListAsync();
+                            foreach (var caseThisClient in casesThisClient)
+                            {
+                                if (startDato > caseThisClient.CreatedDate)
+                                {
+                                    startDato = caseThisClient.CreatedDate;
+                                }
+                                if (sluttDato.HasValue)
+                                {
+                                    if (sluttDato < caseCase.StatusClosedDate)
+                                    {
+                                        sluttDato = caseCase.StatusClosedDate;
+                                    }
+                                }
+                                else
+                                {
+                                    sluttDato = caseCase.StatusClosedDate;
+                                }
+                            }
+                            sak.startDato = startDato;
+                            sak.sluttDato = sluttDato;
+
+                            EnquiryEnquiry vfbHenvendelse = await context.EnquiryEnquiries.Where(e => e.ClientId == caseCase.ClientId).OrderBy(k => k.FinishedDate).FirstOrDefaultAsync();
+                            if (vfbHenvendelse != null && vfbHenvendelse.FinishedDate.HasValue && vfbHenvendelse.FinishedDate < sak.startDato)
+                            {
+                                sak.startDato = vfbHenvendelse.FinishedDate;
+                            }
+                            EnquiryEnquiry vfbHenvendelseReportedDate = await context.EnquiryEnquiries.Where(e => e.ClientId == caseCase.ClientId && !e.FinishedDate.HasValue).OrderBy(k => k.ReportedDate).FirstOrDefaultAsync();
+                            if (vfbHenvendelseReportedDate != null && vfbHenvendelseReportedDate.ReportedDate < sak.startDato)
+                            {
+                                sak.startDato = vfbHenvendelseReportedDate.ReportedDate;
+                            }
+                            JournalJournal journal = await context.JournalJournals.Where(e => e.ClientId == caseCase.ClientId).OrderBy(k => k.CreatedDate).FirstOrDefaultAsync();
+                            if (journal != null && journal.CreatedDate < sak.startDato)
+                            {
+                                sak.startDato = journal.CreatedDate;
+                            }
+                            CorrespondenceCorrespondence correspondence = await context.CorrespondenceCorrespondences.Where(e => e.ClientId == caseCase.ClientId).OrderBy(k => k.CreatedDate).FirstOrDefaultAsync();
+                            if (correspondence != null && correspondence.CreatedDate < sak.startDato)
+                            {
+                                sak.startDato = correspondence.CreatedDate;
+                            }
+                            CorrespondenceCorrespondence correspondenceDate = await context.CorrespondenceCorrespondences.Where(e => e.ClientId == caseCase.ClientId).OrderBy(k => k.CorrespondenceDate).FirstOrDefaultAsync();
+                            if (correspondence != null && correspondenceDate.CorrespondenceDate < sak.startDato)
+                            {
+                                sak.startDato = correspondenceDate.CorrespondenceDate;
+                            }
                         }
+
+                        using (var context = new BVVDBContext(ConnectionStringVFB))
+                        {
+                            CaseCase newestCase = await context.CaseCases.Where(k => k.ClientId == caseCase.ClientId && k.Type != 2 && k.Type != 3).OrderByDescending(k => k.CaseCaseId).FirstOrDefaultAsync();
+
+                            if (newestCase.OwnedBy.HasValue)
+                            {
+                                sak.saksbehandlerId = GetBrukerId(newestCase.OwnedBy.ToString());
+                            }
+                            else
+                            {
+                                sak.saksbehandlerId = GetBrukerId(BVVLeder);
+                            }
+                            List<CaseCasecaseworker> caseWorkers = await context.CaseCasecaseworkers.Where(k => k.CaseId == newestCase.CaseCaseId).ToListAsync();
+                            foreach (var caseWorker in caseWorkers)
+                            {
+                                sak.sekunderSaksbehandlerId.Add(GetBrukerId(caseWorker.CaseworkerId.ToString()));
+                            }
+                        }
+                        if (string.IsNullOrEmpty(sak.saksbehandlerId))
+                        {
+                            sak.saksbehandlerId = GetBrukerId(BVVLeder);
+                        }
+                        if (!caseCase.StatusClosedDate.HasValue)
+                        {
+                            sak.status = "ÅPEN";
+                        }
+                        else
+                        {
+                            sak.status = "LUKKET";
+                        }
+                        Aktivitet aktivitet = new()
+                        {
+                            aktivitetId = AddBydel(sak.sakId, "LOG"),
+                            sakId = sak.sakId,
+                            aktivitetsType = "INTERN_SAKSFORBEREDELSE(FVL_§_18.A)",
+                            aktivitetsUnderType = "INGEN",
+                            status = "UTFØRT",
+                            hendelsesdato = DateTime.Now,
+                            saksbehandlerId = GetBrukerId(BVVLeder),
+                            tittel = "Logg",
+                            utfortAvId = GetBrukerId(BVVLeder),
+                            utfortDato = DateTime.Now,
+                            notat = "Se dokument"
+                        };
+                        List<HtmlDocumentToInclude> htmlDocumentsIncluded = new();
+                        HtmlDocumentToInclude htmlDocumentToInclude = new()
+                        {
+                            dokLoepenr = aktivitet.sakId + "LOGG",
+                            sakId = aktivitet.sakId,
+                            tittel = aktivitet.tittel,
+                            journalDato = aktivitet.utfortDato,
+                            opprettetAvId = aktivitet.utfortAvId,
+                            innhold = await GetBVVLoggAsync(caseCase.ClientId)
+                        };
+                        htmlDocumentToInclude.aktivitetIdListe.Add(aktivitet.aktivitetId);
+                        htmlDocumentsIncluded.Add(htmlDocumentToInclude);
+                        await GetHtmlDocumentsAsync(worker, htmlDocumentsIncluded, $"Logg{Guid.NewGuid().ToString().Replace('-', '_')}", "Log", false);
+                        aktiviteter.Add(aktivitet);
+                        saker.Add(sak);
+                        lastClientId = caseCase.ClientId;
                     }
-                    if (string.IsNullOrEmpty(sak.saksbehandlerId))
-                    {
-                        sak.saksbehandlerId = GetBrukerId(BVVLeder);
-                    }
-                    if (!caseCase.StatusClosedDate.HasValue)
-                    {
-                        sak.status = "ÅPEN";
-                    }
-                    else
-                    {
-                        sak.status = "LUKKET";
-                    }
-                    Aktivitet aktivitet = new()
-                    {
-                        aktivitetId = AddBydel(sak.sakId, "LOG"),
-                        sakId = sak.sakId,
-                        aktivitetsType = "INTERN_SAKSFORBEREDELSE(FVL_§_18.A)",
-                        aktivitetsUnderType = "INGEN",
-                        status = "UTFØRT",
-                        hendelsesdato = DateTime.Now,
-                        saksbehandlerId = GetBrukerId(BVVLeder),
-                        tittel = "Logg",
-                        utfortAvId = GetBrukerId(BVVLeder),
-                        utfortDato = DateTime.Now,
-                        notat = "Se dokument"
-                    };
-                    List<HtmlDocumentToInclude> htmlDocumentsIncluded = new();
-                    HtmlDocumentToInclude htmlDocumentToInclude = new()
-                    {
-                        dokLoepenr = aktivitet.sakId + "LOGG",
-                        sakId = aktivitet.sakId,
-                        tittel = aktivitet.tittel,
-                        journalDato = aktivitet.utfortDato,
-                        opprettetAvId = aktivitet.utfortAvId,
-                        innhold = await GetBVVLoggAsync(caseCase.CaseCaseId)
-                    };
-                    htmlDocumentToInclude.aktivitetIdListe.Add(aktivitet.aktivitetId);
-                    htmlDocumentsIncluded.Add(htmlDocumentToInclude);
-                    await GetHtmlDocumentsAsync(worker, htmlDocumentsIncluded, $"Logg{Guid.NewGuid().ToString().Replace('-', '_')}", "Log", false);
-                    aktiviteter.Add(aktivitet);
-                    saker.Add(sak);
                 }
                 int toSkip = 0;
                 int fileNumber = 1;
@@ -1704,13 +1763,27 @@ namespace UttrekkFamilia
                 throw;
             }
         }
-        private async Task<string> GetBVVLoggAsync(int caseCaseId)
+        private async Task<string> GetBVVLoggAsync(int? clientId)
         {
             StringBuilder logg = new();
 
             using (var context = new BVVDBContext(ConnectionStringVFB))
             {
-                List<ActivitylogActivitylog> activitylogs = await context.ActivitylogActivitylogs.Where(k => k.CaseId == caseCaseId).OrderByDescending(o => o.CreatedDate).Take(2000).ToListAsync();
+                List<ActivitylogActivitylog> activitylogs = null;
+                List<CaseCase> casesThisClient = await context.CaseCases.Where(k => k.ClientId == clientId && k.Type != 2 && k.Type != 3).ToListAsync();
+                foreach (var caseThisClient in casesThisClient)
+                {
+                    if (activitylogs == null)
+                    {
+                        activitylogs = await context.ActivitylogActivitylogs.Where(k => k.CaseId == caseThisClient.CaseCaseId).ToListAsync();
+                    }
+                    else
+                    {
+                        activitylogs.AddRange(await context.ActivitylogActivitylogs.Where(k => k.CaseId == caseThisClient.CaseCaseId).ToListAsync());
+                    }
+                }
+                activitylogs = activitylogs.OrderByDescending(o => o.CreatedDate).Take(2000).ToList();
+
                 foreach (var activitylog in activitylogs)
                 {
                     logg.Append($"<p><b>Dato:&nbsp;</b>{activitylog.CreatedDate.ToLocalTime().ToString("g")}<b>&nbsp;Av:&nbsp;</b>{mappings.GetBVVUsername(activitylog.CreatedBy)}");
@@ -1838,8 +1911,9 @@ namespace UttrekkFamilia
                 {
                     worker.ReportProgress(0, $"Behandler uttrekk Visma Flyt Barnevernvakt innbyggere - barn ({antall} av {totalAntall})...");
                 }
-                int currentClientId = 0;
                 bool included = false;
+                int currentClientId = 0;
+
                 using (var context = new BVVDBContext(ConnectionStringVFB))
                 {
                     ClientClient client = await context.ClientClients.Where(c => c.PersonId == person.PersonPersonId).FirstOrDefaultAsync();
@@ -2260,11 +2334,12 @@ namespace UttrekkFamilia
 
                 using (var context = new BVVDBContext(ConnectionStringVFB))
                 {
-                    rawData = await context.CaseCases.Where(k => k.Type != 2 && k.Type != 3).ToListAsync();
+                    rawData = await context.CaseCases.Where(k => k.Type != 2 && k.Type != 3).OrderBy(k => k.ClientId).ThenBy(k => k.CaseCaseId).ToListAsync();
                     totalAntall = rawData.Count;
                 }
                 List<BarnetsNettverk> barnetsNettverk = new();
                 int antall = 0;
+                int? lastClientId = 0;
 
                 foreach (var caseCase in rawData)
                 {
@@ -2273,15 +2348,19 @@ namespace UttrekkFamilia
                     {
                         worker.ReportProgress(0, $"Behandler uttrekk Visma Flyt Barnevernvakt barnets nettverk - barnet ({antall} av {totalAntall})...");
                     }
-                    BarnetsNettverk forbindelse = new()
+                    if (lastClientId != caseCase.ClientId)
                     {
-                        sakId = AddBydel(caseCase.Number, "SAK"),
-                        actorId = GetActorId(await GetBVVPersonFromClientAsync(caseCase.ClientId)),
-                        relasjonTilSak = "HOVEDPERSON",
-                        rolle = "HOVEDPERSON",
-                        foresatt = false
-                    };
-                    barnetsNettverk.Add(forbindelse);
+                        BarnetsNettverk forbindelse = new()
+                        {
+                            sakId = AddBydel(caseCase.Number, "SAK"),
+                            actorId = GetActorId(await GetBVVPersonFromClientAsync(caseCase.ClientId)),
+                            relasjonTilSak = "HOVEDPERSON",
+                            rolle = "HOVEDPERSON",
+                            foresatt = false
+                        };
+                        barnetsNettverk.Add(forbindelse);
+                        lastClientId = caseCase.ClientId;
+                    }
                 }
                 int toSkip = 0;
                 int fileNumber = 1;
@@ -2313,11 +2392,12 @@ namespace UttrekkFamilia
 
                 using (var context = new BVVDBContext(ConnectionStringVFB))
                 {
-                    rawCases = await context.CaseCases.Where(k => k.Type != 2 && k.Type != 3).ToListAsync();
+                    rawCases = await context.CaseCases.Where(k => k.Type != 2 && k.Type != 3).OrderBy(k => k.ClientId).ThenBy(k => k.CaseCaseId).ToListAsync();
                     totalAntall = rawCases.Count;
                 }
                 List<BarnetsNettverk> barnetsNettverk = new();
                 int antall = 0;
+                int? lastClientId = 0;
 
                 foreach (var caseCase in rawCases)
                 {
@@ -2326,31 +2406,35 @@ namespace UttrekkFamilia
                     {
                         worker.ReportProgress(0, $"Behandler uttrekk Visma Flyt Barnevernvakt barnets nettverk - familie ({antall} av {totalAntall})...");
                     }
-                    int childrenPersonId = (await GetBVVPersonFromClientAsync(caseCase.ClientId)).PersonPersonId;
-
-                    using (var context = new BVVDBContext(ConnectionStringVFB))
+                    if (lastClientId != caseCase.ClientId)
                     {
-                        List<PersonPersonrole> rawRelations = await context.PersonPersonroles.Where(k => k.RelatedPersonId == childrenPersonId).ToListAsync();
-                        foreach (var relation in rawRelations)
+                        int childrenPersonId = (await GetBVVPersonFromClientAsync(caseCase.ClientId)).PersonPersonId;
+
+                        using (var context = new BVVDBContext(ConnectionStringVFB))
                         {
-                            PersonPerson person = await context.PersonPeople.Where(i => i.PersonPersonId == relation.PersonId && string.IsNullOrEmpty(i.Hnumber)).FirstOrDefaultAsync();
-                            if (person != null)
+                            List<PersonPersonrole> rawRelations = await context.PersonPersonroles.Where(k => k.RelatedPersonId == childrenPersonId).ToListAsync();
+                            foreach (var relation in rawRelations)
                             {
-                                BarnetsNettverk forbindelse = new()
+                                PersonPerson person = await context.PersonPeople.Where(i => i.PersonPersonId == relation.PersonId && string.IsNullOrEmpty(i.Hnumber)).FirstOrDefaultAsync();
+                                if (person != null)
                                 {
-                                    sakId = AddBydel(caseCase.Number, "SAK"),
-                                    actorId = await GetActorIdAsync(relation.PersonId),
-                                    relasjonTilSak = Mappings.GetBVVRelasjonSak(relation.FamilyroleRegistryId),
-                                    rolle = Mappings.GetBVVRolleSak(relation.FamilyroleRegistryId),
-                                    kommentar = relation.Notes
-                                };
-                                if (relation.HasParentalRights.HasValue && relation.HasParentalRights.Value)
-                                {
-                                    forbindelse.foresatt = true;
+                                    BarnetsNettverk forbindelse = new()
+                                    {
+                                        sakId = AddBydel(caseCase.Number, "SAK"),
+                                        actorId = await GetActorIdAsync(relation.PersonId),
+                                        relasjonTilSak = Mappings.GetBVVRelasjonSak(relation.FamilyroleRegistryId),
+                                        rolle = Mappings.GetBVVRolleSak(relation.FamilyroleRegistryId),
+                                        kommentar = relation.Notes
+                                    };
+                                    if (relation.HasParentalRights.HasValue && relation.HasParentalRights.Value)
+                                    {
+                                        forbindelse.foresatt = true;
+                                    }
+                                    barnetsNettverk.Add(forbindelse);
                                 }
-                                barnetsNettverk.Add(forbindelse);
                             }
                         }
+                        lastClientId = caseCase.ClientId;
                     }
                 }
                 int toSkip = 0;
@@ -2383,11 +2467,12 @@ namespace UttrekkFamilia
 
                 using (var context = new BVVDBContext(ConnectionStringVFB))
                 {
-                    rawCases = await context.CaseCases.Where(k => k.Type != 2 && k.Type != 3).ToListAsync();
+                    rawCases = await context.CaseCases.Where(k => k.Type != 2 && k.Type != 3).OrderBy(k => k.ClientId).ThenBy(k => k.CaseCaseId).ToListAsync();
                     totalAntall = rawCases.Count;
                 }
                 List<BarnetsNettverk> barnetsNettverk = new();
                 int antall = 0;
+                int? lastClientId = 0;
 
                 foreach (var caseCase in rawCases)
                 {
@@ -2396,26 +2481,30 @@ namespace UttrekkFamilia
                     {
                         worker.ReportProgress(0, $"Behandler uttrekk Visma Flyt Barnevernvakt barnets nettverk ({antall} av {totalAntall})...");
                     }
-                    using (var context = new BVVDBContext(ConnectionStringVFB))
+                    if (lastClientId != caseCase.ClientId)
                     {
-                        List<PersonNetworkpersonrole> rawRelations = await context.PersonNetworkpersonroles.Where(k => k.RelatedClientId == caseCase.ClientId).ToListAsync();
-                        foreach (var relation in rawRelations)
+                        using (var context = new BVVDBContext(ConnectionStringVFB))
                         {
-                            PersonPerson person = await context.PersonPeople.Where(i => i.PersonPersonId == relation.PersonId && string.IsNullOrEmpty(i.Hnumber)).FirstOrDefaultAsync();
-                            if (person != null)
+                            List<PersonNetworkpersonrole> rawRelations = await context.PersonNetworkpersonroles.Where(k => k.RelatedClientId == caseCase.ClientId).ToListAsync();
+                            foreach (var relation in rawRelations)
                             {
-                                BarnetsNettverk forbindelse = new()
+                                PersonPerson person = await context.PersonPeople.Where(i => i.PersonPersonId == relation.PersonId && string.IsNullOrEmpty(i.Hnumber)).FirstOrDefaultAsync();
+                                if (person != null)
                                 {
-                                    sakId = AddBydel(caseCase.Number, "SAK"),
-                                    actorId = await GetActorIdAsync(relation.PersonId),
-                                    relasjonTilSak = Mappings.GetBVVRelasjonSak(relation.RoleRegistryId),
-                                    rolle = Mappings.GetBVVRolleSak(relation.RoleRegistryId),
-                                    foresatt = false,
-                                    kommentar = relation.Notes
-                                };
-                                barnetsNettverk.Add(forbindelse);
+                                    BarnetsNettverk forbindelse = new()
+                                    {
+                                        sakId = AddBydel(caseCase.Number, "SAK"),
+                                        actorId = await GetActorIdAsync(relation.PersonId),
+                                        relasjonTilSak = Mappings.GetBVVRelasjonSak(relation.RoleRegistryId),
+                                        rolle = Mappings.GetBVVRolleSak(relation.RoleRegistryId),
+                                        foresatt = false,
+                                        kommentar = relation.Notes
+                                    };
+                                    barnetsNettverk.Add(forbindelse);
+                                }
                             }
                         }
+                        lastClientId = caseCase.ClientId;
                     }
                 }
                 int toSkip = 0;
@@ -2477,16 +2566,12 @@ namespace UttrekkFamilia
                             {
                                 continue;
                             }
-                            int numberOfCases = await context.CaseCases.Where(e => e.ClientId == vfbHenvendelse.ClientId && e.Type == 1).CountAsync();
-                            if (numberOfCases != 1)
+                            CaseCase singleCase = await context.CaseCases.Where(e => e.ClientId == vfbHenvendelse.ClientId && e.Type == 1).OrderBy(k => k.CaseCaseId).FirstOrDefaultAsync();
+                            if (singleCase == null)
                             {
                                 continue;
                             }
-                            else
-                            {
-                                CaseCase singleCase = await context.CaseCases.Where(e => e.ClientId == vfbHenvendelse.ClientId && e.Type == 1).FirstOrDefaultAsync();
-                                caseId = singleCase.CaseCaseId;
-                            }
+                            caseId = singleCase.CaseCaseId;
                         }
                         else
                         {
@@ -2508,7 +2593,8 @@ namespace UttrekkFamilia
                         henvendelseInnhold = "Se dokument",
                         henvendelseKreverUmiddelbarInngripen = false,
                         henvendelseKommunenummer = "9999",
-                        henvendelseMottaksmåte = "06_HENVENDELSE_MOTTAKSMÅTE_UKJENT"
+                        henvendelseMottaksmåte = "06_HENVENDELSE_MOTTAKSMÅTE_UKJENT",
+                        henvendelseMelderPartErAnonym = true
                     };
 
                     using (var context = new BVVDBContext(ConnectionStringVFB))
@@ -2520,13 +2606,17 @@ namespace UttrekkFamilia
                             CaseCase caseCase = await context.CaseCases.Where(k => k.CaseCaseId == enquiry.CaseId).FirstOrDefaultAsync();
                             if (caseCase != null)
                             {
-                                henvendelse.henvendelseKategori = mappings.GetBVVHovedkategori(caseCase.MainCategoryRegistryId); ;
+                                henvendelse.henvendelseKategori = mappings.GetBVVHovedkategori(caseCase.MainCategoryRegistryId);
                                 henvendelse.aktivitetsUndertype = mappings.GetBVVTypeBarnevernsvaktsak(caseCase.PersoncaseTypeRegistryId);
                             }
                         }
                         if (string.IsNullOrEmpty(henvendelse.henvendelseMelderType))
                         {
                             henvendelse.henvendelseMelderType = "31_HENVENDELSE_MELDERTYPE_ANDRE";
+                        }
+                        if (string.IsNullOrEmpty(henvendelse.henvendelseKategori))
+                        {
+                            henvendelse.henvendelseKategori = "24_ANNET";
                         }
                     }
                     if (!henvendelse.henvendelsesDato.HasValue)
@@ -2536,7 +2626,7 @@ namespace UttrekkFamilia
                     using (var context = new BVVDBContext(ConnectionStringVFB))
                     {
                         CaseCase rawCase = await context.CaseCases.Where(e => e.CaseCaseId == caseId).FirstOrDefaultAsync();
-                        henvendelse.sakId = AddBydel(rawCase.Number, "SAK");
+                        henvendelse.sakId = AddBydel(await GetBVVFirstCaseNumberAsync(rawCase.ClientId), "SAK");
                     }
                     SqlCommand command = new($"Select FileDataBlob From Enquiry_Document Where Enquiry_DocumentId={enquiryDocument.EnquiryDocumentId} And FileDataBlob Is Not Null", connection)
                     {
@@ -2687,16 +2777,12 @@ namespace UttrekkFamilia
                             {
                                 continue;
                             }
-                            int numberOfCases = await context.CaseCases.Where(e => e.ClientId == journal.ClientId && e.Type == 1).CountAsync();
-                            if (numberOfCases != 1)
+                            CaseCase singleCase = await context.CaseCases.Where(e => e.ClientId == journal.ClientId && e.Type == 1).OrderBy(k => k.CaseCaseId).FirstOrDefaultAsync();
+                            if (singleCase == null)
                             {
                                 continue;
                             }
-                            else
-                            {
-                                CaseCase singleCase = await context.CaseCases.Where(e => e.ClientId == journal.ClientId && e.Type == 1).FirstOrDefaultAsync();
-                                caseId = singleCase.CaseCaseId;
-                            }
+                            caseId = singleCase.CaseCaseId;
                         }
                         else
                         {
@@ -2728,7 +2814,7 @@ namespace UttrekkFamilia
                     using (var context = new BVVDBContext(ConnectionStringVFB))
                     {
                         CaseCase rawCase = await context.CaseCases.Where(e => e.CaseCaseId == caseId).FirstOrDefaultAsync();
-                        aktivitet.sakId = AddBydel(rawCase.Number, "SAK");
+                        aktivitet.sakId = AddBydel(await GetBVVFirstCaseNumberAsync(rawCase.ClientId), "SAK");
                     }
                     SqlCommand command = new($"Select FileDataBlob From journal_document Where Journal_DocumentId={journalDocument.JournalDocumentId} And FileDataBlob Is Not Null", connection)
                     {
@@ -2854,6 +2940,7 @@ namespace UttrekkFamilia
                 totalAntall = rawCorrespondenceDocuments.Count;
             }
             List<Aktivitet> aktiviteter = new();
+            List<Vedtak> vedtaksListe = new();
             int antall = 0;
             SqlConnection connection = new(ConnectionStringVFB);
             SqlDataReader reader = null;
@@ -2879,16 +2966,12 @@ namespace UttrekkFamilia
                             {
                                 continue;
                             }
-                            int numberOfCases = await context.CaseCases.Where(e => e.ClientId == correspondence.ClientId && e.Type == 1).CountAsync();
-                            if (numberOfCases != 1)
+                            CaseCase singleCase = await context.CaseCases.Where(e => e.ClientId == correspondence.ClientId && e.Type == 1).OrderBy(k => k.CaseCaseId).FirstOrDefaultAsync();
+                            if (singleCase == null)
                             {
                                 continue;
                             }
-                            else
-                            {
-                                CaseCase singleCase = await context.CaseCases.Where(e => e.ClientId == correspondence.ClientId && e.Type == 1).FirstOrDefaultAsync();
-                                caseId = singleCase.CaseCaseId;
-                            }
+                            caseId = singleCase.CaseCaseId;
                         }
                         else
                         {
@@ -2900,131 +2983,72 @@ namespace UttrekkFamilia
                             caseId = correspondence.CaseId;
                         }
                     }
-                    Aktivitet aktivitet = new()
-                    {
-                        aktivitetId = AddBydel(correspondenceDocument.CorrespondenceDocumentId.ToString(), "POS"),
-                        aktivitetsType = "BARNEVERNSVAKT",
-                        aktivitetsUnderType = mappings.GetBVVCorrespondenceCategory(correspondence.CorrespondenceCategoryRegistryId),
-                        status = "UTFØRT",
-                        hendelsesdato = correspondence.CorrespondenceDate,
-                        saksbehandlerId = GetBrukerId(correspondence.OwnedBy.ToString()),
-                        tittel = correspondence.Title,
-                        utfortAvId = GetBrukerId(correspondence.OwnedBy.ToString()),
-                        utfortDato = correspondence.FinishedDate,
-                        notat = "Se dokument"
-                    };
-                    if (!aktivitet.utfortDato.HasValue)
-                    {
-                        aktivitet.utfortDato = aktivitet.hendelsesdato;
-                    }
-                    using (var context = new BVVDBContext(ConnectionStringVFB))
-                    {
-                        CaseCase rawCase = await context.CaseCases.Where(e => e.CaseCaseId == caseId).FirstOrDefaultAsync();
-                        aktivitet.sakId = AddBydel(rawCase.Number, "SAK");
-                    }
-                    SqlCommand command = new($"Select FileDataBlob From Correspondence_Document Where Correspondence_DocumentId={correspondenceDocument.CorrespondenceDocumentId} And FileDataBlob Is Not Null", connection)
-                    {
-                        CommandTimeout = 300
-                    };
-                    reader = command.ExecuteReader();
+                    string aktivitetsUnderType = mappings.GetBVVCorrespondenceCategory(correspondence.CorrespondenceCategoryRegistryId);
 
-                    if (reader.HasRows)
+                    if (aktivitetsUnderType == "VEDTAK_AKUTT")
                     {
-                        Document document = new()
+                        Vedtak vedtak = new()
                         {
-                            dokumentId = aktivitet.aktivitetId,
-                            filId = aktivitet.aktivitetId,
-                            ferdigstilt = true,
-                            opprettetAvId = aktivitet.utfortAvId,
-                            sakId = aktivitet.sakId,
-                            tittel = aktivitet.tittel,
-                            journalDato = aktivitet.utfortDato,
-                            filFormat = "PDF"
+                            aktivitetId = AddBydel(correspondenceDocument.CorrespondenceDocumentId.ToString(), "VED"),
+                            aktivitetsUndertype = "BARNEVERNSVAKT_VEDTAK_AKUTT",
+                            status = "UTFØRT",
+                            tittel = correspondence.Title,
+                            vedtakFraBarnevernsvakt = true,
+                            vedtaksdato = correspondence.CreatedDate,
+                            startdato = correspondence.CreatedDate,
+                            avsluttetStatusDato = correspondence.FinishedDate,
+                            saksbehandlerId = GetBrukerId(correspondence.OwnedBy.ToString()),
+                            godkjentAvSaksbehandlerId = GetBrukerId(correspondence.OwnedBy.ToString()),
+                            godkjentStatusDato = correspondence.FinishedDate,
+                            barnetsMedvirkning = "Se dokument",
+                            bakgrunnsopplysninger = "Se dokument",
+                            vedtak = "Se dokument",
+                            begrunnelse = "Se dokument",
                         };
-                        document.aktivitetIdListe.Add(aktivitet.aktivitetId);
-                        document.filId += ".pdf";
-                        documents.Add(document);
+                        if (!vedtak.avsluttetStatusDato.HasValue)
+                        {
+                            vedtak.avsluttetStatusDato = correspondence.CreatedDate;
+                        }
+                        if (!vedtak.godkjentStatusDato.HasValue)
+                        {
+                            vedtak.godkjentStatusDato = correspondence.CreatedDate;
+                        }
+                        if (vedtak.startdato >= FirstInYearOfNewLaw)
+                        {
+                            vedtak.lovhjemmel = "Bvl._§_4-1";
+                        }
+                        else
+                        {
+                            vedtak.lovhjemmel = "Bvl._§_4-6._1.ledd_(gammel_lov)";
+                        }
 
-                        SqlConnection connectionMigrering = new(ConnectionStringMigrering);
-                        SqlDataReader readerMigrering = null;
-                        try
+                        using (var context = new BVVDBContext(ConnectionStringVFB))
                         {
-                            connectionMigrering.Open();
-                            bool fileAlreadyWritten = false;
-                            SqlCommand commandMigrering = new($"Select Count(*) From Filer{MigreringsdbPostfix} Where Filnavn='{document.filId}'", connectionMigrering)
-                            {
-                                CommandTimeout = 300
-                            };
-                            readerMigrering = commandMigrering.ExecuteReader();
-                            while (readerMigrering.Read())
-                            {
-                                if (readerMigrering.GetInt32(0) > 0)
-                                {
-                                    fileAlreadyWritten = true;
-                                }
-                            }
-                            readerMigrering.Close();
+                            CaseCase rawCase = await context.CaseCases.Where(e => e.CaseCaseId == caseId).FirstOrDefaultAsync();
+                            vedtak.sakId = AddBydel(await GetBVVFirstCaseNumberAsync(rawCase.ClientId), "SAK");
+                        }
+                        SqlCommand command = new($"Select FileDataBlob From Correspondence_Document Where Correspondence_DocumentId={correspondenceDocument.CorrespondenceDocumentId} And FileDataBlob Is Not Null", connection)
+                        {
+                            CommandTimeout = 300
+                        };
+                        reader = command.ExecuteReader();
 
-                            if (!fileAlreadyWritten)
-                            {
-                                while (reader.Read())
-                                {
-                                    await File.WriteAllBytesAsync(OutputFolderName + $"filer\\" + document.filId, (byte[])reader["FileDataBlob"]);
-                                }
-                                commandMigrering = new($"Insert Into Filer{MigreringsdbPostfix} (FilNavn,Bydel,Dato) Values ('{document.filId}','{Bydelsforkortelse}',GETDATE())", connectionMigrering)
-                                {
-                                    CommandTimeout = 300
-                                };
-                                commandMigrering.ExecuteNonQuery();
-                            }
-                        }
-                        finally
+                        if (reader.HasRows)
                         {
-                            connectionMigrering.Close();
-                        }
-                    }
-                    else
-                    {
-                        if (!string.IsNullOrEmpty(correspondenceDocument.DocumentText))
-                        {
-                            HtmlDocumentToInclude htmlDocumentToInclude = new()
+                            Document document = new()
                             {
-                                dokLoepenr = correspondenceDocument.CorrespondenceDocumentId.ToString() + "COR",
-                                sakId = aktivitet.sakId,
-                                tittel = aktivitet.tittel,
-                                journalDato = aktivitet.utfortDato,
-                                opprettetAvId = aktivitet.utfortAvId,
-                                innhold = correspondenceDocument.DocumentText
-                            };
-                            htmlDocumentToInclude.aktivitetIdListe.Add(aktivitet.aktivitetId);
-                            htmlDocumentsIncluded.Add(htmlDocumentToInclude);
-                        }
-                    }
-                    List<CorrespondenceCorrespondenceattachment> attachments;
-                    using (var context = new BVVDBContext(ConnectionStringVFB))
-                    {
-                        attachments = await context.CorrespondenceCorrespondenceattachments.Where(e => e.CorrespondenceId == correspondence.CorrespondenceCorrespondenceId).ToListAsync();
-                    }
-                    int vedleggIndeks = 0;
-                    foreach (var attachment in attachments)
-                    {
-                        vedleggIndeks += 1;
-                        if (attachment.FileDataBlob != null)
-                        {
-                            Document attachmentDocument = new()
-                            {
-                                dokumentId = aktivitet.aktivitetId + vedleggIndeks,
-                                filId = aktivitet.aktivitetId + vedleggIndeks,
+                                dokumentId = vedtak.aktivitetId,
+                                filId = vedtak.aktivitetId,
                                 ferdigstilt = true,
-                                opprettetAvId = aktivitet.utfortAvId,
-                                sakId = aktivitet.sakId,
-                                tittel = $"{aktivitet.tittel} (vedlegg {vedleggIndeks})",
-                                journalDato = aktivitet.utfortDato,
+                                opprettetAvId = vedtak.saksbehandlerId,
+                                sakId = vedtak.sakId,
+                                tittel = vedtak.tittel,
+                                journalDato = vedtak.vedtaksdato,
                                 filFormat = "PDF"
                             };
-                            attachmentDocument.aktivitetIdListe.Add(aktivitet.aktivitetId);
-                            attachmentDocument.filId += ".pdf";
-                            documents.Add(attachmentDocument);
+                            document.aktivitetIdListe.Add(vedtak.aktivitetId);
+                            document.filId += ".pdf";
+                            documents.Add(document);
 
                             SqlConnection connectionMigrering = new(ConnectionStringMigrering);
                             SqlDataReader readerMigrering = null;
@@ -3032,7 +3056,7 @@ namespace UttrekkFamilia
                             {
                                 connectionMigrering.Open();
                                 bool fileAlreadyWritten = false;
-                                SqlCommand commandMigrering = new($"Select Count(*) From Filer{MigreringsdbPostfix} Where Filnavn='{attachmentDocument.filId}'", connectionMigrering)
+                                SqlCommand commandMigrering = new($"Select Count(*) From Filer{MigreringsdbPostfix} Where Filnavn='{document.filId}'", connectionMigrering)
                                 {
                                     CommandTimeout = 300
                                 };
@@ -3048,8 +3072,11 @@ namespace UttrekkFamilia
 
                                 if (!fileAlreadyWritten)
                                 {
-                                    await File.WriteAllBytesAsync(OutputFolderName + $"filer\\" + attachmentDocument.filId, attachment.FileDataBlob);
-                                    commandMigrering = new($"Insert Into Filer{MigreringsdbPostfix} (FilNavn,Bydel,Dato) Values ('{attachmentDocument.filId}','{Bydelsforkortelse}',GETDATE())", connectionMigrering)
+                                    while (reader.Read())
+                                    {
+                                        await File.WriteAllBytesAsync(OutputFolderName + $"filer\\" + document.filId, (byte[])reader["FileDataBlob"]);
+                                    }
+                                    commandMigrering = new($"Insert Into Filer{MigreringsdbPostfix} (FilNavn,Bydel,Dato) Values ('{document.filId}','{Bydelsforkortelse}',GETDATE())", connectionMigrering)
                                     {
                                         CommandTimeout = 300
                                     };
@@ -3063,21 +3090,280 @@ namespace UttrekkFamilia
                         }
                         else
                         {
-                            HtmlDocumentToInclude htmlDocumentToInclude = new()
+                            if (!string.IsNullOrEmpty(correspondenceDocument.DocumentText))
                             {
-                                dokLoepenr = attachment.Id.ToString() + "CORATT",
-                                sakId = aktivitet.sakId,
-                                tittel = $"{aktivitet.tittel} (vedlegg {vedleggIndeks})",
-                                journalDato = aktivitet.utfortDato,
-                                opprettetAvId = aktivitet.utfortAvId,
-                                innhold = $"<p>{attachment.Name}</p>"
-                            };
-                            htmlDocumentToInclude.aktivitetIdListe.Add(aktivitet.aktivitetId);
-                            htmlDocumentsIncluded.Add(htmlDocumentToInclude);
+                                HtmlDocumentToInclude htmlDocumentToInclude = new()
+                                {
+                                    dokLoepenr = correspondenceDocument.CorrespondenceDocumentId.ToString() + "COR",
+                                    sakId = vedtak.sakId,
+                                    tittel = vedtak.tittel,
+                                    journalDato = vedtak.vedtaksdato,
+                                    opprettetAvId = vedtak.saksbehandlerId,
+                                    innhold = correspondenceDocument.DocumentText
+                                };
+                                htmlDocumentToInclude.aktivitetIdListe.Add(vedtak.aktivitetId);
+                                htmlDocumentsIncluded.Add(htmlDocumentToInclude);
+                            }
                         }
+                        List<CorrespondenceCorrespondenceattachment> attachments;
+                        using (var context = new BVVDBContext(ConnectionStringVFB))
+                        {
+                            attachments = await context.CorrespondenceCorrespondenceattachments.Where(e => e.CorrespondenceId == correspondence.CorrespondenceCorrespondenceId).ToListAsync();
+                        }
+                        int vedleggIndeks = 0;
+                        foreach (var attachment in attachments)
+                        {
+                            vedleggIndeks += 1;
+                            if (attachment.FileDataBlob != null)
+                            {
+                                Document attachmentDocument = new()
+                                {
+                                    dokumentId = vedtak.aktivitetId + vedleggIndeks,
+                                    filId = vedtak.aktivitetId + vedleggIndeks,
+                                    ferdigstilt = true,
+                                    opprettetAvId = vedtak.saksbehandlerId,
+                                    sakId = vedtak.sakId,
+                                    tittel = $"{vedtak.tittel} (vedlegg {vedleggIndeks})",
+                                    journalDato = vedtak.vedtaksdato,
+                                    filFormat = "PDF"
+                                };
+                                attachmentDocument.aktivitetIdListe.Add(vedtak.aktivitetId);
+                                attachmentDocument.filId += ".pdf";
+                                documents.Add(attachmentDocument);
+
+                                SqlConnection connectionMigrering = new(ConnectionStringMigrering);
+                                SqlDataReader readerMigrering = null;
+                                try
+                                {
+                                    connectionMigrering.Open();
+                                    bool fileAlreadyWritten = false;
+                                    SqlCommand commandMigrering = new($"Select Count(*) From Filer{MigreringsdbPostfix} Where Filnavn='{attachmentDocument.filId}'", connectionMigrering)
+                                    {
+                                        CommandTimeout = 300
+                                    };
+                                    readerMigrering = commandMigrering.ExecuteReader();
+                                    while (readerMigrering.Read())
+                                    {
+                                        if (readerMigrering.GetInt32(0) > 0)
+                                        {
+                                            fileAlreadyWritten = true;
+                                        }
+                                    }
+                                    readerMigrering.Close();
+
+                                    if (!fileAlreadyWritten)
+                                    {
+                                        await File.WriteAllBytesAsync(OutputFolderName + $"filer\\" + attachmentDocument.filId, attachment.FileDataBlob);
+                                        commandMigrering = new($"Insert Into Filer{MigreringsdbPostfix} (FilNavn,Bydel,Dato) Values ('{attachmentDocument.filId}','{Bydelsforkortelse}',GETDATE())", connectionMigrering)
+                                        {
+                                            CommandTimeout = 300
+                                        };
+                                        commandMigrering.ExecuteNonQuery();
+                                    }
+                                }
+                                finally
+                                {
+                                    connectionMigrering.Close();
+                                }
+                            }
+                            else
+                            {
+                                HtmlDocumentToInclude htmlDocumentToInclude = new()
+                                {
+                                    dokLoepenr = attachment.Id.ToString() + "CORATT",
+                                    sakId = vedtak.sakId,
+                                    tittel = $"{vedtak.tittel} (vedlegg {vedleggIndeks})",
+                                    journalDato = vedtak.vedtaksdato,
+                                    opprettetAvId = vedtak.saksbehandlerId,
+                                    innhold = $"<p>{attachment.Name}</p>"
+                                };
+                                htmlDocumentToInclude.aktivitetIdListe.Add(vedtak.aktivitetId);
+                                htmlDocumentsIncluded.Add(htmlDocumentToInclude);
+                            }
+                        }
+                        reader.Close();
                     }
-                    reader.Close();
-                    aktiviteter.Add(aktivitet);
+                    else
+                    {
+                        Aktivitet aktivitet = new()
+                        {
+                            aktivitetId = AddBydel(correspondenceDocument.CorrespondenceDocumentId.ToString(), "POS"),
+                            aktivitetsType = "BARNEVERNSVAKT",
+                            aktivitetsUnderType = aktivitetsUnderType,
+                            status = "UTFØRT",
+                            hendelsesdato = correspondence.CorrespondenceDate,
+                            saksbehandlerId = GetBrukerId(correspondence.OwnedBy.ToString()),
+                            tittel = correspondence.Title,
+                            utfortAvId = GetBrukerId(correspondence.OwnedBy.ToString()),
+                            utfortDato = correspondence.FinishedDate,
+                            notat = "Se dokument"
+                        };
+                        if (!aktivitet.utfortDato.HasValue)
+                        {
+                            aktivitet.utfortDato = aktivitet.hendelsesdato;
+                        }
+                        using (var context = new BVVDBContext(ConnectionStringVFB))
+                        {
+                            CaseCase rawCase = await context.CaseCases.Where(e => e.CaseCaseId == caseId).FirstOrDefaultAsync();
+                            aktivitet.sakId = AddBydel(await GetBVVFirstCaseNumberAsync(rawCase.ClientId), "SAK");
+                        }
+                        SqlCommand command = new($"Select FileDataBlob From Correspondence_Document Where Correspondence_DocumentId={correspondenceDocument.CorrespondenceDocumentId} And FileDataBlob Is Not Null", connection)
+                        {
+                            CommandTimeout = 300
+                        };
+                        reader = command.ExecuteReader();
+
+                        if (reader.HasRows)
+                        {
+                            Document document = new()
+                            {
+                                dokumentId = aktivitet.aktivitetId,
+                                filId = aktivitet.aktivitetId,
+                                ferdigstilt = true,
+                                opprettetAvId = aktivitet.utfortAvId,
+                                sakId = aktivitet.sakId,
+                                tittel = aktivitet.tittel,
+                                journalDato = aktivitet.utfortDato,
+                                filFormat = "PDF"
+                            };
+                            document.aktivitetIdListe.Add(aktivitet.aktivitetId);
+                            document.filId += ".pdf";
+                            documents.Add(document);
+
+                            SqlConnection connectionMigrering = new(ConnectionStringMigrering);
+                            SqlDataReader readerMigrering = null;
+                            try
+                            {
+                                connectionMigrering.Open();
+                                bool fileAlreadyWritten = false;
+                                SqlCommand commandMigrering = new($"Select Count(*) From Filer{MigreringsdbPostfix} Where Filnavn='{document.filId}'", connectionMigrering)
+                                {
+                                    CommandTimeout = 300
+                                };
+                                readerMigrering = commandMigrering.ExecuteReader();
+                                while (readerMigrering.Read())
+                                {
+                                    if (readerMigrering.GetInt32(0) > 0)
+                                    {
+                                        fileAlreadyWritten = true;
+                                    }
+                                }
+                                readerMigrering.Close();
+
+                                if (!fileAlreadyWritten)
+                                {
+                                    while (reader.Read())
+                                    {
+                                        await File.WriteAllBytesAsync(OutputFolderName + $"filer\\" + document.filId, (byte[])reader["FileDataBlob"]);
+                                    }
+                                    commandMigrering = new($"Insert Into Filer{MigreringsdbPostfix} (FilNavn,Bydel,Dato) Values ('{document.filId}','{Bydelsforkortelse}',GETDATE())", connectionMigrering)
+                                    {
+                                        CommandTimeout = 300
+                                    };
+                                    commandMigrering.ExecuteNonQuery();
+                                }
+                            }
+                            finally
+                            {
+                                connectionMigrering.Close();
+                            }
+                        }
+                        else
+                        {
+                            if (!string.IsNullOrEmpty(correspondenceDocument.DocumentText))
+                            {
+                                HtmlDocumentToInclude htmlDocumentToInclude = new()
+                                {
+                                    dokLoepenr = correspondenceDocument.CorrespondenceDocumentId.ToString() + "COR",
+                                    sakId = aktivitet.sakId,
+                                    tittel = aktivitet.tittel,
+                                    journalDato = aktivitet.utfortDato,
+                                    opprettetAvId = aktivitet.utfortAvId,
+                                    innhold = correspondenceDocument.DocumentText
+                                };
+                                htmlDocumentToInclude.aktivitetIdListe.Add(aktivitet.aktivitetId);
+                                htmlDocumentsIncluded.Add(htmlDocumentToInclude);
+                            }
+                        }
+                        List<CorrespondenceCorrespondenceattachment> attachments;
+                        using (var context = new BVVDBContext(ConnectionStringVFB))
+                        {
+                            attachments = await context.CorrespondenceCorrespondenceattachments.Where(e => e.CorrespondenceId == correspondence.CorrespondenceCorrespondenceId).ToListAsync();
+                        }
+                        int vedleggIndeks = 0;
+                        foreach (var attachment in attachments)
+                        {
+                            vedleggIndeks += 1;
+                            if (attachment.FileDataBlob != null)
+                            {
+                                Document attachmentDocument = new()
+                                {
+                                    dokumentId = aktivitet.aktivitetId + vedleggIndeks,
+                                    filId = aktivitet.aktivitetId + vedleggIndeks,
+                                    ferdigstilt = true,
+                                    opprettetAvId = aktivitet.utfortAvId,
+                                    sakId = aktivitet.sakId,
+                                    tittel = $"{aktivitet.tittel} (vedlegg {vedleggIndeks})",
+                                    journalDato = aktivitet.utfortDato,
+                                    filFormat = "PDF"
+                                };
+                                attachmentDocument.aktivitetIdListe.Add(aktivitet.aktivitetId);
+                                attachmentDocument.filId += ".pdf";
+                                documents.Add(attachmentDocument);
+
+                                SqlConnection connectionMigrering = new(ConnectionStringMigrering);
+                                SqlDataReader readerMigrering = null;
+                                try
+                                {
+                                    connectionMigrering.Open();
+                                    bool fileAlreadyWritten = false;
+                                    SqlCommand commandMigrering = new($"Select Count(*) From Filer{MigreringsdbPostfix} Where Filnavn='{attachmentDocument.filId}'", connectionMigrering)
+                                    {
+                                        CommandTimeout = 300
+                                    };
+                                    readerMigrering = commandMigrering.ExecuteReader();
+                                    while (readerMigrering.Read())
+                                    {
+                                        if (readerMigrering.GetInt32(0) > 0)
+                                        {
+                                            fileAlreadyWritten = true;
+                                        }
+                                    }
+                                    readerMigrering.Close();
+
+                                    if (!fileAlreadyWritten)
+                                    {
+                                        await File.WriteAllBytesAsync(OutputFolderName + $"filer\\" + attachmentDocument.filId, attachment.FileDataBlob);
+                                        commandMigrering = new($"Insert Into Filer{MigreringsdbPostfix} (FilNavn,Bydel,Dato) Values ('{attachmentDocument.filId}','{Bydelsforkortelse}',GETDATE())", connectionMigrering)
+                                        {
+                                            CommandTimeout = 300
+                                        };
+                                        commandMigrering.ExecuteNonQuery();
+                                    }
+                                }
+                                finally
+                                {
+                                    connectionMigrering.Close();
+                                }
+                            }
+                            else
+                            {
+                                HtmlDocumentToInclude htmlDocumentToInclude = new()
+                                {
+                                    dokLoepenr = attachment.Id.ToString() + "CORATT",
+                                    sakId = aktivitet.sakId,
+                                    tittel = $"{aktivitet.tittel} (vedlegg {vedleggIndeks})",
+                                    journalDato = aktivitet.utfortDato,
+                                    opprettetAvId = aktivitet.utfortAvId,
+                                    innhold = $"<p>{attachment.Name}</p>"
+                                };
+                                htmlDocumentToInclude.aktivitetIdListe.Add(aktivitet.aktivitetId);
+                                htmlDocumentsIncluded.Add(htmlDocumentToInclude);
+                            }
+                        }
+                        reader.Close();
+                        aktiviteter.Add(aktivitet);
+                    }
                 }
             }
             finally
@@ -3106,7 +3392,32 @@ namespace UttrekkFamilia
                 fileNumber += 1;
                 toSkip += MaxAntallEntiteterPerFil;
             }
+            toSkip = 0;
+            fileNumber = 1;
+            migrertAntall = vedtaksListe.Count;
+            while (migrertAntall > toSkip)
+            {
+                List<Vedtak> vedtaksPart = vedtaksListe.OrderBy(o => o.aktivitetId).Skip(toSkip).Take(MaxAntallEntiteterPerFil).ToList();
+                await WriteFileAsync(vedtaksPart, GetJsonFileName("vedtak", $"BVVVedtak{fileNumber}"));
+                fileNumber += 1;
+                toSkip += MaxAntallEntiteterPerFil;
+            }
             return antall;
+        }
+        private async Task<string> GetBVVFirstCaseNumberAsync(int? client)
+        {
+            string caseNumber = "";
+
+            using (var context = new BVVDBContext(ConnectionStringVFB))
+            {
+                CaseCase caseFirst = await context.CaseCases.Where(k => k.Type != 2 && k.Type != 3 && k.ClientId == client).OrderBy(k => k.CaseCaseId).FirstOrDefaultAsync();
+
+                if (caseFirst != null)
+                {
+                    caseNumber = caseFirst.Number;
+                }
+            }
+            return caseNumber;
         }
         private async Task<string> GetBVVBaseregistryValueAsync(int? registryId, bool getRegistryValueCode = false)
         {
