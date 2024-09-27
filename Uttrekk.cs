@@ -3182,6 +3182,7 @@ namespace UttrekkFamilia
                             }
                         }
                         reader.Close();
+                        vedtaksListe.Add(vedtak);
                     }
                     else
                     {
