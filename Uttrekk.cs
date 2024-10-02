@@ -1620,7 +1620,7 @@ namespace UttrekkFamilia
                         using (var context = new BVVDBContext(ConnectionStringVFB))
                         {
                             DateTime startDato = DateTime.MaxValue;
-                            DateTime? sluttDato = null;
+                            DateTime? sluttDato = DateTime.MinValue;
 
                             List<CaseCase> casesThisClient = await context.CaseCases.Where(k => k.ClientId == caseCase.ClientId && k.Type != 2 && k.Type != 3).ToListAsync();
                             foreach (var caseThisClient in casesThisClient)
@@ -1629,21 +1629,16 @@ namespace UttrekkFamilia
                                 {
                                     startDato = caseThisClient.CreatedDate;
                                 }
-                                if (sluttDato.HasValue)
+                                if (caseThisClient.StatusClosedDate.HasValue)
                                 {
-                                    if (sluttDato < caseCase.StatusClosedDate)
+                                    if (sluttDato < caseThisClient.StatusClosedDate)
                                     {
-                                        sluttDato = caseCase.StatusClosedDate;
+                                        sluttDato = caseThisClient.StatusClosedDate;
                                     }
-                                }
-                                else
-                                {
-                                    sluttDato = caseCase.StatusClosedDate;
                                 }
                             }
                             sak.startDato = startDato;
                             sak.sluttDato = sluttDato;
-
                             EnquiryEnquiry vfbHenvendelse = await context.EnquiryEnquiries.Where(e => e.ClientId == caseCase.ClientId).OrderBy(k => k.FinishedDate).FirstOrDefaultAsync();
                             if (vfbHenvendelse != null && vfbHenvendelse.FinishedDate.HasValue && vfbHenvendelse.FinishedDate < sak.startDato)
                             {
@@ -1668,6 +1663,10 @@ namespace UttrekkFamilia
                             if (correspondence != null && correspondenceDate.CorrespondenceDate < sak.startDato)
                             {
                                 sak.startDato = correspondenceDate.CorrespondenceDate;
+                            }
+                            if (sluttDato == DateTime.MinValue)
+                            {
+                                sluttDato = null;
                             }
                         }
 
@@ -1708,11 +1707,11 @@ namespace UttrekkFamilia
                             aktivitetsType = "INTERN_SAKSFORBEREDELSE(FVL_§_18.A)",
                             aktivitetsUnderType = "INGEN",
                             status = "UTFØRT",
-                            hendelsesdato = DateTime.Now,
+                            hendelsesdato = sak.startDato,
                             saksbehandlerId = GetBrukerId(BVVLeder),
-                            tittel = "Logg",
+                            tittel = "Historikk saksbehandling",
                             utfortAvId = GetBrukerId(BVVLeder),
-                            utfortDato = DateTime.Now,
+                            utfortDato = sak.startDato,
                             notat = "Se dokument"
                         };
                         List<HtmlDocumentToInclude> htmlDocumentsIncluded = new();
